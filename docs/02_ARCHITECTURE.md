@@ -17,7 +17,7 @@ flowchart TB
 
     subgraph Backend["FastAPI backend on Cloud Run"]
         ING["ingest/<br/>upload CSV & PDF, store raw file"]
-        EXT["extract/<br/>Gemini 4 Carbon / 3.8 Vision Flash → structured JSON<br/>PDF/scan → vendor, lines, totals"]
+        EXT["extract/<br/>Gemini 3.8 Vision Flash → structured JSON<br/>PDF/scan → vendor, lines, totals"]
         NRM["normalize/<br/>deterministic cleanup:<br/>vendor names, SKUs, currency, tax codes"]
         DET["detect/<br/>R1–R5 pure deterministic rules<br/>+ confidence + evidence refs"]
         EXP["explain/<br/>Gemini writes CFO-ready explanation<br/>from rule evidence JSON"]
@@ -66,7 +66,7 @@ flowchart TB
 |--------|------------------------------|
 | FastAPI | Typed, fast, auto OpenAPI docs — the API spec doc practically writes itself |
 | SQLite (MVP) | Zero setup, single file; schema written so swapping to Cloud SQL is a config change |
-| Gemini 4 Carbon + Gemini 3.8 Vision Flash (`GEMINI_PRIMARY_MODEL` / `GEMINI_FLASH_MODEL`) | Fast + accurate multimodal PDF/scan extraction, native structured output (JSON schema) & Agent Skills function calling |
+| Gemini 3.8 Vision Flash (`GEMINI_PRIMARY_MODEL` / `GEMINI_FLASH_MODEL`) | Fast + accurate multimodal PDF/scan extraction, native structured output (JSON schema) & Agent Skills function calling |
 | React + Vite + Tailwind | Fastest path to a clean dashboard; no framework yak-shaving |
 | Pure-python rules | Rules must be unit-testable, deterministic, and citable — no framework lock-in |
 

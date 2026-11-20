@@ -50,7 +50,7 @@ export function DashboardView({
             Explainable Money-Leak Audit Workstation
           </h1>
           <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-            Gemini 4 Carbon extracts documents and writes CFO narratives; pure deterministic Python rules
+            Gemini 3.8 Vision Flash extracts documents and writes CFO narratives; pure deterministic Python rules
             (R1–R5) compute every risk figure and line-level proof trail. The LLM is never the judge.
           </p>
         </div>

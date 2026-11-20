@@ -11,8 +11,8 @@ FROM python:3.12-slim AS runtime
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PORT=8080 \
-    GEMINI_PRIMARY_MODEL=gemini-4-carbon \
-    GEMINI_FLASH_MODEL=gemini-2.5-flash \
+    GEMINI_PRIMARY_MODEL=gemini-3.8-vision-flash \
+    GEMINI_FLASH_MODEL=gemini-3.8-vision-flash \
     DB_PATH=/tmp/ledgerlens.db \
     UPLOAD_DIR=/tmp/uploads \
     FRONTEND_DIST=/app/frontend/dist

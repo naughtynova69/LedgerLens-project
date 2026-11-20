@@ -12,7 +12,7 @@
 |---|---|
 | **GitHub Origin** | `https://github.com/naughtynova69/LedgerLens-project` (`main` protected via `Protect main` ruleset #27733621) |
 | **Hard Git Guardrail** | NEVER add/push to `Avani376/Ledgerlens`. NEVER push or merge directly into `main`; always branch & open a PR. |
-| **Models** | `GEMINI_PRIMARY_MODEL=gemini-4-carbon` · `GEMINI_FLASH_MODEL=gemini-3.8-vision-flash` (offline deterministic fallback active when key unset) |
+| **Models** | `GEMINI_PRIMARY_MODEL=gemini-3.8-vision-flash` · `GEMINI_FLASH_MODEL=gemini-3.8-vision-flash` (offline deterministic fallback active when key unset) |
 | **Neuro-Symbolic Invariant** | `backend/app/detect/` is pure Python `stdlib` only (zero LLM/DB/network imports). |
 | **Sample Data Gate** | `sample_data/` yields **6 findings** (`R1`: 1, `R2`: 1, `R3`: 1, `R4`: 2, `R5`: 1; nominal sum `40531.60`) and **0 false positives** on 4 clean controls (`INV-9001`, `INV-9010`, `INV-9400`, `INV-9500`). |
 | **UI Architecture** | Minimalist 3-surface Finance UI (`Exceptions`, `Activity`, `Cloud & Policy`) in `frontend/src/` (React 19 + Vite 6 + Tailwind 3.4). |
@@ -42,14 +42,32 @@
   - Created `docs/CONTEXT_LOG.md` and added token-efficient multi-agent + session-log rules to `AGENTS.md`.
 - **Open Next Steps:** Review & merge PR for `docs/icp-business-model-and-context-log`; optionally run live `GEMINI_API_KEY` extraction eval (`backend/tests/eval_gemini_extraction.py`) and deploy to Cloud Run via `deploy/setup_gcp.sh` + `deploy/cloudrun.sh`.
 
+### 2026-11-21 — Unify on Gemini 3.8 Vision Flash + Project Mind Map
+- **Branch:** `chore/use-gemini-38-vision-flash`
+- **Changes:**
+  - Replaced `gemini-4-carbon` with `gemini-3.8-vision-flash` across backend config, extraction, frontend attribution badges, Dockerfile/Cloud Run scripts, and all docs.
+  - Added [docs/PROJECT_MINDMAP.md](docs/PROJECT_MINDMAP.md) with a plain-English project overview, Done vs. To-Do mind map, and 5-step `Gemini 3.8 Vision Flash` accuracy playbook.
+- **Open Next Steps:** Merge PR for `chore/use-gemini-38-vision-flash`, run live `eval_gemini_extraction.py` with `GEMINI_API_KEY`, and implement PDF 300-DPI preprocessing + 1-retry math-repair loop.
+
+### 2026-11-21 — ZCode: Gemini 3.8 Vision Flash Accuracy (Domain Prompt + 1-Retry Math Repair)
+- **Branch / PR:** `feat/gemini-38-vision-accuracy` → PR #9
+- **Changes:**
+  - Replaced `EXTRACTION_SYSTEM_PROMPT` in `backend/app/extract/gemini_extract.py` with a **locale-aware** AP prompt covering US / Canada / UK-EU / Western markets AND India: regional date conventions (US MM/DD, EU/India DD/MM, DE/CH DD.MM.YYYY + disambiguation), ISO-4217 mapping incl. `C$`→CAD / `A$`→AUD / `NZ$`→NZD, US-UK + Indian lakh/crore + European decimal-comma + Swiss apostrophe number grouping, revision-suffix preservation, tax generalization (India CGST+SGST/IGST + TDS; Canada GST+QST/HST; US Sales Tax; EU VAT/MwSt./TVA/IVA/BTW; zero-rated/Exempt/Nil/Reverse charge → 0.0), Western tax IDs (GSTIN/VAT No./EIN/BN), French/German/Spanish/Italian/Dutch label mapping, scan-quality fail-closed.
+  - Added live **1-retry arithmetic self-correction** (`_extract_invoice_payload_live` + `build_arithmetic_retry_feedback`, `MAX_ARITHMETIC_RETRIES=1`): line-total mismatches fed back once at temperature 0; persisting warnings keep `needs_review` (fail-closed). `extract_invoice` now returns `verification_warnings` too.
+  - Added guarded `media_resolution=MEDIA_RESOLUTION_HIGH` for PDF/image `GenerateContentConfig` (getattr-safe for older SDKs/mocks).
+  - Offline mock fallback hardened to match: `_plain_decimal` parses US/Indian/EU/Swiss number formats; `_normalize_tax_pct` combines split tax (3-decimal rates like QST 9.975% kept), maps exempt/nil/reverse-charge to 0.0, never sums TDS; `_normalize_extracted_currency` maps C$/A$/NZ$; `_normalize_extracted_date` adds DD.MM.YYYY (shared `normalize.py` untouched — outside claimed paths).
+  - 16 new tests in `backend/tests/test_extract.py` + 2 live locale evals (Indian GST, US format) in `backend/tests/eval_gemini_extraction.py` (`RUN_LIVE_GEMINI_EVAL=1`-gated).
+- **Checks:** `pytest` (66 passed, 3 skipped), `npm --prefix frontend run build` (0 errors)
+- **Open Next Steps:** Merge PR #9; run live locale evals with `GEMINI_API_KEY` + `RUN_LIVE_GEMINI_EVAL=1`; optionally add PDF 300-DPI preprocessing upstream of extraction and extend `normalize.py` (`%d.%m.%Y` dates, C$ currency map) when paths are free.
+
 ### 2026-11-21 — Roadmap Tracks 2–6 & 8–12 + Multi-Harness Isolation
-- **Branch:** `feat/roadmap-tracks-2-to-12`
+- **Branch / PR:** `feat/roadmap-tracks-2-to-12` → PR #10
 - **Changes:**
   - Added `CLAUDE.md`, `docs/HARNESS_ISOLATION.md`, `docs/ZCODE_VISION_ACCURACY_MASTER_PROMPT.md`, and `scripts/harness_lock.py` for Antigravity + ZCode concurrency isolation.
   - Implemented policy-parameterized `R1`–`R5` + new pure-Python `R6` (Split-PO) & `R7` (GRN mismatch), Live FX service (`fx_service.py`), SQLite/AlloyDB `DBAdapter`, SHA-256 `audit_chain.py`, multi-tenant `workspaces.py`, and grounded `copilot.py` + webhook dispatcher, all wired in `services.py` & `main.py`.
   - Added `NeedsReviewDrawer.jsx`, `PdfEvidencePreview.jsx`, `WorkspaceSwitcher.jsx`, and Vitest smoke tests (`frontend/src/__tests__/smoke.test.jsx`), wired in `App.jsx`, `Navbar.jsx`, `ProofTrailInspector.jsx`, and `api.js`.
-- **Checks:** `pytest` (`73 passed, 1 skipped`), `detect/` AST purity (`DETECT_PURITY_OK`), `npm --prefix frontend run build` (`0 errors`).
-- **Open Next Steps:** Push `feat/roadmap-tracks-2-to-12` & open PR to `main`; run `npm --prefix frontend install && npm --prefix frontend test` to execute Vitest smoke tests.
+- **Checks:** `pytest` + `vitest run` + `npm --prefix frontend run build` + `detect/` AST purity (`DETECT_PURITY_OK`).
+- **Open Next Steps:** Merge PR #10 to `main`.
 
 ---
 

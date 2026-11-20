@@ -328,7 +328,7 @@ export function ProofTrailInspector({
         <div className="mt-4 space-y-4">
           <div className="text-xs text-[#6B7280] flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-gray-200">
             <span>
-              Decision: Deterministic Rule {finding.rule_id} · Narrative: Gemini 4 Carbon
+              Decision: Deterministic Rule {finding.rule_id} · Narrative: Gemini 3.8 Vision Flash
               {expl.generated_without_gemini ? " (Offline Proof Mode)" : ""}
             </span>
             <span className="font-mono text-[11px]">
