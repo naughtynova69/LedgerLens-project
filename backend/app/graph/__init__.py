@@ -5,8 +5,8 @@ engine synced from the normalized relational records. SQLite/AlloyDB remains
 the system of record; every graph-based finding (R6-R8) is produced by 100%
 deterministic Cypher queries — the LLM is never the judge.
 """
-from .client import GraphClient, get_graph_client
-from .projector import project_batch_to_graph, rebuild_graph_from_db
+from .client import GraphClient, get_graph_client, get_shared_graph_client
+from .projector import ensure_graph_projected, project_batch_to_graph, rebuild_graph_from_db
 from .queries import (
     ENTITY_PRIMARY_KEYS,
     GRAPH_STATS_QUERIES,
@@ -30,6 +30,8 @@ __all__ = [
     "GraphClient",
     "GraphEvidence",
     "get_graph_client",
+    "get_shared_graph_client",
+    "ensure_graph_projected",
     "project_batch_to_graph",
     "rebuild_graph_from_db",
     "R6_CROSS_ENTITY_DUPLICATE_QUERY",

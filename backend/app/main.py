@@ -40,6 +40,15 @@ from .gcp.alloydb import check_alloydb_connection
 from .gcp.bigquery import compute_executive_analytics, sync_to_bigquery
 from .gcp.config_gcp import get_gcp_readiness_status
 from .gcp.storage import store_evidence_object
+from .graph import (
+    ENTITY_PRIMARY_KEYS,
+    fetch_entity_neighborhood,
+    fetch_graph_stats,
+    get_shared_graph_client,
+    project_batch_to_graph,
+)
+from .graph.client import GraphClient
+from .graph.subgraph import build_subgraph
 from .ingest.router import VALID_KINDS, save_stream_to_upload, validate_csv
 from .models import DecisionIn
 from .services import (
@@ -80,6 +89,59 @@ def _get_ready_conn() -> sqlite3.Connection:
     return conn
 
 
+def _ensure_graph_projected() -> GraphClient:
+    """Shared graph client with a guaranteed non-empty projection.
+
+    Rebuilds deterministically from the relational system of record when the
+    process just started (Cloud Run cold start) or the graph is empty.
+    """
+    from .graph import ensure_graph_projected as _ensure_projected
+
+    client = get_shared_graph_client()
+    conn = _get_ready_conn()
+    try:
+        _ensure_projected(conn, client)
+    finally:
+        conn.close()
+    return client
+
+
+def _derive_finding_subgraph(client, entity_refs: dict) -> dict:
+    """Build a context subgraph for tabular findings (R1-R5) from entity_refs."""
+    nodes: list[dict] = []
+    edges: list[dict] = []
+
+    def collect(entity_type: str, entity_id: str, hops: int) -> None:
+        if entity_type not in ENTITY_PRIMARY_KEYS or not entity_id:
+            return
+        try:
+            neighborhood = fetch_entity_neighborhood(client, entity_type, entity_id, hops=hops)
+        except Exception:
+            return
+        nodes.extend(neighborhood["nodes"])
+        edges.extend(neighborhood["edges"])
+
+    for invoice_number in (entity_refs.get("invoice_numbers") or []):
+        collect("Invoice", str(invoice_number), hops=2)
+    for key in ("vendor_id", "vendor_ids"):
+        values = entity_refs.get(key) or []
+        if isinstance(values, str):
+            values = [values]
+        for vendor_id in values:
+            collect("Vendor", str(vendor_id), hops=1)
+    contract_id = entity_refs.get("contract_id") or entity_refs.get("superseded_contract_id")
+    if contract_id:
+        collect("Contract", str(contract_id), hops=1)
+    for credit_note_id in (entity_refs.get("credit_note_ids") or []):
+        collect("CreditNote", str(credit_note_id), hops=1)
+
+    return build_subgraph(
+        nodes, edges,
+        cypher_rule="FINDING_CONTEXT",
+        summary="Deterministic neighborhood of the referenced records.",
+    )
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     conn = _get_ready_conn()
@@ -103,6 +165,88 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.post("/api/graph/rebuild")
+def graph_rebuild(batch_id: str | None = None) -> dict:
+    """Rebuild/sync the LadybugDB projection from the relational DB."""
+    conn = _get_ready_conn()
+    try:
+        result = project_batch_to_graph(conn, get_shared_graph_client(), batch_id=batch_id)
+        conn.execute(
+            """INSERT INTO audit_log (actor, action, object_type, object_id, detail)
+               VALUES ('graph_api', 'rebuild', 'graph', 'ledgerlens', ?)""",
+            (f"Rebuilt graph projection: {result['total_nodes']} nodes, "
+             f"{result['total_relationships']} relationships in {result['duration_ms']} ms",),
+        )
+        conn.commit()
+        return result
+    finally:
+        conn.close()
+
+
+@app.get("/api/graph/stats")
+def graph_stats() -> dict:
+    """Node/relationship counts plus graph engine status."""
+    client = _ensure_graph_projected()
+    return fetch_graph_stats(client)
+
+
+@app.get("/api/graph/findings/{finding_id}/subgraph")
+def finding_subgraph(finding_id: str) -> dict:
+    """Evidence subgraph for any finding (stored R6-R8 subgraphs, or a derived
+    deterministic neighborhood for tabular R1-R5 findings)."""
+    conn = _get_ready_conn()
+    try:
+        row = conn.execute(
+            "SELECT finding_id, rule_id, entity_refs, proof_trail FROM findings "
+            "WHERE finding_id = ?",
+            (finding_id,),
+        ).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail=f"finding not found: {finding_id}")
+
+        entity_refs = json.loads(row["entity_refs"] or "{}")
+        proof_trail = json.loads(row["proof_trail"] or "{}")
+        stored = (proof_trail or {}).get("proof_subgraph") or {}
+
+        if stored.get("nodes"):
+            return {
+                "finding_id": row["finding_id"],
+                "rule_id": row["rule_id"],
+                "source": "stored",
+                "nodes": stored.get("nodes", []),
+                "edges": stored.get("edges", []),
+                "cypher_rule": stored.get("cypher_rule", ""),
+                "summary": stored.get("summary", ""),
+            }
+
+        client = _ensure_graph_projected()
+        derived = _derive_finding_subgraph(client, entity_refs)
+        return {
+            "finding_id": row["finding_id"],
+            "rule_id": row["rule_id"],
+            "source": "derived",
+            "nodes": derived["nodes"],
+            "edges": derived["edges"],
+            "cypher_rule": derived["cypher_rule"],
+            "summary": derived["summary"],
+        }
+    finally:
+        conn.close()
+
+
+@app.get("/api/graph/entity/{entity_type}/{entity_id}")
+def entity_neighborhood(entity_type: str, entity_id: str, hops: int = 2) -> dict:
+    """k-hop neighborhood (hops clamped to 1..3) around a whitelisted node type."""
+    if entity_type not in ENTITY_PRIMARY_KEYS:
+        raise HTTPException(status_code=400, detail=f"unknown entity type: {entity_type}")
+    hops = max(1, min(3, int(hops)))
+    client = _ensure_graph_projected()
+    result = fetch_entity_neighborhood(client, entity_type, entity_id, hops=hops)
+    if len(result["nodes"]) <= 1 and not result["edges"]:
+        raise HTTPException(status_code=404, detail=f"entity not found in graph: {entity_type}:{entity_id}")
+    return result
 
 
 @app.get("/health")

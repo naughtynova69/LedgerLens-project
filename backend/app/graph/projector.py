@@ -175,6 +175,28 @@ def project_batch_to_graph(conn: sqlite3.Connection, graph_client: GraphClient,
     }
 
 
+def ensure_graph_projected(conn: sqlite3.Connection, graph_client: GraphClient) -> dict:
+    """Project once when the graph is empty; no-op on subsequent reads.
+
+    Used by the read-only graph API surfaces and the inspect_entity_graph skill
+    so a fresh process (Cloud Run cold start) reconstructs the projection from
+    the relational system of record automatically.
+    """
+    from .queries import fetch_graph_stats
+    from .schema import initialize_schema
+
+    initialize_schema(graph_client)  # idempotent DDL — covers fresh processes
+    stats = fetch_graph_stats(graph_client)
+    if stats["total_nodes"] == 0:
+        return project_batch_to_graph(conn, graph_client)
+    return {
+        "rebuilt": False,
+        "duration_ms": 0.0,
+        "total_nodes": stats["total_nodes"],
+        "total_relationships": stats["total_relationships"],
+    }
+
+
 def rebuild_graph_from_db(conn: sqlite3.Connection, graph_client: GraphClient) -> dict:
     """Deterministically reconstruct the whole graph from the relational DB."""
     initialize_schema(graph_client)

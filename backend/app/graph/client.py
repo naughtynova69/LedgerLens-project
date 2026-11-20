@@ -16,7 +16,7 @@ import os
 import sys
 import threading
 from pathlib import Path
-from typing import Any, Callable, Iterator
+from typing import Any, Iterator
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _NATIVE_LIB_DIR = _REPO_ROOT / ".cache" / "lbug-prebuilt" / "lib"
@@ -149,3 +149,21 @@ def _running_under_pytest() -> bool:
 def get_graph_client() -> GraphClient:
     """Build the configured graph client (callers own the lifecycle)."""
     return GraphClient()
+
+
+_SHARED_CLIENT: GraphClient | None = None
+_SHARED_CLIENT_LOCK = threading.Lock()
+
+
+def get_shared_graph_client() -> GraphClient:
+    """Process-wide shared client for API/skill read paths.
+
+    File-backed when configured for production; ``:memory:`` under pytest.
+    The write path (detection projection) serializes through the same
+    instance's RLock, so shared reads stay consistent.
+    """
+    global _SHARED_CLIENT
+    with _SHARED_CLIENT_LOCK:
+        if _SHARED_CLIENT is None:
+            _SHARED_CLIENT = get_graph_client()
+        return _SHARED_CLIENT

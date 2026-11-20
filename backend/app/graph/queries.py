@@ -214,14 +214,14 @@ ENTITY_PRIMARY_KEYS: dict[str, str] = {
 ONE_HOP_OUT_QUERY = (
     "MATCH (e:{label}) WHERE e.{pk} = $entity_id "
     "MATCH (e)-[r]->(x) "
-    "RETURN x AS neighbor, label(x) AS neighbor_label, type(r) AS rel_type, "
+    "RETURN x AS neighbor, label(x) AS neighbor_label, label(r) AS rel_type, "
     "properties(r) AS rel_properties"
 )
 
 ONE_HOP_IN_QUERY = (
     "MATCH (e:{label}) WHERE e.{pk} = $entity_id "
     "MATCH (e)<-[r]-(x) "
-    "RETURN x AS neighbor, label(x) AS neighbor_label, type(r) AS rel_type, "
+    "RETURN x AS neighbor, label(x) AS neighbor_label, label(r) AS rel_type, "
     "properties(r) AS rel_properties"
 )
 
@@ -624,108 +624,96 @@ def fetch_entity_neighborhood(client: GraphClient, entity_type: str, entity_id: 
                               hops: int = 2) -> dict:
     """Deterministic k-hop neighborhood (hops clamped to 1..3).
 
-    Traversal is a Python BFS of 1-hop Cypher steps so node labels, rel types
-    and rel properties stay fully serializable without engine-specific path
-    objects. ``entity_type`` and the primary-key column come from a strict
-    whitelist; ``entity_id`` is always bound as a query parameter.
+    Traversal is a Python BFS of 1-hop Cypher steps so node labels, rel types,
+    rel properties and edge DIRECTIONS stay fully serializable without
+    engine-specific path objects. ``entity_type`` and every primary-key column
+    come from the strict ``ENTITY_PRIMARY_KEYS`` whitelist; ``entity_id`` is
+    always bound as a query parameter.
     """
     if entity_type not in ENTITY_PRIMARY_KEYS:
         raise ValueError(f"unknown entity type: {entity_type}")
     hops = min(max(int(hops), 1), 3)
-    pk = ENTITY_PRIMARY_KEYS[entity_type]
+    start_pk = ENTITY_PRIMARY_KEYS[entity_type]
 
-    def node_key(label: str, value: str) -> str:
-        return f"{label}:{value}"
+    def pk_of(label: str) -> str:
+        return ENTITY_PRIMARY_KEYS.get(label, start_pk)
 
-    start_key = node_key(entity_type, str(entity_id))
-    seen_nodes: dict[str, dict] = {}
+    def node_key(label: str, props: dict) -> str:
+        return f"{label}:{props.get(pk_of(label), '')}"
+
+    def one_hop(label: str, value: str) -> tuple[list[dict], list[dict]]:
+        out_rows = client.execute_read(
+            ONE_HOP_OUT_QUERY.format(label=label, pk=pk_of(label)),
+            {"entity_id": value},
+        )
+        for row in out_rows:
+            row["direction"] = "out"
+        in_rows = client.execute_read(
+            ONE_HOP_IN_QUERY.format(label=label, pk=pk_of(label)),
+            {"entity_id": value},
+        )
+        for row in in_rows:
+            row["direction"] = "in"
+        return out_rows, in_rows
+
+    start_props_rows = client.execute_read(
+        "MATCH (e:{label}) WHERE e.{pk} = $entity_id RETURN properties(e) AS p".format(
+            label=entity_type, pk=start_pk
+        ),
+        {"entity_id": str(entity_id)},
+    )
+    start_props = dict(start_props_rows[0]["p"]) if start_props_rows and start_props_rows[0]["p"] else {}
+
+    start_key = node_key(entity_type, start_props) if start_props else f"{entity_type}:{entity_id}"
+    seen_nodes: dict[str, dict] = {
+        start_key: {
+            "id": start_key,
+            "label": str(entity_id),
+            "type": entity_type,
+            "properties": start_props,
+            "highlight": True,
+        }
+    }
     seen_edges: dict[tuple[str, str, str], dict] = {}
-    frontier = {start_key: (entity_type, str(entity_id))}
+    frontier: list[tuple[str, str, str]] = [(entity_type, str(entity_id), start_key)]
 
-    rows_out = client.execute_read(
-        ONE_HOP_OUT_QUERY.format(label=entity_type, pk=pk), {"entity_id": str(entity_id)}
-    )
-    rows_in = client.execute_read(
-        ONE_HOP_IN_QUERY.format(label=entity_type, pk=pk), {"entity_id": str(entity_id)}
-    )
-
-    def consume(rows: list[dict], depth: int) -> dict[str, tuple[str, str]]:
-        next_frontier: dict[str, tuple[str, str]] = {}
-        for row in rows:
-            label = row["neighbor_label"]
-            neighbor = row["neighbor"]
-            pk_value = str(neighbor.get(pk, ""))
-            key = node_key(label, pk_value)
-            seen_nodes[key] = {
-                "id": key,
-                "label": str(neighbor.get(pk, pk_value)),
-                "type": label,
-                "properties": dict(neighbor),
-                "highlight": depth == 0,
-            }
-            source = start_key if depth == 0 else None
-            edge_key = (start_key, key, row["rel_type"])
-            if source is not None:
-                seen_edges[edge_key] = {
-                    "source": source,
-                    "target": key,
+    for depth in range(hops):
+        next_frontier: list[tuple[str, str, str]] = []
+        for label, value, node_id in frontier:
+            rows_out, rows_in = one_hop(label, value)
+            for row in [*rows_out, *rows_in]:
+                neighbor_label = row["neighbor_label"]
+                neighbor = dict(row["neighbor"])
+                neighbor_pk = pk_of(neighbor_label)
+                neighbor_value = str(neighbor.get(neighbor_pk, ""))
+                if not neighbor_value:
+                    continue
+                neighbor_key = node_key(neighbor_label, neighbor)
+                if neighbor_key not in seen_nodes:
+                    seen_nodes[neighbor_key] = {
+                        "id": neighbor_key,
+                        "label": neighbor_value,
+                        "type": neighbor_label,
+                        "properties": neighbor,
+                        "highlight": False,
+                    }
+                    if depth + 1 < hops:
+                        next_frontier.append((neighbor_label, neighbor_value, neighbor_key))
+                edge = {
                     "type": row["rel_type"],
                     "properties": dict(row["rel_properties"] or {}),
                 }
-            if depth + 1 < hops:
-                next_frontier[key] = (label, pk_value)
-        return next_frontier
-
-    current = consume(rows_out + rows_in, 0)
-    for depth in range(1, hops):
-        next_frontier: dict[str, tuple[str, str]] = {}
-        for key, (label, value) in current.items():
-            rows_out = client.execute_read(
-                ONE_HOP_OUT_QUERY.format(label=label, pk=ENTITY_PRIMARY_KEYS.get(label, pk)),
-                {"entity_id": value},
-            )
-            rows_in = client.execute_read(
-                ONE_HOP_IN_QUERY.format(label=label, pk=ENTITY_PRIMARY_KEYS.get(label, pk)),
-                {"entity_id": value},
-            )
-            for row in rows_out + rows_in:
-                child_label = row["neighbor_label"]
-                neighbor = row["neighbor"]
-                child_pk = ENTITY_PRIMARY_KEYS.get(child_label, pk)
-                child_value = str(neighbor.get(child_pk, ""))
-                child_key = node_key(child_label, child_value)
-                if child_key not in seen_nodes:
-                    seen_nodes[child_key] = {
-                        "id": child_key,
-                        "label": child_value,
-                        "type": child_label,
-                        "properties": dict(neighbor),
-                        "highlight": False,
-                    }
-                edge_key = (key, child_key, row["rel_type"])
+                if row["direction"] == "out":
+                    edge["source"], edge["target"] = node_id, neighbor_key
+                else:
+                    edge["source"], edge["target"] = neighbor_key, node_id
+                edge_key = (edge["source"], edge["target"], edge["type"])
                 if edge_key not in seen_edges:
-                    seen_edges[edge_key] = {
-                        "source": key,
-                        "target": child_key,
-                        "type": row["rel_type"],
-                        "properties": dict(row["rel_properties"] or {}),
-                    }
-                if depth + 1 < hops:
-                    next_frontier[child_key] = (child_label, child_value)
-        current = next_frontier
+                    seen_edges[edge_key] = edge
+        frontier = next_frontier
 
-    start_node = {
-        "id": start_key,
-        "label": str(entity_id),
-        "type": entity_type,
-        "properties": {},
-        "highlight": True,
-    }
-    nodes = [start_node] + [n for k, n in seen_nodes.items() if k != start_key]
-    edges = [
-        e for e in seen_edges.values()
-        if e["source"] in {n["id"] for n in nodes} and e["target"] in {n["id"] for n in nodes}
-    ]
+    nodes = list(seen_nodes.values())
+    edges = list(seen_edges.values())
     return {
         "entity_type": entity_type,
         "entity_id": str(entity_id),
