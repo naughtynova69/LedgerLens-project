@@ -1,7 +1,7 @@
 # LedgerLens
 
 <p align="left">
-  <img src="https://img.shields.io/badge/Gemini-4_Carbon_%7C_2.5_Flash-4285F4?style=for-the-badge&logo=googlegemini&logoColor=white" alt="Gemini 4 Carbon & 2.5 Flash" />
+  <img src="https://img.shields.io/badge/Gemini-4_Carbon_%7C_3.8_Vision_Flash-4285F4?style=for-the-badge&logo=googlegemini&logoColor=white" alt="Gemini 4 Carbon & 3.8 Vision Flash" />
   <img src="https://img.shields.io/badge/Google_Cloud-Run_%7C_BigQuery_%7C_AlloyDB-4285F4?style=for-the-badge&logo=googlecloud&logoColor=white" alt="Google Cloud Platform" />
   <img src="https://img.shields.io/badge/Python-3.11%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.11+" />
   <img src="https://img.shields.io/badge/FastAPI-API-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" />
@@ -48,7 +48,7 @@ Exactly **five** deterministic checks (`R1`–`R5`) backed by structured `proof_
 
 ```mermaid
 flowchart LR
-    A["Ingest<br/>CSV / PDF upload"] --> B["Extract<br/>Gemini 4 Carbon / Flash → Pydantic JSON"]
+    A["Ingest<br/>CSV / PDF upload"] --> B["Extract<br/>Gemini 4 Carbon / 3.8 Vision Flash → Pydantic JSON"]
     B --> C["Normalize<br/>deterministic cleanup"]
     C --> D["Detect<br/>5 deterministic Python rules R1–R5"]
     D --> E["Explain<br/>Gemini writes CFO-ready narrative"]
@@ -63,7 +63,7 @@ flowchart LR
 |-------|----------------------|---------------------|
 | Backend | Python 3.11+ · FastAPI · Pydantic | Google Cloud Run (`deploy/cloudrun.sh`) |
 | Detection engine | Pure deterministic Python rules (`R1`–`R5`) | Same (zero LLM calls inside `detect/`) |
-| AI | `GEMINI_PRIMARY_MODEL=gemini-4-carbon` · `GEMINI_FLASH_MODEL=gemini-2.5-flash` · offline deterministic fallback | Vertex AI (`USE_VERTEX_AI=true`) + Secret Manager (`GEMINI_API_KEY`) |
+| AI | `GEMINI_PRIMARY_MODEL=gemini-4-carbon` · `GEMINI_FLASH_MODEL=gemini-3.8-vision-flash` (Gemini 3.8 Vision Flash) · offline deterministic fallback | Vertex AI (`USE_VERTEX_AI=true`) + Secret Manager (`GEMINI_API_KEY`) |
 | Operational DB | SQLite (`backend/schema.sql`) | AlloyDB for PostgreSQL (`backend/schema_postgres.sql`, `DB_BACKEND=alloydb`) |
 | Analytics Warehouse | FX-normalized INR summary (`/api/analytics/executive`) | BigQuery (`infra/bigquery/schema.sql`, `POST /api/gcp/bigquery/sync`) |
 | Evidence Storage & Events | Local `uploads/` + SHA-256 hashing + in-process log | Cloud Storage (`GCS_UPLOAD_BUCKET`) + Cloud Pub/Sub (`PUBSUB_RECOVERY_TOPIC`) |
@@ -112,7 +112,7 @@ LedgerLens-project/
 │   ├── app/
 │   │   ├── main.py         (API routes + Cloud Run SPA static mount)
 │   │   ├── ingest/         (CSV/PDF upload validation & storage)
-│   │   ├── extract/        (Gemini 4 Carbon / Flash structured output + math checks)
+│   │   ├── extract/        (Gemini 4 Carbon / 3.8 Vision Flash structured output + math checks)
 │   │   ├── normalize/      (deterministic vendor, invoice #, date, currency cleanup)
 │   │   ├── detect/         (pure deterministic R1–R5 rules + proof_trail)
 │   │   ├── explain/        (Gemini CFO-ready narrative grounded in proof_trail)
@@ -167,7 +167,7 @@ npm run dev
 ## Buildathon deliverables checklist
 
 - [x] Upload invoices, POs, contracts, payment ledger (CSV/PDF) + `POST /api/run/{batch_id}/extract`
-- [x] Gemini structured-output extraction (`gemini-4-carbon` / `gemini-2.5-flash`) + offline fallback & math verification
+- [x] Gemini structured-output extraction (`gemini-4-carbon` / `gemini-3.8-vision-flash`) + offline fallback & math verification
 - [x] Deterministic checks (`R1`–`R5`) with zero LLM calls and line-level `proof_trail`
 - [x] Exception dashboard with Split-View Proof Trail Inspector & 3-way evidence diff
 - [x] Reviewer approve / reject / recovery workflow with immutable audit log
