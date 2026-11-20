@@ -49,6 +49,17 @@
   - Added [docs/PROJECT_MINDMAP.md](docs/PROJECT_MINDMAP.md) with a plain-English project overview, Done vs. To-Do mind map, and 5-step `Gemini 3.8 Vision Flash` accuracy playbook.
 - **Open Next Steps:** Merge PR for `chore/use-gemini-38-vision-flash`, run live `eval_gemini_extraction.py` with `GEMINI_API_KEY`, and implement PDF 300-DPI preprocessing + 1-retry math-repair loop.
 
+### 2026-11-21 — ZCode: Gemini 3.8 Vision Flash Accuracy (Domain Prompt + 1-Retry Math Repair)
+- **Branch / PR:** `feat/gemini-38-vision-accuracy` → PR #9
+- **Changes:**
+  - Replaced `EXTRACTION_SYSTEM_PROMPT` in `backend/app/extract/gemini_extract.py` with the domain-tuned Indian B2B AP prompt (ISO-8601 dates, ISO-4217 currency, lakh/crore comma stripping, revision-suffix preservation, CGST+SGST combining, TDS exclusion, exempt→0.0, HSN/SAC ignored, scan-quality fail-closed).
+  - Added live **1-retry arithmetic self-correction** (`_extract_invoice_payload_live` + `build_arithmetic_retry_feedback`, `MAX_ARITHMETIC_RETRIES=1`): line-total mismatches fed back once at temperature 0; persisting warnings keep `needs_review` (fail-closed). `extract_invoice` now returns `verification_warnings` too.
+  - Added guarded `media_resolution=MEDIA_RESOLUTION_HIGH` for PDF/image `GenerateContentConfig` (getattr-safe for older SDKs/mocks).
+  - Offline mock fallback hardened: `_extract_amount_kv` captures Indian comma amounts (`1,23,456.00`) that old patterns truncated at the first comma; `_normalize_tax_pct` deterministically combines split GST, maps exempt/nil to 0.0, never sums TDS.
+  - 12 new tests in `backend/tests/test_extract.py` + live Indian-GST eval in `backend/tests/eval_gemini_extraction.py` (`RUN_LIVE_GEMINI_EVAL=1`-gated).
+- **Checks:** `pytest` (62 passed, 2 skipped), `npm --prefix frontend run build` (0 errors)
+- **Open Next Steps:** Merge PR #9; run live Indian-GST eval with `GEMINI_API_KEY` + `RUN_LIVE_GEMINI_EVAL=1`; optionally add PDF 300-DPI preprocessing upstream of extraction.
+
 ---
 
 ## Append Template (Copy for Future Sessions)
