@@ -64,6 +64,9 @@ class GraphClient:
             path = ":memory:" if _running_under_pytest() else config.GRAPH_PATH
         self.path = path
         self.buffer_pool_mb = int(buffer_pool_mb if buffer_pool_mb is not None else config.GRAPH_BUFFER_POOL_MB)
+        if path and path != ":memory:":
+            # LadybugDB does not create missing parent directories itself.
+            Path(path).parent.mkdir(parents=True, exist_ok=True)
         pool_bytes = max(0, self.buffer_pool_mb) * 1024 * 1024
         self._db = lb.Database(path, buffer_pool_size=pool_bytes)
         self._write_lock = threading.RLock()

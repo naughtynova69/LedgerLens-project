@@ -114,4 +114,21 @@ export const api = {
     }),
 
   getExportCsvUrl: () => `${API_BASE}/api/export/findings.csv`,
+
+  // ---- Embedded knowledge graph (LadybugDB) ----
+
+  getGraphStats: () => request("/api/graph/stats"),
+
+  rebuildGraph: (batchId) =>
+    request(`/api/graph/rebuild${batchId ? `?batch_id=${encodeURIComponent(batchId)}` : ""}`, {
+      method: "POST",
+    }),
+
+  getFindingSubgraph: (findingId) =>
+    request(`/api/graph/findings/${encodeURIComponent(findingId)}/subgraph`),
+
+  getEntityNeighborhood: (entityType, entityId, hops = 2) =>
+    request(
+      `/api/graph/entity/${encodeURIComponent(entityType)}/${encodeURIComponent(entityId)}?hops=${hops}`,
+    ),
 };

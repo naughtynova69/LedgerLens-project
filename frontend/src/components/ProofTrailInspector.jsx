@@ -3,6 +3,7 @@ import { api } from "../api";
 import { StatusBadge } from "./StatusBadge";
 import { RuleBadge } from "./RuleBadge";
 import { SeverityBadge } from "./SeverityBadge";
+import { EvidenceGraphCanvas } from "./EvidenceGraphCanvas";
 import { formatCurrency, formatConfidence } from "../utils/formatters";
 
 const DEFAULT_NOTES = {
@@ -19,6 +20,7 @@ export function ProofTrailInspector({
 }) {
   const [note, setNote] = useState("");
   const [copyingDispute, setCopyingDispute] = useState(false);
+  const [evidenceTab, setEvidenceTab] = useState("table");
 
   if (!finding) {
     return (
@@ -162,8 +164,38 @@ export function ProofTrailInspector({
         </p>
       </div>
 
-      {/* 3-Row Number Comparison Table */}
+      {/* Evidence views: 3-way table or interactive proof graph */}
       <div className="p-5">
+        <div className="flex items-center gap-1 mb-3">
+          <button
+            type="button"
+            onClick={() => setEvidenceTab("table")}
+            className={`px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${
+              evidenceTab === "table"
+                ? "bg-[#111827] text-white border-[#111827]"
+                : "bg-white text-[#6B7280] border-gray-200 hover:bg-gray-50"
+            }`}
+          >
+            Evidence Table
+          </button>
+          <button
+            type="button"
+            onClick={() => setEvidenceTab("graph")}
+            className={`px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${
+              evidenceTab === "graph"
+                ? "bg-[#111827] text-white border-[#111827]"
+                : "bg-white text-[#6B7280] border-gray-200 hover:bg-gray-50"
+            }`}
+          >
+            Proof Graph
+          </button>
+        </div>
+
+        {evidenceTab === "graph" && (
+          <EvidenceGraphCanvas findingId={finding.finding_id} height={320} />
+        )}
+
+        {evidenceTab === "table" && (
         <div className="border border-gray-200 rounded-lg overflow-hidden">
           <table className="w-full text-left text-xs">
             <thead className="bg-[#FAFAFA] border-b border-gray-200 text-[#6B7280]">
@@ -220,6 +252,7 @@ export function ProofTrailInspector({
             </tbody>
           </table>
         </div>
+        )}
       </div>
 
       {/* 1-Line Action Bar */}

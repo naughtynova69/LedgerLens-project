@@ -5,6 +5,7 @@ import { Modal } from "./components/Modal";
 import { UploadModal } from "./components/UploadModal";
 import { FindingsView } from "./views/FindingsView";
 import { AuditLogView } from "./views/AuditLogView";
+import { RulesView } from "./views/RulesView";
 import { CloudIntegrationsView } from "./views/CloudIntegrationsView";
 import { MemoView } from "./views/MemoView";
 import { api } from "./api";
@@ -219,6 +220,8 @@ export function App() {
           />
         )}
 
+        {activeTab === "rules" && <RulesView />}
+
         {activeTab === "cloud" && (
           <CloudIntegrationsView
             executiveAnalytics={executiveAnalytics}
@@ -256,7 +259,7 @@ export function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
           <span>LedgerLens · Explainable AI Money-Leak Auditor</span>
           <span className="font-mono text-[11px]">
-            Deterministic Rules R1–R5 · Gemini 3.8 Vision Flash
+            Deterministic Rules R1–R8 (LadybugDB Graph) · Gemini 3.8 Vision Flash
           </span>
         </div>
       </footer>

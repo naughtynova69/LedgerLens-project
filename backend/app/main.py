@@ -79,13 +79,14 @@ class PolicyUpdateIn(BaseModel):
 
 
 def _get_ready_conn() -> sqlite3.Connection:
-    """Open configured SQLite connection and lazily initialize schema if absent."""
+    """Open configured SQLite connection with schema guaranteed up to date.
+
+    ``init_schema`` is fully idempotent (CREATE IF NOT EXISTS + guarded ALTERs),
+    so it runs on every connection — this upgrades databases created before the
+    knowledge-graph columns and tables existed.
+    """
     conn = get_connection()
-    has_batches = conn.execute(
-        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='batches'"
-    ).fetchone()
-    if has_batches is None:
-        init_schema(conn)
+    init_schema(conn)
     return conn
 
 
@@ -189,7 +190,16 @@ def graph_rebuild(batch_id: str | None = None) -> dict:
 def graph_stats() -> dict:
     """Node/relationship counts plus graph engine status."""
     client = _ensure_graph_projected()
-    return fetch_graph_stats(client)
+    stats = fetch_graph_stats(client)
+    conn = _get_ready_conn()
+    try:
+        row = conn.execute(
+            "SELECT COUNT(*) AS n FROM findings WHERE rule_id IN ('R6', 'R7', 'R8')"
+        ).fetchone()
+        stats["multi_hop_risks"] = int(row["n"]) if row else 0
+    finally:
+        conn.close()
+    return stats
 
 
 @app.get("/api/graph/findings/{finding_id}/subgraph")

@@ -21,6 +21,18 @@ const RULE_METADATA = {
     label: "Cancelled Service",
     short: "R5 Cancelled",
   },
+  R6: {
+    label: "Cross-Entity Duplicate / Split-Invoice",
+    short: "R6 Graph-Dup",
+  },
+  R7: {
+    label: "Approver-Vendor Collusion",
+    short: "R7 Collusion",
+  },
+  R8: {
+    label: "Contract Lineage & Unapplied Credits",
+    short: "R8 Lineage",
+  },
 };
 
 export function RuleBadge({ ruleId, full = false, className = "" }) {

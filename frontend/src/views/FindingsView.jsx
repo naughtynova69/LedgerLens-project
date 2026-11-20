@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import { RuleBadge } from "../components/RuleBadge";
 import { StatusBadge } from "../components/StatusBadge";
 import { ProofTrailInspector } from "../components/ProofTrailInspector";
+import { GraphStatsCard } from "../components/GraphStatsCard";
 import { formatCurrency, formatConfidence } from "../utils/formatters";
 
 export function FindingsView({
@@ -151,6 +152,9 @@ export function FindingsView({
           </div>
         </div>
       </div>
+
+      {/* Embedded knowledge-graph KPI strip (LadybugDB) */}
+      <GraphStatsCard onToast={onToast} />
 
       {/* Single-Row Filter Bar */}
       <div className="flex flex-wrap items-center justify-between gap-2.5">

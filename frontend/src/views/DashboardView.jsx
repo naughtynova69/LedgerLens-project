@@ -15,6 +15,7 @@ import { StatCard } from "../components/StatCard";
 import { SeverityBadge } from "../components/SeverityBadge";
 import { RuleBadge } from "../components/RuleBadge";
 import { StatusBadge } from "../components/StatusBadge";
+import { GraphStatsCard } from "../components/GraphStatsCard";
 import { formatCurrency, formatConfidence } from "../utils/formatters";
 
 export function DashboardView({
@@ -33,6 +34,9 @@ export function DashboardView({
     { id: "R3", name: "PO Mismatch & Overbilling", desc: "Cumulative billed qty > PO limit, premature or unordered items" },
     { id: "R4", name: "Currency & Tax Errors", desc: "Currency mismatches, FX rate drift, invalid GST & duplicate tax lines" },
     { id: "R5", name: "Cancelled-Service Leakage", desc: "Charges billed after contract termination, cancellation, or expiry" },
+    { id: "R6", name: "Cross-Entity Duplicate & Splitting (Graph)", desc: "Distinct vendors sharing a bank/tax identifier billing near-identical or split invoices" },
+    { id: "R7", name: "Approver-Vendor Collusion (Graph)", desc: "Approvers linked to their vendor via shared bank account, address, or phone" },
+    { id: "R8", name: "Contract Lineage & Unapplied Credits (Graph)", desc: "Invoices billed at superseded amendment rates; OPEN credit notes left on the table" },
   ];
 
   const openExceptionsCount = stats?.by_status?.open ?? 0;
@@ -106,6 +110,9 @@ export function DashboardView({
         />
       </div>
 
+      {/* Embedded Knowledge Graph KPI */}
+      <GraphStatsCard onToast={onToast} />
+
       {/* Two Column Overview */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Rule Category Exposure */}
@@ -113,7 +120,7 @@ export function DashboardView({
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
               <Layers className="w-4 h-4 text-[#059669]" />
-              <span>Deterministic Rule Coverage (R1–R5)</span>
+              <span>Deterministic Rule Coverage (R1–R8)</span>
             </h2>
             <button
               onClick={() => onNavigateTab("rules")}
