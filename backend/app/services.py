@@ -40,7 +40,25 @@ _ALLOWED_COLUMNS = {
 
 
 def _rows(conn: sqlite3.Connection, table: str) -> list[dict]:
-    return [dict(row) for row in conn.execute(f"SELECT * FROM {table}").fetchall()]
+    """Fetch all rows from a table using fully static SQL literals.
+
+    Table identifiers cannot be passed as bound parameters, so each statement
+    is written out in full — no dynamically constructed SQL text anywhere.
+    """
+    match table:
+        case "vendors":
+            sql = 'SELECT * FROM "vendors"'
+        case "contracts":
+            sql = 'SELECT * FROM "contracts"'
+        case "purchase_orders":
+            sql = 'SELECT * FROM "purchase_orders"'
+        case "invoices":
+            sql = 'SELECT * FROM "invoices"'
+        case "payments":
+            sql = 'SELECT * FROM "payments"'
+        case _:
+            raise ValueError(f"unknown table: {table}")
+    return [dict(row) for row in conn.execute(sql).fetchall()]
 
 
 def _ensure_vendor_exists(

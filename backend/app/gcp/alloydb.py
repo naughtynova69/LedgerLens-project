@@ -258,12 +258,38 @@ def _sqlite_existing_tables(sqlite_conn: sqlite3.Connection) -> set[str]:
 def _count_sqlite_rows(
     sqlite_conn: sqlite3.Connection, existing_tables: set[str]
 ) -> dict[str, int]:
-    counts: dict[str, int] = {}
+    """Count rows per export table using fully static SQL literals.
+
+    Table identifiers cannot be passed as bound parameters, so each statement
+    is written out in full — no dynamically constructed SQL text anywhere.
+    """
+    counts: dict[str, int] = {spec.name: 0 for spec in _EXPORT_TABLES}
     for spec in _EXPORT_TABLES:
         if spec.name not in existing_tables:
-            counts[spec.name] = 0
             continue
-        row = sqlite_conn.execute(f"SELECT COUNT(*) FROM {spec.name}").fetchone()
+        match spec.name:
+            case "vendors":
+                row = sqlite_conn.execute('SELECT COUNT(*) FROM "vendors"').fetchone()
+            case "contracts":
+                row = sqlite_conn.execute('SELECT COUNT(*) FROM "contracts"').fetchone()
+            case "purchase_orders":
+                row = sqlite_conn.execute('SELECT COUNT(*) FROM "purchase_orders"').fetchone()
+            case "invoices":
+                row = sqlite_conn.execute('SELECT COUNT(*) FROM "invoices"').fetchone()
+            case "payments":
+                row = sqlite_conn.execute('SELECT COUNT(*) FROM "payments"').fetchone()
+            case "batches":
+                row = sqlite_conn.execute('SELECT COUNT(*) FROM "batches"').fetchone()
+            case "findings":
+                row = sqlite_conn.execute('SELECT COUNT(*) FROM "findings"').fetchone()
+            case "decisions":
+                row = sqlite_conn.execute('SELECT COUNT(*) FROM "decisions"').fetchone()
+            case "audit_log":
+                row = sqlite_conn.execute('SELECT COUNT(*) FROM "audit_log"').fetchone()
+            case "policy_settings":
+                row = sqlite_conn.execute('SELECT COUNT(*) FROM "policy_settings"').fetchone()
+            case _:
+                continue
         counts[spec.name] = int(row[0]) if row else 0
     return counts
 
@@ -378,7 +404,31 @@ def export_sqlite_to_alloydb(sqlite_conn: sqlite3.Connection) -> dict[str, Any]:
             if spec.name not in existing_tables or row_counts[spec.name] == 0:
                 continue
 
-            sq_cur = sqlite_conn.execute(f"SELECT * FROM {spec.name}")
+            match spec.name:
+                case "vendors":
+                    sq_cur = sqlite_conn.execute('SELECT * FROM "vendors"')
+                case "contracts":
+                    sq_cur = sqlite_conn.execute('SELECT * FROM "contracts"')
+                case "purchase_orders":
+                    sq_cur = sqlite_conn.execute('SELECT * FROM "purchase_orders"')
+                case "invoices":
+                    sq_cur = sqlite_conn.execute('SELECT * FROM "invoices"')
+                case "payments":
+                    sq_cur = sqlite_conn.execute('SELECT * FROM "payments"')
+                case "batches":
+                    sq_cur = sqlite_conn.execute('SELECT * FROM "batches"')
+                case "findings":
+                    sq_cur = sqlite_conn.execute('SELECT * FROM "findings"')
+                case "decisions":
+                    sq_cur = sqlite_conn.execute('SELECT * FROM "decisions"')
+                case "audit_log":
+                    sq_cur = sqlite_conn.execute('SELECT * FROM "audit_log"')
+                case "policy_settings":
+                    sq_cur = sqlite_conn.execute('SELECT * FROM "policy_settings"')
+                case _:
+                    raise ValueError(
+                        f"table identifier not on export whitelist: {spec.name}"
+                    )
             col_names = [desc[0] for desc in sq_cur.description]
             active_columns = [col for col in spec.columns if col in col_names]
             col_indices = [col_names.index(col) for col in active_columns]
