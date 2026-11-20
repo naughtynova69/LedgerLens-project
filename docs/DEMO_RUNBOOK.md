@@ -8,16 +8,16 @@
 
 ## Pre-Demo Verification Checklist (60 seconds before stage)
 1. Confirm backend + frontend unified server is live (`GET /health` → `{"status":"ok"}`).
-2. Confirm `GEMINI_PRIMARY_MODEL=gemini-4-carbon` and `GEMINI_FLASH_MODEL=gemini-2.5-flash` are set in `.env` (note: deterministic offline fallback runs smoothly even without a live API key).
+2. Confirm `GEMINI_PRIMARY_MODEL=gemini-4-carbon` and `GEMINI_FLASH_MODEL=gemini-3.8-vision-flash` are set in `.env` (note: deterministic offline fallback runs smoothly even without a live API key).
 3. Ensure browser starts on `/` with a clean or freshly seeded database (`Load Demo Dataset` resets deterministically).
 
 ---
 
 ## 0:00–0:35 — Hook & Problem Statement
 - **Narrative:**
-  > *"Enterprises silently lose ~2% of outbound spend—\$5 billion across \$240 billion audited—to Accounts Payable leakage: fuzzy duplicate invoices, contract price drift, PO overbilling, FX/tax errors, and cancelled-service charges."*
-  > *"Manual 3-way matching cannot scale. Exact-match ERPs miss 61% of duplicate payments because fraudsters tweak invoice numbers like `INV-8821` to `INV-8821-R2`. And black-box AI alerts fail because no CFO will freeze a vendor payment on an opaque anomaly score."*
-  > *"LedgerLens is a **pre-payment neuro-symbolic audit gate**: Gemini extracts and explains, deterministic Python rules decide, and every finding ships with a line-level proof trail."*
+  > *"Mid-market finance teams (\$20M–\$500M annual supplier spend) and CA/audit firms face silent AP leakage: fuzzy duplicate invoices, contract price drift, PO overbilling, FX/tax errors, and cancelled-service charges."*
+  > *"Manual invoice checks cost ~\$10 and take 10+ days per invoice (PRGX). Exact-match ERPs miss tweaked invoice numbers like `INV-8821` to `INV-8821-R2`, post-payment audits recover only 0.1% (PRGX) vs. 0.2%–0.35% pre-payment savings (Xelix / Duplo), and black-box AI alerts fail because no CFO will freeze a vendor payment on an opaque anomaly score."*
+  > *"LedgerLens is a **pre-payment neuro-symbolic audit gate before every pay run**, landing with a zero-ERP **48-hour Historical Leak Diagnostic** wedge: Gemini extracts and explains, deterministic Python rules decide, and every finding ships with a line-level proof trail."*
 
 ---
 
@@ -42,7 +42,7 @@
 
 ## 1:45–2:30 — Architecture & Google AI Stack Proof
 - **Walk through the Neuro-Symbolic Stack:**
-  1. **Ingest & Extract (`POST /api/run/{batch_id}/extract`):** Routes PDFs/contracts to **`gemini-4-carbon`** (`GEMINI_PRIMARY_MODEL`) and high-volume batch/CSV workloads to **`gemini-2.5-flash`** (`GEMINI_FLASH_MODEL`) using strict Pydantic JSON schemas (`ExtractedInvoicePayload`) + deterministic line-total verification (`qty * unit_price * (1 + tax_pct/100)`).
+  1. **Ingest & Extract (`POST /api/run/{batch_id}/extract`):** Routes PDFs/contracts to **`gemini-4-carbon`** (`GEMINI_PRIMARY_MODEL`) and high-volume batch/CSV workloads to **`gemini-3.8-vision-flash`** (`GEMINI_FLASH_MODEL`) using strict Pydantic JSON schemas (`ExtractedInvoicePayload`) + deterministic line-total verification (`qty * unit_price * (1 + tax_pct/100)`).
   2. **Pure Deterministic Judge (`backend/app/detect/`):** Zero LLM imports and zero network calls. Evaluates `R1`–`R5`, computes confidence scores and `amount_at_risk`, and emits `proof_trail` JSON + standardized `recommended_action` (`HOLD_PAYMENT`, `REQUEST_CREDIT_NOTE`, `DISPUTE_VENDOR`, `CANCEL_AUTOPAY`).
   3. **Explain & Google Agent Skills (`backend/app/explain/`, `backend/app/skills/`):** Gemini narrates strictly from `proof_trail` and invokes structured function tools (`fetch_payment_records`, `generate_audit_memo`, `route_recovery_task`).
   4. **Cross-Harness Readiness:** Built with `AGENTS.md` + isolated worktrees and synced with Google AI Studio JSON schemas (`docs/ai_studio_schemas/`) for Google Antigravity IDE evaluation.
@@ -50,7 +50,7 @@
 ---
 
 ## 2:30–3:00 — Enterprise ROI & Cloud Run Production Scaling
-- **ROI Pitch:** Catching just 2% AP leakage pays for LedgerLens in week one — shifting finance from post-payment clawbacks to **pre-payment protection**.
+- **ROI Pitch:** Moving mid-market finance teams (\$20M–\$500M spend) and CA/audit firms from 0.1% post-payment recovery (PRGX) to **0.2%–0.35% pre-payment savings** (Xelix / Duplo)—while cutting ~\$10 / 10+ day per-invoice manual review (PRGX)—starts with a zero-ERP **48-hour Historical Leak Diagnostic** wedge and scales into **pre-payment protection before every pay run**.
 - **Google Cloud Production Path (`Dockerfile`, `cloudbuild.yaml`, `deploy/cloudrun.sh`):**
   - **Compute:** Unified multi-stage container on **Google Cloud Run** (`uvicorn` serving FastAPI + React SPA).
   - **AI & Secrets:** **Vertex AI / Gemini 4 Carbon** + **Secret Manager** (`GEMINI_API_KEY`).

@@ -1,7 +1,7 @@
 # LedgerLens
 
 <p align="left">
-  <img src="https://img.shields.io/badge/Gemini-4_Carbon_%7C_2.5_Flash-4285F4?style=for-the-badge&logo=googlegemini&logoColor=white" alt="Gemini 4 Carbon & 2.5 Flash" />
+  <img src="https://img.shields.io/badge/Gemini-4_Carbon_%7C_3.8_Vision_Flash-4285F4?style=for-the-badge&logo=googlegemini&logoColor=white" alt="Gemini 4 Carbon & 3.8 Vision Flash" />
   <img src="https://img.shields.io/badge/Google_Cloud-Run_%7C_BigQuery_%7C_AlloyDB-4285F4?style=for-the-badge&logo=googlecloud&logoColor=white" alt="Google Cloud Platform" />
   <img src="https://img.shields.io/badge/Python-3.11%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.11+" />
   <img src="https://img.shields.io/badge/FastAPI-API-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" />
@@ -16,9 +16,9 @@
   <img src="https://img.shields.io/badge/Google_DeepMind_%26_Cloud-Buildathon_India_2026-EA4335?style=flat-square&logo=google&logoColor=white" alt="Google DeepMind & Cloud Buildathon India 2026" />
 </p>
 
-> **The pre-payment neuro-symbolic AI "money-leak auditor" for enterprise Accounts Payable — stopping duplicate payments, contract price drift, PO overbilling, FX/tax errors, and cancelled-service charges before disbursement.**
+> **The pre-payment neuro-symbolic AI "money-leak auditor" for mid-market finance teams ($20M–$500M annual supplier spend) and CA / audit firms — gating every weekly pay run to stop duplicate payments, contract price drift, PO overbilling, FX/tax errors, and cancelled-service charges before disbursement.**
 
-Enterprises silently lose ~2% of outbound spend ($5B across $240B audited) to Accounts Payable leakage—fuzzy duplicate invoices, contract price drift, PO overbilling, FX/tax errors, and cancelled-service charges—because manual 3-way matching cannot scale, exact-match ERPs miss 61% of duplicates, and black-box AI alerts lack the verifiable proof finance teams require before blocking payment.
+Mid-market finance teams lose 0.1%–0.35% of annual supplier spend to near-duplicate invoices, contract overcharges, and cancelled-service renewals before every pay run—because manual AP checks can't scale, exact-match ERPs miss fuzzy errors, and CFOs won't act on black-box AI alerts without an audit-ready proof trail.
 
 **Core principle:** Gemini extracts and explains; deterministic Python rules decide; every finding carries a verifiable line-level proof trail. **The LLM is never the judge.**
 
@@ -26,11 +26,14 @@ Enterprises silently lose ~2% of outbound spend ($5B across $240B audited) to Ac
 
 ## Why this exists
 
+- **Target ICP:** Mid-market finance teams ($20M–$500M annual supplier spend) and CA / audit firms who export CSVs/PDFs today without heavy ERP integrations.
+- **Workflow Moment:** Primary pre-payment gate before every weekly pay run, paired with a **48-hour Historical Leak Diagnostic** (post-payment recovery) as the zero-ERP onboarding wedge.
+
 | Structural Failure Mode | Quantified Reality | Why Existing Tools Fail |
 | :--- | :--- | :--- |
-| **1. Exact-Match ERP Blind Spots** | **$5B** in errors across **$240B** enterprise payment volume; **~50%** duplicate payments, **~20%** data-entry errors, **~20%** currency mismatches. | **61%** of double-paid invoices carry non-identical invoice numbers (`INV-8821` vs. `INV-8821-R2`), altered dates, or vendor-name variants—bypassing rigid ERP duplicate checks. |
-| **2. The Black-Box AI Trust Deficit** | Finance & AP controllers cannot freeze vendor payouts on an opaque anomaly score. | Generic LLM wrappers flag *"this looks suspicious"* without deterministic math or line-level citations, causing teams to ignore alerts. |
-| **3. The Post-Payment Recovery Trap** | Traditional AP recovery audits surface leakage months after disbursement. | Once funds leave the bank, clawbacks cost time, vendor goodwill, and recovery fees—leakage must be stopped **pre-payment** with an audit-ready proof trail. |
+| **1. Exact-Match ERP Blind Spots & Manual Cost** | Manual invoice processing averages **~$10 and 10+ days** per invoice (PRGX). | Non-identical invoice numbers (`INV-8821` vs. `INV-8821-R2`), altered dates, and vendor-name variants bypass rigid exact-match ERP duplicate checks, while contract drift slips past manual reviews. |
+| **2. The Black-Box AI Trust Deficit** | CFOs and AP controllers will not freeze vendor payouts on an opaque anomaly score. | Generic LLM wrappers flag *"this looks suspicious"* without deterministic math or line-level citations, causing finance teams to ignore alerts. |
+| **3. Post-Payment Recovery vs. Pre-Payment Controls** | Post-payment recovery reclaims **~0.1% of spend** (**~$1M recovered per $1B spend** — PRGX); proactive pre-payment controls save **0.2%–0.35% per $1B spend** (Xelix / Duplo). | Once funds leave the bank, clawbacks cost time, vendor goodwill, and recovery fees—leakage must be stopped **pre-payment** before every weekly pay run with an audit-ready proof trail. |
 
 ## What we are building
 
@@ -48,12 +51,20 @@ Exactly **five** deterministic checks (`R1`–`R5`) backed by structured `proof_
 
 ```mermaid
 flowchart LR
-    A["Ingest<br/>CSV / PDF upload"] --> B["Extract<br/>Gemini 4 Carbon / Flash → Pydantic JSON"]
+    A["Ingest<br/>CSV / PDF upload"] --> B["Extract<br/>Gemini 4 Carbon / 3.8 Vision Flash → Pydantic JSON"]
     B --> C["Normalize<br/>deterministic cleanup"]
     C --> D["Detect<br/>5 deterministic Python rules R1–R5"]
     D --> E["Explain<br/>Gemini writes CFO-ready narrative"]
     E --> F["Act & Report<br/>Hold / Recover / Approve + Immutable Audit Log & Memo"]
 ```
+
+## Business Model & GTM
+
+LedgerLens targets the global AP automation market (**$6.94B in 2026 → $12.46B by 2031 at 12.44% CAGR**, Mordor Intelligence; **$2.99B software-only in 2025**, DataM Intelligence) using a **Hybrid Wedge → SaaS** model:
+
+1. **Land — 48-Hour "Historical Leak Diagnostic":** Free diagnostic or **15%–20% contingency** on 6–12 months of exported CSVs/PDFs (zero ERP integration required), proving **$50k–$250k** in historical leaks and near-miss exposures.
+2. **Expand — Recurring Pre-Payment SaaS:** Embedded as the primary pre-payment gate before every weekly pay run across **Starter** (`<=2,500` invoices/mo), **Growth** (`<=10,000` invoices/mo), and **Enterprise** (custom) tiers—delivering **85%–92%+ gross margins** using **Gemini 3.8 Vision Flash** plus zero-cost deterministic Python rules (`R1`–`R5`).
+3. **Distribute — CA / Audit Firms:** Multi-tenant workspace priced per client audit, turning CA and audit firms into a scalable channel for mid-market adoption.
 
 ## Architecture (one line)
 
@@ -63,7 +74,7 @@ flowchart LR
 |-------|----------------------|---------------------|
 | Backend | Python 3.11+ · FastAPI · Pydantic | Google Cloud Run (`deploy/cloudrun.sh`) |
 | Detection engine | Pure deterministic Python rules (`R1`–`R5`) | Same (zero LLM calls inside `detect/`) |
-| AI | `GEMINI_PRIMARY_MODEL=gemini-4-carbon` · `GEMINI_FLASH_MODEL=gemini-2.5-flash` · offline deterministic fallback | Vertex AI (`USE_VERTEX_AI=true`) + Secret Manager (`GEMINI_API_KEY`) |
+| AI | `GEMINI_PRIMARY_MODEL=gemini-4-carbon` · `GEMINI_FLASH_MODEL=gemini-3.8-vision-flash` (Gemini 3.8 Vision Flash) · offline deterministic fallback | Vertex AI (`USE_VERTEX_AI=true`) + Secret Manager (`GEMINI_API_KEY`) |
 | Operational DB | SQLite (`backend/schema.sql`) | AlloyDB for PostgreSQL (`backend/schema_postgres.sql`, `DB_BACKEND=alloydb`) |
 | Analytics Warehouse | FX-normalized INR summary (`/api/analytics/executive`) | BigQuery (`infra/bigquery/schema.sql`, `POST /api/gcp/bigquery/sync`) |
 | Evidence Storage & Events | Local `uploads/` + SHA-256 hashing + in-process log | Cloud Storage (`GCS_UPLOAD_BUCKET`) + Cloud Pub/Sub (`PUBSUB_RECOVERY_TOPIC`) |
@@ -107,12 +118,12 @@ LedgerLens-project/
 │   ├── setup_gcp.sh        ← Idempotent GCP APIs, BigQuery, GCS, Pub/Sub & optional AlloyDB setup
 │   └── teardown_gcp.sh     ← Cost-safe teardown script
 ├── infra/bigquery/schema.sql ← BigQuery tables & executive ROI views
-├── docs/                   ← Specs (01–07), PRD.md, AGENT_PR_WORKFLOW.md, GCP_INTEGRATION_GUIDE.md, DEMO_RUNBOOK.md
+├── docs/                   ← Specs (01–07), PRD.md, CONTEXT_LOG.md, AGENT_PR_WORKFLOW.md, GCP_INTEGRATION_GUIDE.md, DEMO_RUNBOOK.md
 ├── backend/                ← FastAPI app, extraction, normalization, R1–R5 rules, GCP & finance workflows
 │   ├── app/
 │   │   ├── main.py         (API routes + Cloud Run SPA static mount)
 │   │   ├── ingest/         (CSV/PDF upload validation & storage)
-│   │   ├── extract/        (Gemini 4 Carbon / Flash structured output + math checks)
+│   │   ├── extract/        (Gemini 4 Carbon / 3.8 Vision Flash structured output + math checks)
 │   │   ├── normalize/      (deterministic vendor, invoice #, date, currency cleanup)
 │   │   ├── detect/         (pure deterministic R1–R5 rules + proof_trail)
 │   │   ├── explain/        (Gemini CFO-ready narrative grounded in proof_trail)
@@ -159,6 +170,7 @@ npm run dev
 | Document | Focus | Link |
 |---|---|---|
 | **Product Requirements (PRD)** | Executive summary, neuro-symbolic invariants, MVP vs V1 roadmap | [docs/PRD.md](docs/PRD.md) |
+| **Session Context Log** | Session context log for multi-session & multi-agent continuity | [docs/CONTEXT_LOG.md](docs/CONTEXT_LOG.md) |
 | **AI Harness & PR Workflow** | Mandatory branching & PR rules for ZCode (`GLM 5.3`), Antigravity (`Gemini`), etc. | [docs/AGENT_PR_WORKFLOW.md](docs/AGENT_PR_WORKFLOW.md) |
 | **GCP Integration & Billing Guide** | BigQuery, AlloyDB, GCS, Vertex AI, Pub/Sub setup & cost guardrails | [docs/GCP_INTEGRATION_GUIDE.md](docs/GCP_INTEGRATION_GUIDE.md) |
 | **3-Minute Demo Runbook** | Live demo script, sample data walkthrough & Cloud Run deployment | [docs/DEMO_RUNBOOK.md](docs/DEMO_RUNBOOK.md) |
@@ -167,7 +179,7 @@ npm run dev
 ## Buildathon deliverables checklist
 
 - [x] Upload invoices, POs, contracts, payment ledger (CSV/PDF) + `POST /api/run/{batch_id}/extract`
-- [x] Gemini structured-output extraction (`gemini-4-carbon` / `gemini-2.5-flash`) + offline fallback & math verification
+- [x] Gemini structured-output extraction (`gemini-4-carbon` / `gemini-3.8-vision-flash`) + offline fallback & math verification
 - [x] Deterministic checks (`R1`–`R5`) with zero LLM calls and line-level `proof_trail`
 - [x] Exception dashboard with Split-View Proof Trail Inspector & 3-way evidence diff
 - [x] Reviewer approve / reject / recovery workflow with immutable audit log
