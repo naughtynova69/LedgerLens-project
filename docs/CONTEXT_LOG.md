@@ -71,7 +71,16 @@
 
 ---
 
-## Append Template (Copy for Future Sessions)
+### 2026-11-21 — ZCode: Golden Noisy-PDF Eval Corpus (12 Voices) — Verification & PR Handoff
+- **Branch / PR:** `feat/golden-pdf-eval` → PR #14
+- **Changes:**
+  - Added `sample_data/eval_pdfs/` golden corpus: 12 deterministic one-page invoice PDFs (voices: clean_digital, indian_comma_grouping, split_gst_cgst_sgst, tds_withheld, revision_suffix, us_format, ocr_spacing, multiline_items, eur_decimal_comma, rounding_drift, tax_exemption, cross_total_variance) + `MANIFEST.json` (schema_version 1.0, sha256/size-pinned, ground truth conforming to ExtractedInvoicePayload) + `generate_eval_pdfs.py` (deterministic renderer, strict structural verification, `--check` mode, fail-closed filename allowlist).
+  - Extended `backend/tests/eval_gemini_extraction.py` (+200 lines, append-only): manifest integrity, schema conformance, arithmetic invariants (2 drifted voices), text-layer signals (incl. OCR-spaced glyphs), byte-exact deterministic regeneration.
+  - Fixed during verification: regeneration parity (committed artifacts vs generator sha256 mismatch), rounding_drift tax invariant (875.16→875.14, 5737.05→5737.03), cross-platform byte exactness (scoped `.gitattributes` `* -text` vs autocrlf), fail-closed path allowlist for the generator I/O (Mimosa path-traversal findings).
+- **Checks:** eval cmd `8 passed, 3 skipped`; full suite `93 passed, 30 skipped` (graph tests skip in this worktree: no native LadybugDB lib; CI provisions it)
+- **Open Next Steps:** Merge PR #14; optionally run live Gemini evals with `RUN_LIVE_GEMINI_EVAL=1` + `GEMINI_API_KEY`; re-run full Mimosa project audit before merge (last scan ran degraded pass-through).
+
+
 
 ```markdown
 ### YYYY-MM-DD — <Short Session Title>
