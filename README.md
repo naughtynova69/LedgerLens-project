@@ -1,12 +1,26 @@
 # LedgerLens
 
+<p align="left">
+  <img src="https://img.shields.io/badge/Gemini-4_Carbon_%7C_2.5_Flash-4285F4?style=for-the-badge&logo=googlegemini&logoColor=white" alt="Gemini 4 Carbon & 2.5 Flash" />
+  <img src="https://img.shields.io/badge/Google_Cloud-Run_%7C_BigQuery_%7C_AlloyDB-4285F4?style=for-the-badge&logo=googlecloud&logoColor=white" alt="Google Cloud Platform" />
+  <img src="https://img.shields.io/badge/Python-3.11%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.11+" />
+  <img src="https://img.shields.io/badge/FastAPI-API-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" />
+  <img src="https://img.shields.io/badge/React-19-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React 19" />
+  <img src="https://img.shields.io/badge/Tailwind_CSS-3.4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white" alt="Tailwind CSS 3.4" />
+</p>
+<p align="left">
+  <img src="https://img.shields.io/badge/Architecture-Neuro--Symbolic-0F172A?style=flat-square" alt="Neuro-Symbolic Architecture" />
+  <img src="https://img.shields.io/badge/Rules-R1--R5_Pure_Python-059669?style=flat-square" alt="Deterministic Rules R1-R5" />
+  <img src="https://img.shields.io/badge/Pytest-51_Passed-16A34A?style=flat-square&logo=pytest&logoColor=white" alt="51 Backend Tests Passed" />
+  <img src="https://img.shields.io/badge/Main_Branch-PR_Protected-D97706?style=flat-square&logo=github&logoColor=white" alt="Main Branch Protected" />
+  <img src="https://img.shields.io/badge/Google_DeepMind_%26_Cloud-Buildathon_India_2026-EA4335?style=flat-square&logo=google&logoColor=white" alt="Google DeepMind & Cloud Buildathon India 2026" />
+</p>
+
 > **The pre-payment neuro-symbolic AI "money-leak auditor" for enterprise Accounts Payable — stopping duplicate payments, contract price drift, PO overbilling, FX/tax errors, and cancelled-service charges before disbursement.**
 
 Enterprises silently lose ~2% of outbound spend ($5B across $240B audited) to Accounts Payable leakage—fuzzy duplicate invoices, contract price drift, PO overbilling, FX/tax errors, and cancelled-service charges—because manual 3-way matching cannot scale, exact-match ERPs miss 61% of duplicates, and black-box AI alerts lack the verifiable proof finance teams require before blocking payment.
 
 **Core principle:** Gemini extracts and explains; deterministic Python rules decide; every finding carries a verifiable line-level proof trail. **The LLM is never the judge.**
-
-**Built for the Google DeepMind & Google Cloud Startup Buildathon India 2026** — powered by Gemini 4 Carbon & deterministic Python rules, ready for Google Cloud Run.
 
 ---
 
@@ -139,6 +153,16 @@ npm run dev
 ## Sample data
 
 `sample_data/` contains a coherent demo dataset with **six planted anomalies** (`₹40,531.60` nominal total exposure across R1–R5) plus **four clean control invoices** that produce **zero** findings. Load it in one click (`Load Demo Dataset`) or run `pytest` in `backend/`.
+
+## Documentation Index
+
+| Document | Focus | Link |
+|---|---|---|
+| **Product Requirements (PRD)** | Executive summary, neuro-symbolic invariants, MVP vs V1 roadmap | [docs/PRD.md](docs/PRD.md) |
+| **AI Harness & PR Workflow** | Mandatory branching & PR rules for ZCode (`GLM 5.3`), Antigravity (`Gemini`), etc. | [docs/AGENT_PR_WORKFLOW.md](docs/AGENT_PR_WORKFLOW.md) |
+| **GCP Integration & Billing Guide** | BigQuery, AlloyDB, GCS, Vertex AI, Pub/Sub setup & cost guardrails | [docs/GCP_INTEGRATION_GUIDE.md](docs/GCP_INTEGRATION_GUIDE.md) |
+| **3-Minute Demo Runbook** | Live demo script, sample data walkthrough & Cloud Run deployment | [docs/DEMO_RUNBOOK.md](docs/DEMO_RUNBOOK.md) |
+| **Technical Specs (`01`–`07`)** | Product, architecture, schema, R1–R5 rules, APIs, Gemini & UI specs | [docs/](docs/) |
 
 ## Buildathon deliverables checklist
 
