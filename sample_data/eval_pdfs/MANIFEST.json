@@ -1,0 +1,490 @@
+{
+  "schema_version": "1.0",
+  "corpus": "golden_noisy_pdf_eval",
+  "generated_by": "sample_data/eval_pdfs/generate_eval_pdfs.py",
+  "count": 12,
+  "entries": [
+    {
+      "file": "eval_invoice_01_clean.pdf",
+      "voice": "clean_digital",
+      "difficulty": "easy",
+      "sha256": "36b42a5dcfa1803657fee3029b3da09e3cc8c4b9703e312faca034d8ebc141e3",
+      "bytes": 1310,
+      "arithmetic": {
+        "consistent": true,
+        "variance": 0.0,
+        "variance_field": null
+      },
+      "ground_truth": {
+        "vendor": {
+          "name": "Sunbeam Electricals Pvt Ltd",
+          "tax_id": "27AABCS1234F1Z5"
+        },
+        "invoice": {
+          "number": "INV-EVAL-001",
+          "date": "2026-11-01",
+          "currency": "INR",
+          "po_reference": "PO-EVAL-001",
+          "payment_terms": "Net 30"
+        },
+        "lines": [
+          {
+            "item": "LED Panel 18W",
+            "quantity": 10.0,
+            "unit_price": 420.0,
+            "tax_pct": 18.0,
+            "line_total": 4956.0
+          }
+        ],
+        "totals": {
+          "subtotal": 4200.0,
+          "tax": 756.0,
+          "grand_total": 4956.0
+        }
+      }
+    },
+    {
+      "file": "eval_invoice_02_indian_comma.pdf",
+      "voice": "indian_comma_grouping",
+      "difficulty": "easy",
+      "sha256": "5f60b798a42e78044ce056097cfe300f09ec621b419c5575baa4ae09d0d99cb9",
+      "bytes": 1335,
+      "arithmetic": {
+        "consistent": true,
+        "variance": 0.0,
+        "variance_field": null
+      },
+      "ground_truth": {
+        "vendor": {
+          "name": "Sunbeam Electricals Pvt Ltd",
+          "tax_id": "27AABCS1234F1Z5"
+        },
+        "invoice": {
+          "number": "INV-EVAL-002",
+          "date": "2026-11-02",
+          "currency": "INR",
+          "po_reference": "PO-EVAL-002",
+          "payment_terms": "Net 15"
+        },
+        "lines": [
+          {
+            "item": "Industrial Inverter",
+            "quantity": 2.0,
+            "unit_price": 123456.0,
+            "tax_pct": 18.0,
+            "line_total": 291356.16
+          }
+        ],
+        "totals": {
+          "subtotal": 246912.0,
+          "tax": 44444.16,
+          "grand_total": 291356.16
+        }
+      }
+    },
+    {
+      "file": "eval_invoice_03_split_gst.pdf",
+      "voice": "split_gst_cgst_sgst",
+      "difficulty": "medium",
+      "sha256": "10104cb4dd15e2d6435bfcaf81e59f04e654c4a32c57acdf4a709d1a709f2f93",
+      "bytes": 1327,
+      "arithmetic": {
+        "consistent": true,
+        "variance": 0.0,
+        "variance_field": null
+      },
+      "ground_truth": {
+        "vendor": {
+          "name": "Sunbeam Electricals Pvt Ltd",
+          "tax_id": "27AABCS1234F1Z5"
+        },
+        "invoice": {
+          "number": "INV-EVAL-003",
+          "date": "2026-11-03",
+          "currency": "INR",
+          "po_reference": "PO-EVAL-003",
+          "payment_terms": "Net 30"
+        },
+        "lines": [
+          {
+            "item": "Solar Cable Kit",
+            "quantity": 5.0,
+            "unit_price": 1200.0,
+            "tax_pct": 18.0,
+            "line_total": 7080.0
+          }
+        ],
+        "totals": {
+          "subtotal": 6000.0,
+          "tax": 1080.0,
+          "grand_total": 7080.0
+        }
+      }
+    },
+    {
+      "file": "eval_invoice_04_tds_withheld.pdf",
+      "voice": "tds_withheld",
+      "difficulty": "medium",
+      "sha256": "0c55379ad2650a0bfa6e7631ec4a97b035539f2347782758b398d56d336bd9e7",
+      "bytes": 1349,
+      "arithmetic": {
+        "consistent": true,
+        "variance": 0.0,
+        "variance_field": null
+      },
+      "ground_truth": {
+        "vendor": {
+          "name": "Sunbeam Electricals Pvt Ltd",
+          "tax_id": "27AABCS1234F1Z5"
+        },
+        "invoice": {
+          "number": "INV-EVAL-004",
+          "date": "2026-11-04",
+          "currency": "INR",
+          "po_reference": "PO-EVAL-004",
+          "payment_terms": "Net 30"
+        },
+        "lines": [
+          {
+            "item": "Facility Management Service",
+            "quantity": 1.0,
+            "unit_price": 50000.0,
+            "tax_pct": 18.0,
+            "line_total": 59000.0
+          }
+        ],
+        "totals": {
+          "subtotal": 50000.0,
+          "tax": 9000.0,
+          "grand_total": 59000.0
+        }
+      }
+    },
+    {
+      "file": "eval_invoice_05_revision_suffix.pdf",
+      "voice": "revision_suffix",
+      "difficulty": "medium",
+      "sha256": "edbda00b6ff293a45d81a079339f4aafc85047228ca98f4f3f2dcc7a7753a7b1",
+      "bytes": 1312,
+      "arithmetic": {
+        "consistent": true,
+        "variance": 0.0,
+        "variance_field": null
+      },
+      "ground_truth": {
+        "vendor": {
+          "name": "Sunbeam Electricals Pvt Ltd",
+          "tax_id": "27AABCS1234F1Z5"
+        },
+        "invoice": {
+          "number": "INV-EVAL-005-R2",
+          "date": "2026-11-05",
+          "currency": "INR",
+          "po_reference": "PO-EVAL-005",
+          "payment_terms": "Net 30"
+        },
+        "lines": [
+          {
+            "item": "LED Panel 18W",
+            "quantity": 6.0,
+            "unit_price": 420.0,
+            "tax_pct": 18.0,
+            "line_total": 2973.6
+          }
+        ],
+        "totals": {
+          "subtotal": 2520.0,
+          "tax": 453.6,
+          "grand_total": 2973.6
+        }
+      }
+    },
+    {
+      "file": "eval_invoice_06_us_format.pdf",
+      "voice": "us_format",
+      "difficulty": "medium",
+      "sha256": "43b08254e2529324f70e092b738a4508071a69ae9dd9c31ac290c77aea3a4f69",
+      "bytes": 1327,
+      "arithmetic": {
+        "consistent": true,
+        "variance": 0.0,
+        "variance_field": null
+      },
+      "ground_truth": {
+        "vendor": {
+          "name": "Acme Industrial Supply Inc",
+          "tax_id": "98-1234567"
+        },
+        "invoice": {
+          "number": "INV-US-EVAL-006",
+          "date": "2026-11-06",
+          "currency": "USD",
+          "po_reference": "PO-US-EVAL-006",
+          "payment_terms": "Net 30"
+        },
+        "lines": [
+          {
+            "item": "Steel Bracket Kit",
+            "quantity": 3.0,
+            "unit_price": 1200.0,
+            "tax_pct": 8.25,
+            "line_total": 3897.0
+          }
+        ],
+        "totals": {
+          "subtotal": 3600.0,
+          "tax": 297.0,
+          "grand_total": 3897.0
+        }
+      }
+    },
+    {
+      "file": "eval_invoice_07_ocr_spacing.pdf",
+      "voice": "ocr_spacing",
+      "difficulty": "hard",
+      "sha256": "e5fd405d6c50c7c74601c1eed6495aa7f5ff9cedb1a59834d88da1c070675172",
+      "bytes": 1323,
+      "arithmetic": {
+        "consistent": true,
+        "variance": 0.0,
+        "variance_field": null
+      },
+      "ground_truth": {
+        "vendor": {
+          "name": "Sunbeam Electricals Pvt Ltd",
+          "tax_id": "27AABCS1234F1Z5"
+        },
+        "invoice": {
+          "number": "INV-EVAL-007",
+          "date": "2026-11-07",
+          "currency": "INR",
+          "po_reference": "PO-EVAL-007",
+          "payment_terms": "Net 30"
+        },
+        "lines": [
+          {
+            "item": "Copper Wire Roll",
+            "quantity": 4.0,
+            "unit_price": 850.0,
+            "tax_pct": 18.0,
+            "line_total": 4012.0
+          }
+        ],
+        "totals": {
+          "subtotal": 3400.0,
+          "tax": 612.0,
+          "grand_total": 4012.0
+        }
+      }
+    },
+    {
+      "file": "eval_invoice_08_multiline.pdf",
+      "voice": "multiline_items",
+      "difficulty": "medium",
+      "sha256": "910b51d870c3c278439cee47a8d0c72e897467548036946c4571495dc5adbc3d",
+      "bytes": 1789,
+      "arithmetic": {
+        "consistent": true,
+        "variance": 0.0,
+        "variance_field": null
+      },
+      "ground_truth": {
+        "vendor": {
+          "name": "Sunbeam Electricals Pvt Ltd",
+          "tax_id": "27AABCS1234F1Z5"
+        },
+        "invoice": {
+          "number": "INV-EVAL-008",
+          "date": "2026-11-08",
+          "currency": "INR",
+          "po_reference": "PO-EVAL-008",
+          "payment_terms": "Net 30"
+        },
+        "lines": [
+          {
+            "item": "A4 Paper Box",
+            "quantity": 20.0,
+            "unit_price": 240.0,
+            "tax_pct": 18.0,
+            "line_total": 5664.0
+          },
+          {
+            "item": "Stapler Pack",
+            "quantity": 10.0,
+            "unit_price": 150.0,
+            "tax_pct": 18.0,
+            "line_total": 1770.0
+          },
+          {
+            "item": "Whiteboard Marker Set",
+            "quantity": 25.0,
+            "unit_price": 80.0,
+            "tax_pct": 18.0,
+            "line_total": 2360.0
+          }
+        ],
+        "totals": {
+          "subtotal": 8300.0,
+          "tax": 1494.0,
+          "grand_total": 9794.0
+        }
+      }
+    },
+    {
+      "file": "eval_invoice_09_eur_decimal.pdf",
+      "voice": "eur_decimal_comma",
+      "difficulty": "hard",
+      "sha256": "d475ec409b2a8c2dce37cc696bdb4de5c02d35c4b259bc3b0991168504002179",
+      "bytes": 1319,
+      "arithmetic": {
+        "consistent": true,
+        "variance": 0.0,
+        "variance_field": null
+      },
+      "ground_truth": {
+        "vendor": {
+          "name": "Helix Europa GmbH",
+          "tax_id": "DE812345678"
+        },
+        "invoice": {
+          "number": "INV-EU-EVAL-009",
+          "date": "2026-11-09",
+          "currency": "EUR",
+          "po_reference": "PO-EU-EVAL-009",
+          "payment_terms": "Net 30"
+        },
+        "lines": [
+          {
+            "item": "Precision Bearing Set",
+            "quantity": 2.0,
+            "unit_price": 1250.0,
+            "tax_pct": 0.0,
+            "line_total": 2500.0
+          }
+        ],
+        "totals": {
+          "subtotal": 2500.0,
+          "tax": 0.0,
+          "grand_total": 2500.0
+        }
+      }
+    },
+    {
+      "file": "eval_invoice_10_rounding_drift.pdf",
+      "voice": "rounding_drift",
+      "difficulty": "hard",
+      "sha256": "7ebee500ad24b3750e376fd2bb406841f52dcc60a36dd5d6a88b8a011fb905f1",
+      "bytes": 1315,
+      "arithmetic": {
+        "consistent": false,
+        "variance": 0.02,
+        "variance_field": "line_total"
+      },
+      "ground_truth": {
+        "vendor": {
+          "name": "Sunbeam Electricals Pvt Ltd",
+          "tax_id": "27AABCS1234F1Z5"
+        },
+        "invoice": {
+          "number": "INV-EVAL-010",
+          "date": "2026-11-10",
+          "currency": "INR",
+          "po_reference": "PO-EVAL-010",
+          "payment_terms": "Net 30"
+        },
+        "lines": [
+          {
+            "item": "Safety Gloves Pair",
+            "quantity": 33.0,
+            "unit_price": 147.33,
+            "tax_pct": 18.0,
+            "line_total": 5737.05
+          }
+        ],
+        "totals": {
+          "subtotal": 4861.89,
+          "tax": 875.14,
+          "grand_total": 5737.03
+        }
+      }
+    },
+    {
+      "file": "eval_invoice_11_tax_exempt.pdf",
+      "voice": "tax_exemption",
+      "difficulty": "easy",
+      "sha256": "44d1588421f7b3ac1ba9d953559b9a3fef1c6f515929de97e9477e05e00a9ec5",
+      "bytes": 1331,
+      "arithmetic": {
+        "consistent": true,
+        "variance": 0.0,
+        "variance_field": null
+      },
+      "ground_truth": {
+        "vendor": {
+          "name": "Sunbeam Electricals Pvt Ltd",
+          "tax_id": "27AABCS1234F1Z5"
+        },
+        "invoice": {
+          "number": "INV-EVAL-011",
+          "date": "2026-11-11",
+          "currency": "INR",
+          "po_reference": "PO-EVAL-011",
+          "payment_terms": "Net 30"
+        },
+        "lines": [
+          {
+            "item": "Export Freight Service",
+            "quantity": 1.0,
+            "unit_price": 15000.0,
+            "tax_pct": 0.0,
+            "line_total": 15000.0
+          }
+        ],
+        "totals": {
+          "subtotal": 15000.0,
+          "tax": 0.0,
+          "grand_total": 15000.0
+        }
+      }
+    },
+    {
+      "file": "eval_invoice_12_cross_variance.pdf",
+      "voice": "cross_total_variance",
+      "difficulty": "hard",
+      "sha256": "9c1b439d24f50a04e32a758d82687d064cc001dc6f4086b2bacb75bf4fd62434",
+      "bytes": 1317,
+      "arithmetic": {
+        "consistent": false,
+        "variance": 500.0,
+        "variance_field": "grand_total"
+      },
+      "ground_truth": {
+        "vendor": {
+          "name": "Sunbeam Electricals Pvt Ltd",
+          "tax_id": "27AABCS1234F1Z5"
+        },
+        "invoice": {
+          "number": "INV-EVAL-012",
+          "date": "2026-11-12",
+          "currency": "INR",
+          "po_reference": "PO-EVAL-012",
+          "payment_terms": "Net 30"
+        },
+        "lines": [
+          {
+            "item": "Industrial Pump",
+            "quantity": 1.0,
+            "unit_price": 18500.0,
+            "tax_pct": 18.0,
+            "line_total": 21830.0
+          }
+        ],
+        "totals": {
+          "subtotal": 18500.0,
+          "tax": 3330.0,
+          "grand_total": 22330.0
+        }
+      }
+    }
+  ]
+}
