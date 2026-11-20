@@ -1,6 +1,6 @@
 """Service layer between the API routes and the deterministic core.
 
-Everything in this module is framework-free (stdlib + app.detect/explain only)
+Everything in this module is framework-free (stdlib + app.detect/extract/explain only)
 so the full pipeline is unit-testable without installing FastAPI.
 """
 from __future__ import annotations
@@ -13,10 +13,74 @@ import sqlite3
 from . import config
 from .detect import DetectionContext, run_all
 from .explain.gemini_explain import fallback_without_gemini
+from .extract import extract_document
+
+_ALLOWED_COLUMNS = {
+    "vendors": {"vendor_id", "vendor_name", "tax_id", "default_currency", "status"},
+    "contracts": {
+        "contract_id", "vendor_id", "item", "contracted_unit_price", "currency",
+        "discount_pct", "payment_terms", "tax_pct", "start_date", "end_date", "status",
+    },
+    "purchase_orders": {
+        "po_id", "po_line", "vendor_id", "item", "quantity", "unit_price",
+        "currency", "order_date", "expected_delivery", "status",
+    },
+    "invoices": {
+        "invoice_number", "vendor_id", "invoice_date", "po_id", "line_no", "item",
+        "quantity", "unit_price", "currency", "tax_pct", "line_total", "source_file", "status",
+    },
+    "payments": {
+        "payment_id", "invoice_number", "amount", "currency", "fx_rate_to_inr",
+        "payment_date", "status",
+    },
+}
 
 
 def _rows(conn: sqlite3.Connection, table: str) -> list[dict]:
     return [dict(row) for row in conn.execute(f"SELECT * FROM {table}").fetchall()]
+
+
+def _ensure_vendor_exists(
+    conn: sqlite3.Connection,
+    vendor_id: str,
+    vendor_name: str | None = None,
+    currency: str = "INR",
+) -> None:
+    if not vendor_id:
+        return
+    exists = conn.execute(
+        "SELECT 1 FROM vendors WHERE vendor_id = ?", (vendor_id,)
+    ).fetchone()
+    if exists is None:
+        conn.execute(
+            "INSERT INTO vendors (vendor_id, vendor_name, default_currency, status) "
+            "VALUES (?, ?, ?, 'active')",
+            (vendor_id, vendor_name or vendor_id, currency or "INR"),
+        )
+
+
+def _insert_table_rows(conn: sqlite3.Connection, table_name: str, records: list[dict]) -> int:
+    allowed = _ALLOWED_COLUMNS[table_name]
+    inserted = 0
+    for row in records:
+        if table_name in ("contracts", "purchase_orders", "invoices"):
+            _ensure_vendor_exists(
+                conn,
+                str(row.get("vendor_id") or ""),
+                row.get("vendor_name"),
+                str(row.get("currency") or "INR"),
+            )
+        filtered = {k: v for k, v in row.items() if k in allowed}
+        if not filtered:
+            continue
+        cols = list(filtered.keys())
+        placeholders = ",".join(["?"] * len(cols))
+        conn.execute(
+            f"INSERT OR REPLACE INTO {table_name} ({','.join(cols)}) VALUES ({placeholders})",
+            list(filtered.values()),
+        )
+        inserted += 1
+    return inserted
 
 
 def generate_explanation_for_finding(finding_dict: dict) -> dict:
@@ -28,6 +92,61 @@ def generate_explanation_for_finding(finding_dict: dict) -> dict:
         except Exception:
             pass
     return fallback_without_gemini(finding_dict)
+
+
+def run_extraction_for_batch(conn: sqlite3.Connection, batch_id: str) -> dict:
+    """Extract CSV or PDF/scan for a registered batch and persist normalized rows."""
+    batch = conn.execute(
+        "SELECT * FROM batches WHERE batch_id = ?", (batch_id,)
+    ).fetchone()
+    if batch is None:
+        raise LookupError(f"batch not found: {batch_id}")
+
+    kind = batch["kind"]
+    stored_path = Path(batch["stored_path"])
+    if not stored_path.exists():
+        raise FileNotFoundError(f"uploaded file missing for batch {batch_id}: {stored_path}")
+
+    table_name = "payments" if kind == "payment_ledger" else kind
+    if table_name not in _ALLOWED_COLUMNS:
+        raise ValueError(f"unsupported batch kind: {kind}")
+
+    result = extract_document(stored_path, kind=kind)
+    records = result.get("records") or []
+    rows_persisted = _insert_table_rows(conn, table_name, records)
+
+    new_state = "needs_review" if result.get("needs_review") else "extracted"
+    conn.execute(
+        "UPDATE batches SET state = ?, rows_detected = ? WHERE batch_id = ?",
+        (new_state, rows_persisted, batch_id),
+    )
+    conn.execute(
+        """INSERT INTO audit_log (actor, action, object_type, object_id, detail)
+           VALUES ('extract_pipeline', 'extract', 'batch', ?, ?)""",
+        (
+            batch_id,
+            json.dumps({
+                "kind": kind,
+                "mode": result.get("mode"),
+                "model": result.get("model"),
+                "rows_extracted": rows_persisted,
+                "warnings": len(result.get("verification_warnings") or []),
+            }),
+        ),
+    )
+    conn.commit()
+
+    return {
+        "batch_id": batch_id,
+        "kind": kind,
+        "state": new_state,
+        "mode": result.get("mode"),
+        "model": result.get("model"),
+        "rows_extracted": rows_persisted,
+        table_name: rows_persisted,
+        "verification_warnings": result.get("verification_warnings") or [],
+        "needs_review": bool(result.get("needs_review")),
+    }
 
 
 def run_detection(conn: sqlite3.Connection) -> dict:
@@ -85,6 +204,7 @@ def record_decision(conn: sqlite3.Connection, finding_id: str, action: str,
         "reject": "rejected",
         "request_docs": "open",
         "recovery": "recovery",
+        "recover": "recovery",
     }
     if action not in status_by_action:
         raise ValueError(f"unknown action: {action}")
@@ -124,7 +244,6 @@ def get_finding_with_sources(conn: sqlite3.Connection, finding_id: str) -> dict 
         except Exception:
             pass
 
-    # Source records resolution
     source_records = {
         "invoices": [],
         "purchase_orders": [],
@@ -172,7 +291,6 @@ def get_finding_with_sources(conn: sqlite3.Connection, finding_id: str) -> dict 
             ).fetchall()
         ]
     elif inv_nums:
-        # Check payments tied to these invoice numbers
         placeholders = ",".join(["?"] * len(inv_nums))
         source_records["payments"] = [
             dict(r) for r in conn.execute(
@@ -188,7 +306,6 @@ def get_finding_with_sources(conn: sqlite3.Connection, finding_id: str) -> dict 
             ).fetchall()
         ]
 
-    # Decisions history
     decisions = [
         dict(r) for r in conn.execute(
             "SELECT * FROM decisions WHERE finding_id = ? ORDER BY id ASC", (finding_id,)
@@ -223,7 +340,6 @@ def get_stats(conn: sqlite3.Connection) -> dict:
         st = f["status"].lower()
         by_status[st] = by_status.get(st, 0) + 1
 
-    # Invoices total amount
     total_audited_spend = 0.0
     try:
         spend_row = conn.execute("SELECT SUM(line_total) AS s FROM invoices").fetchone()
@@ -254,7 +370,6 @@ def ingest_csv_file_to_table(conn: sqlite3.Connection, path: Path, kind: str) ->
         reader = csv.DictReader(f)
         for row in reader:
             cleaned_row = {k.strip(): (v.strip() if isinstance(v, str) else v) for k, v in row.items()}
-            # Cast numeric fields appropriately if present
             for num_col in ("quantity", "unit_price", "tax_pct", "line_total", "amount",
                             "contracted_unit_price", "discount_pct", "fx_rate_to_inr"):
                 if num_col in cleaned_row and cleaned_row[num_col]:
@@ -277,7 +392,6 @@ def ingest_csv_file_to_table(conn: sqlite3.Connection, path: Path, kind: str) ->
 
 def seed_sample_dataset(conn: sqlite3.Connection, sample_dir: Path) -> dict:
     """Populate database from sample_data CSVs and run detection."""
-    # Reset existing decisions, findings, and demo batches for an idempotent demo
     conn.execute("DELETE FROM decisions")
     conn.execute("DELETE FROM findings")
     conn.execute("DELETE FROM audit_log")
@@ -290,13 +404,17 @@ def seed_sample_dataset(conn: sqlite3.Connection, sample_dir: Path) -> dict:
         if csv_file.exists():
             counts[kind] = ingest_csv_file_to_table(conn, csv_file, kind)
 
-    # Register demo batch
     cur = conn.execute("SELECT COUNT(*) AS n FROM batches")
     batch_id = f"DEMO-{cur.fetchone()['n'] + 1:04d}"
     conn.execute(
         "INSERT INTO batches (batch_id, kind, stored_path, rows_detected, state) "
         "VALUES (?, 'sample_data_demo', 'sample_data/', ?, 'detected')",
         (batch_id, sum(counts.values())),
+    )
+    conn.execute(
+        """INSERT INTO audit_log (actor, action, object_type, object_id, detail)
+           VALUES ('demo_seed', 'ingest', 'batch', ?, ?)""",
+        (batch_id, f"Seeded sample_data CSVs ({sum(counts.values())} rows)"),
     )
     conn.commit()
 
@@ -327,10 +445,10 @@ def build_memo(conn: sqlite3.Connection) -> str:
     lines = [
         "# LedgerLens Audit Memo",
         "",
-        f"**Executive Spend Exposure Summary**",
+        "**Executive Spend Exposure Summary**",
         f"- **Total identified exposure:** ₹{total_exposure:,.2f} across {len(findings)} finding(s).",
         f"- **Outstanding / active at risk:** ₹{total_open_at_risk:,.2f}.",
-        f"- **Pipeline status:** Automated audit verification completed.",
+        "- **Pipeline status:** Automated audit verification completed.",
         "",
         "## Exposure by Rule",
     ]

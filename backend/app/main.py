@@ -6,19 +6,20 @@ Endpoints:
   [done] GET  /api/batches                  — list all ingested document batches
   [done] POST /api/ingest/upload            — stores file, validates CSV, ingests rows into DB
   [done] POST /api/seed/sample_data         — 1-click load demo dataset & run detection
+  [done] POST /api/run/{batch_id}/extract   — Gemini/CSV extraction + math verification
   [done] POST /api/run/{batch_id}/detect    — normalize + R1..R5 over the DB
   [done] GET  /api/findings                 — exception queue with filters
   [done] GET  /api/findings/{id}            — finding + joined evidence source records
   [done] POST /api/findings/{id}/decision   — approve/reject/request_docs/recovery
   [done] GET  /api/memo                     — deterministic audit memo
   [done] GET  /api/audit-log                — immutable decision history
-  [todo] POST /api/run/{batch_id}/extract   — Gemini extraction for raw scans
 """
 from __future__ import annotations
 
 import json
 from contextlib import asynccontextmanager
 from pathlib import Path
+import sqlite3
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -34,13 +35,26 @@ from .services import (
     ingest_csv_file_to_table,
     record_decision,
     run_detection,
+    run_extraction_for_batch,
     seed_sample_dataset,
 )
 
 
+def _get_ready_conn() -> sqlite3.Connection:
+    """Open configured SQLite connection and lazily initialize schema if absent."""
+    conn = get_connection()
+    has_batches = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='batches'"
+    ).fetchone()
+    if has_batches is None:
+        init_schema(conn)
+    return conn
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    init_schema(get_connection())
+    conn = _get_ready_conn()
+    conn.close()
     yield
 
 
@@ -70,7 +84,7 @@ def health() -> dict:
 @app.get("/api/stats")
 def stats() -> dict:
     """Return dashboard analytics and spend exposure KPIs."""
-    conn = get_connection()
+    conn = _get_ready_conn()
     try:
         return get_stats(conn)
     finally:
@@ -80,7 +94,7 @@ def stats() -> dict:
 @app.get("/api/batches")
 def list_batches() -> list[dict]:
     """List all ingested document batches."""
-    conn = get_connection()
+    conn = _get_ready_conn()
     try:
         rows = conn.execute(
             "SELECT * FROM batches ORDER BY created_at DESC"
@@ -92,7 +106,7 @@ def list_batches() -> list[dict]:
 
 @app.get("/api/batches/{batch_id}")
 def get_batch(batch_id: str) -> dict:
-    conn = get_connection()
+    conn = _get_ready_conn()
     try:
         row = conn.execute(
             "SELECT * FROM batches WHERE batch_id = ?", (batch_id,)
@@ -107,7 +121,7 @@ def get_batch(batch_id: str) -> dict:
 @app.post("/api/seed/sample_data")
 def seed_demo_data() -> dict:
     """1-click populate the database with the official demo sample dataset."""
-    conn = get_connection()
+    conn = _get_ready_conn()
     try:
         sample_dir = Path(__file__).resolve().parent.parent.parent / "sample_data"
         if not sample_dir.exists():
@@ -123,7 +137,7 @@ async def upload(kind: str = Form(...), file: UploadFile = File(...)) -> dict:
     if kind not in VALID_KINDS:
         raise HTTPException(status_code=400, detail=f"unknown kind: {kind}")
 
-    conn = get_connection()
+    conn = _get_ready_conn()
     try:
         cur = conn.execute("SELECT COUNT(*) AS n FROM batches")
         batch_id = f"B-{cur.fetchone()['n'] + 1:04d}"
@@ -139,10 +153,16 @@ async def upload(kind: str = Form(...), file: UploadFile = File(...)) -> dict:
                 with dest.open("r", encoding="utf-8", errors="replace") as fh:
                     rows_detected = max(sum(1 for _ in fh) - 1, 0)
 
+        state = "uploaded" if (problems or dest.suffix.lower() != ".csv") else "ready"
         conn.execute(
             "INSERT INTO batches (batch_id, kind, stored_path, rows_detected, state) "
             "VALUES (?, ?, ?, ?, ?)",
-            (batch_id, kind, str(dest), rows_detected, "uploaded" if problems else "ready"),
+            (batch_id, kind, str(dest), rows_detected, state),
+        )
+        conn.execute(
+            """INSERT INTO audit_log (actor, action, object_type, object_id, detail)
+               VALUES ('ingest_api', 'ingest', 'batch', ?, ?)""",
+            (batch_id, f"Uploaded {dest.name} ({kind}, {rows_detected} rows)"),
         )
         conn.commit()
         return {
@@ -158,16 +178,23 @@ async def upload(kind: str = Form(...), file: UploadFile = File(...)) -> dict:
 
 @app.post("/api/run/{batch_id}/extract")
 def run_extract(batch_id: str) -> dict:
-    # Gemini extraction endpoint for scanned PDFs (docs/06)
-    raise HTTPException(
-        status_code=501,
-        detail="Gemini PDF extraction endpoint — CSV path is already ingested and ready for detection.",
-    )
+    """Extract CSV or PDF/scan batch into normalized structured records (docs/06)."""
+    conn = _get_ready_conn()
+    try:
+        return run_extraction_for_batch(conn, batch_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        conn.close()
 
 
 @app.post("/api/run/{batch_id}/detect")
 def run_detect(batch_id: str) -> dict:
-    conn = get_connection()
+    conn = _get_ready_conn()
     try:
         result = run_detection(conn)
         conn.execute("UPDATE batches SET state = 'detected' WHERE batch_id = ?", (batch_id,))
@@ -181,7 +208,7 @@ def run_detect(batch_id: str) -> dict:
 @app.post("/api/run-detection")
 def run_global_detect() -> dict:
     """Trigger full detection across all current tables."""
-    conn = get_connection()
+    conn = _get_ready_conn()
     try:
         return run_detection(conn)
     finally:
@@ -204,7 +231,7 @@ def list_findings(status: str | None = None, severity: str | None = None,
         params.append(rule_id)
     query += " ORDER BY amount_at_risk DESC"
 
-    conn = get_connection()
+    conn = _get_ready_conn()
     try:
         rows = [dict(r) for r in conn.execute(query, params).fetchall()]
     finally:
@@ -222,7 +249,7 @@ def list_findings(status: str | None = None, severity: str | None = None,
 
 @app.get("/api/findings/{finding_id}")
 def get_finding(finding_id: str) -> dict:
-    conn = get_connection()
+    conn = _get_ready_conn()
     try:
         finding = get_finding_with_sources(conn, finding_id)
         if finding is None:
@@ -234,7 +261,7 @@ def get_finding(finding_id: str) -> dict:
 
 @app.post("/api/findings/{finding_id}/decision")
 def decide(finding_id: str, body: DecisionIn) -> dict:
-    conn = get_connection()
+    conn = _get_ready_conn()
     try:
         return record_decision(conn, finding_id, body.action, body.reviewer, body.note)
     except LookupError as exc:
@@ -247,7 +274,7 @@ def decide(finding_id: str, body: DecisionIn) -> dict:
 
 @app.get("/api/memo")
 def memo() -> dict:
-    conn = get_connection()
+    conn = _get_ready_conn()
     try:
         return {"memo_markdown": build_memo(conn)}
     finally:
@@ -256,7 +283,7 @@ def memo() -> dict:
 
 @app.get("/api/audit-log")
 def audit_log() -> list[dict]:
-    conn = get_connection()
+    conn = _get_ready_conn()
     try:
         rows = conn.execute("SELECT * FROM audit_log ORDER BY id DESC LIMIT 100").fetchall()
         return [dict(r) for r in rows]

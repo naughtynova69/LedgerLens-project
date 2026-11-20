@@ -1,6 +1,46 @@
 """Gemini extraction stage — unstructured documents -> canonical JSON (docs/06)."""
-from .gemini_extract import EXTRACTION_SYSTEM_PROMPT, extract_contract, extract_invoice
-from .schemas import CONTRACT_SCHEMA, INVOICE_SCHEMA
+from .gemini_extract import (
+    EXTRACTION_SYSTEM_PROMPT,
+    extract_contract,
+    extract_document,
+    extract_invoice,
+    select_extraction_model,
+    verify_extracted_line_totals,
+)
+from .schemas import (
+    CONTRACT_SCHEMA,
+    INVOICE_SCHEMA,
+    ContractHeaderExtracted,
+    ContractLineExtracted,
+    ExtractedContractPayload,
+    ExtractedInvoicePayload,
+    ExtractedPOPayload,
+    InvoiceHeaderExtracted,
+    InvoiceLineExtracted,
+    InvoiceTotalsExtracted,
+    POHeaderExtracted,
+    POLineExtracted,
+    VendorExtracted,
+)
 
-__all__ = ["extract_invoice", "extract_contract", "EXTRACTION_SYSTEM_PROMPT",
-           "INVOICE_SCHEMA", "CONTRACT_SCHEMA"]
+__all__ = [
+    "extract_invoice",
+    "extract_contract",
+    "extract_document",
+    "select_extraction_model",
+    "verify_extracted_line_totals",
+    "EXTRACTION_SYSTEM_PROMPT",
+    "INVOICE_SCHEMA",
+    "CONTRACT_SCHEMA",
+    "VendorExtracted",
+    "InvoiceHeaderExtracted",
+    "InvoiceLineExtracted",
+    "InvoiceTotalsExtracted",
+    "ExtractedInvoicePayload",
+    "ContractHeaderExtracted",
+    "ContractLineExtracted",
+    "ExtractedContractPayload",
+    "POHeaderExtracted",
+    "POLineExtracted",
+    "ExtractedPOPayload",
+]
