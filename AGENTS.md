@@ -3,7 +3,7 @@
 ## 1. Repository & Git Guardrails
 - **Target GitHub Repository:** `https://github.com/naughtynova69/LedgerLens-project` (GitHub account: `naughtynova69`)
 - **HARD GUARDRAIL:** NEVER add `Avani376/Ledgerlens` as a git remote, NEVER push to `Avani376`, and NEVER import its git history.
-- **Branch Protection Convention:** Keep `main` always green and deployable. Perform feature, fix, docs, and chore work on dedicated `feat/`, `fix/`, `docs/`, or `chore/` branches and merge cleanly into `main`.
+- **Branch Protection Convention:** Keep `main` always green and deployable. `main` is protected on GitHub (`Protect main` ruleset). All AI harnesses and models — including **ZCode (`GLM 5.3`)**, **Antigravity (`Gemini`)**, **Claude Code**, **Codex**, and **Cursor** — MUST follow [docs/AGENT_PR_WORKFLOW.md](docs/AGENT_PR_WORKFLOW.md): perform all work on dedicated `feat/`, `fix/`, `docs/`, or `chore/` branches, push only to that branch, and open a **Pull Request to `main`** for the repository owner to merge. NEVER commit, push, or auto-merge directly into `main`.
 
 ## 2. Core Neuro-Symbolic Invariant (Non-Negotiable)
 > **Gemini extracts and explains. Deterministic Python rules decide. Immutable workflow tables log.**

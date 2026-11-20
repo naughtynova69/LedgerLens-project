@@ -93,7 +93,7 @@ LedgerLens-project/
 │   ├── setup_gcp.sh        ← Idempotent GCP APIs, BigQuery, GCS, Pub/Sub & optional AlloyDB setup
 │   └── teardown_gcp.sh     ← Cost-safe teardown script
 ├── infra/bigquery/schema.sql ← BigQuery tables & executive ROI views
-├── docs/                   ← Specs (01–07), GCP_INTEGRATION_GUIDE.md, DEMO_RUNBOOK.md
+├── docs/                   ← Specs (01–07), PRD.md, AGENT_PR_WORKFLOW.md, GCP_INTEGRATION_GUIDE.md, DEMO_RUNBOOK.md
 ├── backend/                ← FastAPI app, extraction, normalization, R1–R5 rules, GCP & finance workflows
 │   ├── app/
 │   │   ├── main.py         (API routes + Cloud Run SPA static mount)
@@ -149,6 +149,17 @@ npm run dev
 - [x] Reviewer approve / reject / recovery workflow with immutable audit log
 - [x] One-click **CFO Audit Memo** (Markdown download + JSON summary)
 - [x] Cloud Run deployment readiness (`Dockerfile`, `cloudbuild.yaml`, `deploy/cloudrun.sh`) & 3-minute demo runbook
+
+## Pre-Requisite: AI Harness & Branch Protection Workflow
+
+`main` is protected by the GitHub **`Protect main`** repository ruleset (direct pushes, force-pushes, and branch deletions are blocked; Pull Requests are required).
+
+Before making or pushing changes, **all AI coding harnesses and their models** — including **ZCode (`GLM 5.3`)**, **Antigravity (`Gemini`)**, **Claude Code**, **Codex**, and **Cursor** — MUST follow **[docs/AGENT_PR_WORKFLOW.md](docs/AGENT_PR_WORKFLOW.md)** and **[AGENTS.md](AGENTS.md)**:
+
+1. **Never** commit, push, or merge directly into `main`.
+2. Branch from `origin/main` using `feat/<slug>`, `fix/<slug>`, `docs/<slug>`, or `chore/<slug>`.
+3. Run pre-PR checks (`pytest` + `npm --prefix frontend run build`) before pushing.
+4. Push only to your feature/docs branch (`git push -u origin <branch>`) and open a **Pull Request to `main`** for the repository owner to merge.
 
 ## Non-goals (do NOT build these)
 
