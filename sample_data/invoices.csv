@@ -1,12 +1,17 @@
-invoice_number,vendor_id,invoice_date,po_id,line_no,item,quantity,unit_price,currency,tax_pct,line_total,status,source_file
-INV-8821,V001,2026-10-14,PO-1001,1,LED Panel 18W,10,420.00,INR,18,4956.00,paid,invoices.csv
-INV-8821-R2,V001,2026-10-16,PO-1001,1,LED Panel 18W,10,420.00,INR,18,4956.00,paid,invoices.csv
-INV-9102,V001,2026-11-01,PO-1006,1,LED Panel 18W,6,465.00,INR,18,3292.20,unpaid,invoices.csv
-INV-9001,V001,2026-10-25,PO-1004,1,Cable Tray 2m,8,300.00,INR,18,2832.00,paid,invoices.csv
-INV-9155,V003,2026-11-02,PO-1008,1,A4 Paper Box,60,240.00,INR,18,17016.00,unpaid,invoices.csv
-INV-9010,V003,2026-10-28,PO-1002,1,A4 Paper Box,50,240.00,INR,18,14160.00,paid,invoices.csv
-INV-9201,V004,2026-11-03,PO-1003,1,Hex Bolt M8 (box of 100),5,45.00,EUR,0,225.00,unpaid,invoices.csv
-INV-9400,V004,2026-11-04,PO-1003,1,Hex Bolt M8 (box of 100),10,45.00,USD,0,450.00,unpaid,invoices.csv
-INV-9250,V002,2026-10-08,PO-1005,1,CloudSuite monthly subscription,1,25000.00,INR,18,29500.00,paid,invoices.csv
-INV-9301,V005,2026-11-05,,1,Export freight service,1,15000.00,INR,18,17700.00,unpaid,invoices.csv
-INV-9500,V006,2026-11-06,PO-1007,1,Domestic freight service,1,8000.00,INR,18,9440.00,paid,invoices.csv
+invoice_number,vendor_id,invoice_date,po_id,line_no,item,quantity,unit_price,currency,tax_pct,line_total,status,source_file,approver_id
+INV-8821,V001,2026-10-14,PO-1001,1,LED Panel 18W,10,420.00,INR,18,4956.00,paid,invoices.csv,
+INV-8821-R2,V001,2026-10-16,PO-1001,1,LED Panel 18W,10,420.00,INR,18,4956.00,paid,invoices.csv,
+INV-9102,V001,2026-11-01,PO-1006,1,LED Panel 18W,6,465.00,INR,18,3292.20,unpaid,invoices.csv,
+INV-9001,V001,2026-10-25,PO-1004,1,Cable Tray 2m,8,300.00,INR,18,2832.00,paid,invoices.csv,
+INV-9155,V003,2026-11-02,PO-1008,1,A4 Paper Box,60,240.00,INR,18,17016.00,unpaid,invoices.csv,
+INV-9010,V003,2026-10-28,PO-1002,1,A4 Paper Box,50,240.00,INR,18,14160.00,paid,invoices.csv,
+INV-9201,V004,2026-11-03,PO-1003,1,Hex Bolt M8 (box of 100),5,45.00,EUR,0,225.00,unpaid,invoices.csv,
+INV-9400,V004,2026-11-04,PO-1003,1,Hex Bolt M8 (box of 100),10,45.00,USD,0,450.00,unpaid,invoices.csv,
+INV-9250,V002,2026-10-08,PO-1005,1,CloudSuite monthly subscription,1,25000.00,INR,18,29500.00,paid,invoices.csv,
+INV-9301,V005,2026-11-05,,1,Export freight service,1,15000.00,INR,18,17700.00,unpaid,invoices.csv,
+INV-9500,V006,2026-11-06,PO-1007,1,Domestic freight service,1,8000.00,INR,18,9440.00,paid,invoices.csv,
+INV-9601,V001,2026-11-10,,1,Managed Network Operations,2,5000.00,INR,0,10000.00,unpaid,invoices.csv,
+INV-9602,V006,2026-11-15,,1,Warehouse Space Rental Nov,1,9500.00,INR,0,9500.00,unpaid,invoices.csv,
+INV-9701,V007,2026-11-12,,1,Industrial UPS Maintenance,4,3000.00,INR,0,12000.00,unpaid,invoices.csv,
+INV-9702,V008,2026-11-15,,1,Industrial UPS Maintenance,4,3000.00,INR,0,12000.00,unpaid,invoices.csv,
+INV-9801,V009,2026-11-18,,1,Facility Deep Cleaning,1,8500.00,INR,0,8500.00,unpaid,invoices.csv,A-001

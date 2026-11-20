@@ -8,6 +8,7 @@ export function FindingDetailModal({
   finding,
   onMakeDecision,
   isSubmitting,
+  onToast,
 }) {
   if (!finding) return null;
 
@@ -22,6 +23,7 @@ export function FindingDetailModal({
         finding={finding}
         onMakeDecision={onMakeDecision}
         isSubmitting={isSubmitting}
+        onToast={onToast}
       />
     </Modal>
   );

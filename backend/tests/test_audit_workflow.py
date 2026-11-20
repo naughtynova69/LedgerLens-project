@@ -55,8 +55,9 @@ def test_agent_skills_and_full_audit_lifecycle(monkeypatch, tmp_path):
     skills_res = client.get("/api/skills")
     assert skills_res.status_code == 200
     names = {t["name"] for t in skills_res.json()["tools"]}
-    assert names == {"fetch_payment_records", "generate_audit_memo", "route_recovery_task"}
-    assert len(GEMINI_TOOL_DECLARATIONS) == 3
+    assert names == {"fetch_payment_records", "generate_audit_memo", "route_recovery_task",
+                     "inspect_entity_graph"}
+    assert len(GEMINI_TOOL_DECLARATIONS) == 4
 
     # 3. Execute fetch_payment_records skill
     pay_res = client.post("/api/skills/fetch_payment_records", json={"invoice_number": "INV-8821"})

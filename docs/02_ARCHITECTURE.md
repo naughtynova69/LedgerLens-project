@@ -47,9 +47,10 @@ flowchart TB
 | Extract | `backend/app/extract/` | Gemini structured output → canonical JSON (schema in `extract/schemas.py`) | AI lead |
 | Normalize | `backend/app/normalize/` | Vendor-name variants, currency codes, units, tax codes → canonical forms | Data lead |
 | Store | `schema.sql` + `db.py` | SQLite tables mirroring `docs/03_DATA_MODEL.md` | Backend lead |
-| Detect | `backend/app/detect/` | R1–R5, pure functions: `(context) → [Finding]`. No DB, no network, no Gemini. | Detection owner |
-| Explain | `backend/app/explain/` | Finding JSON + evidence → headline, explanation, recommended action, confidence & limitations | AI lead |
-| Act | `main.py` routes + `frontend/` | Decisions, recovery tasks, audit memo | Frontend + Backend |
+| **Graph Projection** | `backend/app/graph/` | Idempotent LadybugDB projection of normalized records (typed NODE/REL tables, full deterministic rebuild) — multi-hop reasoning engine; SQLite/AlloyDB stays the system of record | Graph owner |
+| Detect | `backend/app/detect/` | R1–R5 tabular (pure functions) + R6–R8 deterministic Cypher evidence. No Gemini, no LLM. | Detection owner |
+| Explain | `backend/app/explain/` | Finding JSON + evidence + proof_subgraph → headline, explanation, recommended action, confidence & limitations | AI lead |
+| Act | `main.py` routes + `frontend/` | Decisions, recovery tasks, audit memo, `/api/graph/*` + EvidenceGraphCanvas | Frontend + Backend |
 
 ## 3. Journey of one invoice (walkthrough)
 

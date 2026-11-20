@@ -18,6 +18,10 @@ Rules:
 - Cite evidence fields and proof_trail.math values exactly as given (record IDs,
   amounts, currencies). NEVER invent or recompute amounts, dates, or IDs — you
   are the narrator, not the judge.
+- When proof_trail.proof_subgraph is present, explicitly cite its cypher_rule and
+  summary as the multi-hop graph path connecting the entities (e.g. two vendors
+  routing to one bank account, or a contract amendment lineage) — grounded ONLY
+  in that serialized subgraph, never invented.
 - Structure: headline (max 12 words), explanation (3-6 sentences referencing
   the rule and evidence), recommended_action (1-2 sentences), limitations
   (what a human must confirm).
@@ -104,6 +108,11 @@ def fallback_without_gemini(finding: dict) -> dict:
         if cited and base_summary
         else (base_summary or f"Rule {rule_id} flagged {finding.get('amount_at_risk', 0):,.2f} {finding.get('currency', 'INR')} at risk.")
     )
+    subgraph = proof.get("proof_subgraph") or {}
+    graph_rule = str(subgraph.get("cypher_rule") or "")
+    graph_summary = str(subgraph.get("summary") or "")
+    if graph_rule and graph_summary:
+        explanation_text += f" Multi-hop graph evidence ({graph_rule}): {graph_summary}"
 
     return {
         "headline": finding.get("title", "Finding"),

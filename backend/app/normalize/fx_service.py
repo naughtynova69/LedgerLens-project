@@ -12,6 +12,7 @@ import sqlite3
 from typing import Any
 import urllib.request
 
+from ..http_guard import guarded_urlopen
 from .normalize import REFERENCE_FX_RATES
 
 logger = logging.getLogger(__name__)
@@ -76,7 +77,9 @@ def fetch_live_fx_rates(
     positive rate to ``1 <CCY> = (1 / X) INR``.
     """
     req = urllib.request.Request(url, headers={"Accept": "application/json"})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    # SSRF guard: https-only, hostname denylist, public-IP resolution,
+    # redirect targets re-validated (see app.http_guard).
+    with guarded_urlopen(req, timeout=timeout) as resp:
         payload: dict[str, Any] = json.loads(resp.read().decode("utf-8"))
 
     raw_rates = payload.get("rates")

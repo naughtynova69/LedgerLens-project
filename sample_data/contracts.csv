@@ -1,6 +1,8 @@
-contract_id,vendor_id,item,contracted_unit_price,currency,discount_pct,payment_terms,tax_pct,start_date,end_date,status
-C-001,V001,LED Panel 18W,420.00,INR,0,Net 30,18,2026-01-01,2026-12-31,active
-C-002,V003,A4 Paper Box,240.00,INR,2,Net 15,18,2026-01-01,2026-12-31,active
-C-003,V004,Hex Bolt M8 (box of 100),45.00,USD,0,Net 30,0,2026-01-01,2026-12-31,active
-C-004,V005,Export freight service,15000.00,INR,0,Net 15,0,2026-01-01,2027-12-31,active
-C-005,V002,CloudSuite monthly subscription,25000.00,INR,0,Net 15,18,2026-04-01,2026-09-30,cancelled
+contract_id,vendor_id,item,contracted_unit_price,currency,discount_pct,payment_terms,tax_pct,start_date,end_date,status,amends_contract_id,version
+C-001,V001,LED Panel 18W,420.00,INR,0,Net 30,18,2026-01-01,2026-12-31,active,,1
+C-002,V003,A4 Paper Box,240.00,INR,2,Net 15,18,2026-01-01,2026-12-31,active,,1
+C-003,V004,Hex Bolt M8 (box of 100),45.00,USD,0,Net 30,0,2026-01-01,2026-12-31,active,,1
+C-004,V005,Export freight service,15000.00,INR,0,Net 15,0,2026-01-01,2027-12-31,active,,1
+C-005,V002,CloudSuite monthly subscription,25000.00,INR,0,Net 15,18,2026-04-01,2026-09-30,cancelled,,1
+C-006,V001,Managed Network Operations,5000.00,INR,0,Net 30,0,2026-01-01,2026-12-31,active,,1
+C-007,V001,Managed Network Operations,4500.00,INR,0,Net 30,0,2026-11-01,2027-12-31,amended,C-006,2

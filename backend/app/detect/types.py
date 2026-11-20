@@ -8,6 +8,8 @@ VALID_RECOMMENDED_ACTIONS = (
     "REQUEST_CREDIT_NOTE",
     "DISPUTE_VENDOR",
     "CANCEL_AUTOPAY",
+    "HOLD_PAYMENT_AND_ESCALATE_INTERNAL_AUDIT",
+    "APPLY_CREDIT_NOTE",
 )
 
 
@@ -52,6 +54,11 @@ class Finding:
         if self.recommended_action not in VALID_RECOMMENDED_ACTIONS:
             self.recommended_action = "HOLD_PAYMENT"
         math_payload = dict(self.proof_trail.get("math", {})) if isinstance(self.proof_trail, dict) else {}
+        graph_payload = (
+            self.proof_trail.get("proof_subgraph")
+            if isinstance(self.proof_trail, dict)
+            else None
+        )
         self.proof_trail = {
             "rule_id": self.rule_id,
             "severity": self.severity,
@@ -63,6 +70,8 @@ class Finding:
             "math": math_payload,
             "recommended_action": self.recommended_action,
         }
+        if graph_payload is not None:
+            self.proof_trail["proof_subgraph"] = graph_payload
 
     def as_dict(self) -> dict:
         return {

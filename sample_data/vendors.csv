@@ -1,7 +1,10 @@
-vendor_id,vendor_name,tax_id,default_currency,status
-V001,Sunbeam Electricals Pvt Ltd,GSTIN07AAACS1234A1Z5,INR,active
-V002,NimbusCloud Software Pvt Ltd,GSTIN07BBBNC5678B1Z3,INR,active
-V003,Helix Office Supplies LLP,GSTIN07AAAFH9012H1ZK,INR,active
-V004,GlobalParts Trading Co,EIN-98-1234567,USD,active
-V005,Vertex Hardware Traders,GSTIN06AACCV3456V1Z2,INR,active
-V006,Acme Logistics Services,GSTIN07AACCA1111A1Z9,INR,active
+vendor_id,vendor_name,tax_id,default_currency,status,bank_account,email,phone,address
+V001,Sunbeam Electricals Pvt Ltd,GSTIN07AAACS1234A1Z5,INR,active,,,,
+V002,NimbusCloud Software Pvt Ltd,GSTIN07BBBNC5678B1Z3,INR,active,,,,
+V003,Helix Office Supplies LLP,GSTIN07AAAFH9012H1ZK,INR,active,,,,
+V004,GlobalParts Trading Co,EIN-98-1234567,USD,active,,,,
+V005,Vertex Hardware Traders,GSTIN06AACCV3456V1Z2,INR,active,,,,
+V006,Acme Logistics Services,GSTIN07AACCA1111A1Z9,INR,active,,,,
+V007,Sunbeam Power Systems Pvt Ltd,GSTIN07AAASP7777P1Z7,INR,active,HDFC50100234567841,ap@sunbeampower.example,+91 98450 22222,"12 Industrial Layout, Bengaluru, IN"
+V008,Sunbeam Energy Solutions Pvt Ltd,GSTIN07AAASE8888E1Z8,INR,active,HDFC50100234567841,ops@sunbeamenergy.example,+91 98450 33333,"8 Whitefield Road, Bengaluru, IN"
+V009,Menon Facility Care LLP,GSTIN07AAAMF9999F1Z9,INR,active,SBIN0001234567890123,care@menonfacility.example,+91 98450 44444,"12 MG Road, Bengaluru, IN"

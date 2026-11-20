@@ -17,7 +17,14 @@ DEFAULT_FX_RATES: dict[str, float] = {
 @dataclass
 class DetectionContext:
     """Normalized records handed to every rule. Rows are plain dicts whose keys
-    match the column dictionaries in docs/03_DATA_MODEL.md."""
+    match the column dictionaries in docs/03_DATA_MODEL.md.
+
+    ``graph_evidence`` carries pre-fetched deterministic Cypher match results
+    (plain dicts from app.graph.queries) for the graph rules R8-R10. It stays a
+    plain dict so this module keeps its stdlib-only contract; rules ignore it
+    when empty, which preserves the exact tabular behavior for every
+    pre-existing suite and dataset.
+    """
 
     invoices: list = field(default_factory=list)        # one dict per invoice LINE
     payments: list = field(default_factory=list)
@@ -26,13 +33,14 @@ class DetectionContext:
     vendors: list = field(default_factory=list)
     goods_receipts: list = field(default_factory=list)
     policy: dict = field(default_factory=dict)
+    graph_evidence: dict = field(default_factory=dict)
 
 
 DETECTORS: dict[str, Callable[[DetectionContext], list[Finding]]] = {}
 
 
 def register(rule_id: str) -> Callable:
-    """Class decorator registering a detector under its rule ID (R1..R7)."""
+    """Class decorator registering a detector under its rule ID (R1..R10)."""
 
     def decorator(fn: Callable[[DetectionContext], list[Finding]]):
         DETECTORS[rule_id] = fn

@@ -41,6 +41,26 @@ GEMINI_TOOL_DECLARATIONS: list[dict[str, Any]] = [
             "required": ["finding_id", "assignee"],
         },
     },
+    {
+        "name": "inspect_entity_graph",
+        "description": (
+            "Read-only multi-hop neighborhood from the embedded LadybugDB knowledge graph "
+            "around any Vendor, BankAccount, Approver, Contract, or Invoice. Strictly "
+            "parameterized and whitelisted — never accepts raw Cypher."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "entity_type": {
+                    "type": "string",
+                    "description": "Node label: Vendor | BankAccount | Approver | Contract | Invoice",
+                },
+                "entity_id": {"type": "string", "description": "Primary key, e.g. V001 or INV-8821"},
+                "hops": {"type": "integer", "description": "1-3 (default 2)"},
+            },
+            "required": ["entity_type", "entity_id"],
+        },
+    },
 ]
 
 
@@ -100,6 +120,31 @@ def route_recovery_task(
     }
 
 
+def inspect_entity_graph(
+    conn: sqlite3.Connection,
+    entity_type: str,
+    entity_id: str,
+    hops: int = 2,
+) -> dict:
+    """Read-only k-hop neighborhood from the embedded LadybugDB graph.
+
+    Uses only whitelisted node labels and bound parameters — arbitrary Cypher
+    from untrusted input is impossible by construction.
+    """
+    from ..graph import ensure_graph_projected, fetch_entity_neighborhood, get_shared_graph_client
+
+    client = get_shared_graph_client()
+    ensure_graph_projected(conn, client)
+    result = fetch_entity_neighborhood(client, str(entity_type), str(entity_id), hops=hops)
+    if len(result["nodes"]) <= 1 and not result["edges"]:
+        raise LookupError(f"entity not found in graph: {entity_type}:{entity_id}")
+    return {
+        "skill": "inspect_entity_graph",
+        "engine": "ladybug",
+        **result,
+    }
+
+
 def execute_skill(conn: sqlite3.Connection, tool_name: str, arguments: dict | None = None) -> dict:
     """Dispatch a Gemini function-calling skill invocation deterministically."""
     args = arguments or {}
@@ -122,4 +167,15 @@ def execute_skill(conn: sqlite3.Connection, tool_name: str, arguments: dict | No
             assignee=str(assignee),
             note=str(args.get("note") or ""),
         )
+    if tool_name == "inspect_entity_graph":
+        entity_type = str(args.get("entity_type") or "")
+        entity_id = str(args.get("entity_id") or "")
+        if not entity_type or not entity_id:
+            raise ValueError("inspect_entity_graph requires 'entity_type' and 'entity_id'")
+        hops_raw = args.get("hops", 2)
+        try:
+            hops = max(1, min(3, int(hops_raw)))
+        except (TypeError, ValueError):
+            hops = 2
+        return inspect_entity_graph(conn, entity_type=entity_type, entity_id=entity_id, hops=hops)
     raise LookupError(f"unknown skill: {tool_name}")
