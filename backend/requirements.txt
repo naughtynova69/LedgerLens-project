@@ -12,3 +12,10 @@ ladybug==0.22.3
 # dev
 pytest>=8.0
 httpx>=0.27
+
+# eval-corpus generator + PDF text-layer verification (sample_data/eval_pdfs/)
+# reportlab is EXACTLY pinned: the corpus regeneration-parity test compares
+# sha256 against committed PDFs, and reportlab output bytes can differ between
+# versions (font subsetting/Producer metadata).
+reportlab==5.1.0
+pypdf>=4.0

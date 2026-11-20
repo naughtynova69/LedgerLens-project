@@ -80,6 +80,18 @@
 - **Checks:** eval cmd `8 passed, 3 skipped`; full suite `93 passed, 30 skipped` (graph tests skip in this worktree: no native LadybugDB lib; CI provisions it)
 - **Open Next Steps:** Merge PR #14; optionally run live Gemini evals with `RUN_LIVE_GEMINI_EVAL=1` + `GEMINI_API_KEY`; re-run full Mimosa project audit before merge (last scan ran degraded pass-through).
 
+---
+
+### 2026-11-21 — ZCode: Locale-Diverse Eval Corpus + %%EOF Validity Fix (supersedes PR #14 corpus)
+- **Branch / PR:** `fix/golden-pdf-eval-corpus` → PR (fix-up commit `d89ddf8` + docs)
+- **Changes:**
+  - **Bugfix:** PR #14's committed PDFs end `%EOF` (single `%`) — `"...%%EOF\n" % xref_offset` renders ONE `%` in %-format strings, and the generator's own structural check tested the same broken marker, so it self-verified green while **pypdf 7.1.1 rejects all 12** (`EOF marker not found`). Any real PDF consumer (Gemini file API, preprocessing) fails on them.
+  - Rebuilt corpus per master-prompt spec: `sample_data/eval_pdfs/generate_corpus.py` (reportlab `invariant=1`, embedded Unicode TTF → real ₹/€/£ glyphs in the text layer, Decimal-exact HALF_UP totals, byte-deterministic, `--check` parity mode, fail-closed filename allowlist) + 12 PDFs in 4 buckets (3 IN GST lakh/crore + INV-8821-R2 revision suffix, 3 US-CA incl. C$ + GST+QST 9.975%, 3 EU-UK €/£ DD.MM.YYYY decimal-comma MwSt./TVA/VAT, 3 noisy: wrapped multiline table, Exempt zero-rated, intentional line-total mismatch → fail-closed `needs_review`) + `manifest.json` (top-level 12-entry list: `filename/locale/expected{vendor_name, invoice_number, invoice_date, currency, grand_total, lines[...]}` per ExtractedInvoicePayload + sha256/bytes pinning, voice, arithmetic accounting, `expect_needs_review`).
+  - `backend/tests/eval_gemini_extraction.py`: legacy golden-corpus loader made shape-tolerant (skips cleanly); new offline tests `test_eval_pdfs_manifest_and_files_exist`, `test_eval_pdfs_corpus_sha256_and_text_layer` (pypdf round-trip), `test_eval_pdfs_corpus_regenerates_deterministically`, and live-gated `test_live_eval_pdfs_accuracy` (`RUN_LIVE_GEMINI_EVAL=1` + `GEMINI_API_KEY`).
+  - `backend/requirements.txt`: +`reportlab>=4.0`, `pypdf>=4.0` (dev) so CI runs corpus text-layer + regeneration-parity checks instead of skipping them.
+- **Checks:** full suite `118 passed, 9 skipped` (5 legacy corpus tests skip on manifest shape change, 4 live evals skip without key); pypdf parses 12/12; corpus regeneration byte-identical (double-run md5); ₹/€/£ extraction verified.
+- **Open Next Steps:** Run live Gemini accuracy eval on the new corpus with a real key; re-run full Mimosa audit before merge (commit-time scan ran degraded `python_ast_unavailable`).
+
 
 
 ```markdown

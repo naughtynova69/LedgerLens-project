@@ -330,6 +330,8 @@ def _load_golden_corpus() -> tuple[dict, list[dict]]:
     if not manifest_path.exists():
         pytest.skip("golden corpus not generated yet")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(manifest, dict) or "entries" not in manifest:
+        pytest.skip("legacy golden corpus replaced by the new eval corpus manifest")
     entries = manifest.get("entries") or []
     missing_pdfs = []
     for entry in entries:
@@ -499,3 +501,252 @@ def test_eval_pdf_corpus_regenerates_deterministically():
     assert set(regenerated_by_file.keys()) == expected_files
     for entry in entries:
         assert regenerated_by_file[entry["file"]]["ground_truth"] == entry["ground_truth"], entry["file"]
+
+
+# ---- Locale-diverse eval corpus (sample_data/eval_pdfs/, manifest.json) ----
+# The new corpus ships generate_corpus.py + manifest.json (top-level list of 12
+# entries covering 3 IN / 3 US-CA / 3 EU-UK / 3 noisy voices with real ₹/€/£
+# glyphs). Helpers below deliberately do not reuse the legacy golden-corpus
+# helpers above so both corpora can be validated independently.
+EVAL_MANIFEST_PATH = EVAL_PDF_DIR / "manifest.json"
+EVAL_GENERATOR_PATH = EVAL_PDF_DIR / "generate_corpus.py"
+EVAL_MIME_TYPE = "application/pdf"
+EVAL_CORPUS_VOICES = frozenset({
+    "in_gst_revision_lakh",
+    "in_gst_crore",
+    "in_gst_multiline",
+    "us_sales_tax",
+    "ca_gst_qst",
+    "us_multiline",
+    "de_mwst_decimal_comma",
+    "fr_tva_decimal_comma",
+    "uk_vat",
+    "noisy_wrapped_multiline",
+    "noisy_tax_exempt",
+    "noisy_math_mismatch",
+})
+EVAL_CORPUS_LOCALES = frozenset({"IN", "US", "CA", "DE", "FR", "UK"})
+
+
+def _load_eval_corpus() -> list[dict]:
+    """Load manifest.json (top-level list of 12 entries); skip while not generated."""
+    if not EVAL_MANIFEST_PATH.exists():
+        pytest.skip("eval corpus manifest.json not generated yet")
+    entries = json.loads(EVAL_MANIFEST_PATH.read_text(encoding="utf-8"))
+    if not isinstance(entries, list) or len(entries) != 12:
+        pytest.skip("eval corpus manifest.json not generated yet")
+    return entries
+
+
+def _ground_truth_of(entry: dict) -> dict:
+    """Map a manifest entry's expected view onto ExtractedInvoicePayload field names."""
+    exp = entry["expected"]
+    return {
+        "vendor": {"name": exp["vendor_name"], "tax_id": exp.get("vendor_tax_id")},
+        "invoice": {
+            "number": exp["invoice_number"],
+            "date": exp["invoice_date"],
+            "currency": exp["currency"],
+            "po_reference": exp.get("po_reference"),
+            "payment_terms": exp.get("payment_terms"),
+        },
+        "lines": [
+            {
+                "item": line["item"],
+                "quantity": float(line["quantity"]),
+                "unit_price": float(line["unit_price"]),
+                "tax_pct": float(line["tax_pct"]),
+                "line_total": float(line["line_total"]),
+            }
+            for line in exp["lines"]
+        ],
+        "totals": {
+            "subtotal": exp.get("subtotal"),
+            "tax": exp.get("tax"),
+            "grand_total": float(exp["grand_total"]),
+        },
+    }
+
+
+def _load_corpus_generator_module():
+    """Exec generate_corpus.py, or None when unavailable (parity test skips)."""
+    if not EVAL_GENERATOR_PATH.exists():
+        return None
+    spec = importlib.util.spec_from_file_location("_eval_corpus_generator_under_test", EVAL_GENERATOR_PATH)
+    if spec is None or spec.loader is None:
+        return None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    try:
+        spec.loader.exec_module(module)
+    except Exception:
+        return None
+    return module
+
+
+def _pypdf_extract_text(pdf_path: Path):
+    """Extracted text via pypdf, or None when pypdf is unavailable."""
+    try:
+        from pypdf import PdfReader
+    except ImportError:
+        return None
+    try:
+        reader = PdfReader(str(pdf_path))
+        return "\n".join((page.extract_text() or "") for page in reader.pages)
+    except Exception:
+        return ""
+
+
+def _norm(value) -> str:
+    """Whitespace-collapsed lowercase view for case-insensitive comparisons."""
+    if value is None:
+        return ""
+    return re.sub(r"\s+", " ", str(value)).strip().lower()
+
+
+def test_eval_pdfs_manifest_and_files_exist():
+    """Offline: manifest.json is a valid 12-entry list matching ExtractedInvoicePayload and every PDF exists."""
+    manifest_path = EVAL_PDF_DIR / "manifest.json"
+    assert manifest_path.exists(), f"missing eval corpus manifest: {manifest_path}"
+    entries = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert isinstance(entries, list) and len(entries) == 12
+    assert len({entry["filename"] for entry in entries}) == 12, "duplicate filenames"
+    assert {entry["voice"] for entry in entries} == EVAL_CORPUS_VOICES
+    assert EVAL_CORPUS_LOCALES <= {entry["locale"] for entry in entries}
+
+    needs_review_count = 0
+    for entry in entries:
+        filename = entry["filename"]
+        for key in ("filename", "locale", "voice", "mime_type", "expect_needs_review", "expected"):
+            assert key in entry, f"{filename}: manifest entry missing key {key!r}"
+        assert entry["mime_type"] == EVAL_MIME_TYPE, filename
+        assert isinstance(entry["expect_needs_review"], bool), filename
+        needs_review_count += int(entry["expect_needs_review"])
+
+        exp = entry["expected"]
+        for key in ("vendor_name", "invoice_number", "invoice_date", "currency", "grand_total", "lines"):
+            assert key in exp, f"{filename}: expected missing key {key!r}"
+        assert isinstance(exp["vendor_name"], str) and exp["vendor_name"].strip(), filename
+        assert re.match(r"^\d{4}-\d{2}-\d{2}$", str(exp["invoice_date"])), filename
+        assert isinstance(exp["currency"], str) and exp["currency"].strip(), filename
+        assert isinstance(exp["grand_total"], (int, float)), filename
+        assert exp["lines"], f"{filename}: expected.lines is empty"
+        for line in exp["lines"]:
+            assert isinstance(line["item"], str) and line["item"].strip(), filename
+            assert float(line["quantity"]) > 0, filename
+            assert float(line["unit_price"]) >= 0, filename
+            assert float(line["tax_pct"]) >= 0, filename
+            assert float(line["line_total"]) >= 0, filename
+
+        assert not any(sep in filename for sep in ("/", "\\", "..")), filename
+        pdf_path = EVAL_PDF_DIR / filename
+        assert pdf_path.exists(), f"{filename}: PDF missing from {EVAL_PDF_DIR}"
+        raw = pdf_path.read_bytes()
+        assert len(raw) > 500, filename
+        assert raw.startswith(b"%PDF-"), filename
+        # A conformant PDF ends with the %%EOF marker (pypdf refuses otherwise).
+        assert raw.rstrip(b"\r\n").endswith(b"%%EOF"), filename
+
+        payload = ExtractedInvoicePayload.model_validate(_ground_truth_of(entry))
+        assert payload.invoice.date == exp["invoice_date"], filename
+        assert len(payload.lines) == len(exp["lines"]), filename
+
+        if not entry["expect_needs_review"]:
+            for line in exp["lines"]:
+                recomputed = float(line["quantity"]) * float(line["unit_price"]) * (
+                    1.0 + float(line["tax_pct"]) / 100.0
+                )
+                assert float(line["line_total"]) == pytest.approx(recomputed, abs=0.02), (
+                    f"{filename}: line {line['item']!r} does not balance"
+                )
+            declared_grand = sum(float(line["line_total"]) for line in exp["lines"])
+            assert float(exp["grand_total"]) == pytest.approx(declared_grand, abs=0.02), filename
+            if exp.get("subtotal") is not None:
+                assert float(exp["grand_total"]) - float(exp["subtotal"]) == pytest.approx(
+                    float(exp.get("tax") or 0.0), abs=0.02
+                ), filename
+
+    assert needs_review_count == 1, "exactly one intentional-mismatch entry must expect needs_review"
+
+
+def test_eval_pdfs_corpus_sha256_and_text_layer():
+    """Offline: every PDF matches its pinned sha256/size and its text layer carries vendor + invoice number."""
+    entries = _load_eval_corpus()
+    texts = {}
+    for entry in entries:
+        pdf_path = EVAL_PDF_DIR / entry["filename"]
+        raw = pdf_path.read_bytes()
+        assert hashlib.sha256(raw).hexdigest() == entry["sha256"], entry["filename"]
+        assert len(raw) == entry["bytes"], entry["filename"]
+        text = _pypdf_extract_text(pdf_path)
+        if text is None:
+            pytest.skip("pypdf not installed; text-layer round-trip not verified")
+        texts[entry["filename"]] = text
+
+    for entry in entries:
+        ground_truth = _ground_truth_of(entry)
+        text = texts[entry["filename"]]
+        assert text != "", f"{entry['filename']}: pypdf could not parse the PDF"
+        vendor_name = ground_truth["vendor"]["name"]
+        assert vendor_name in text, f"{entry['filename']}: vendor name missing from extracted text"
+        number = ground_truth["invoice"]["number"]
+        assert number in text, f"{entry['filename']}: invoice number missing from extracted text"
+
+
+def test_eval_pdfs_corpus_regenerates_deterministically():
+    """Offline: generate_corpus.py reproduces the committed bytes + manifest entries byte-for-byte."""
+    entries = _load_eval_corpus()
+    module = _load_corpus_generator_module()
+    if module is None:
+        pytest.skip("generate_corpus.py not importable (reportlab missing?)")
+    build_corpus = getattr(module, "build_corpus", None)
+    build_manifest_entries = getattr(module, "build_manifest_entries", None)
+    assert callable(build_corpus) and callable(build_manifest_entries)
+    regenerated = build_corpus()
+    assert set(regenerated.keys()) == {entry["filename"] for entry in entries}
+    for entry in entries:
+        pdf_bytes = regenerated[entry["filename"]]
+        assert hashlib.sha256(pdf_bytes).hexdigest() == entry["sha256"], entry["filename"]
+    regenerated_entries = {e["filename"]: e for e in build_manifest_entries(regenerated)}
+    for entry in entries:
+        assert regenerated_entries[entry["filename"]]["expected"] == entry["expected"], entry["filename"]
+
+
+@pytest.mark.skipif(
+    not (os.getenv("RUN_LIVE_GEMINI_EVAL") == "1" and config.GEMINI_API_KEY),
+    reason="Offline mode; set RUN_LIVE_GEMINI_EVAL=1 and GEMINI_API_KEY to run live Gemini eval",
+)
+def test_live_eval_pdfs_accuracy():
+    """Live eval: loop the golden corpus, assert per-field accuracy and fail-closed needs_review."""
+    for entry in _load_eval_corpus():
+        filename = entry["filename"]
+        exp = entry["expected"]
+
+        pdf_bytes = (EVAL_PDF_DIR / filename).read_bytes()
+        extracted = extract_invoice(pdf_bytes, mime_type=EVAL_MIME_TYPE)
+        assert extracted["mode"] == "gemini_live", f"{filename}: expected live Gemini extraction"
+        payload = ExtractedInvoicePayload.model_validate(extracted)
+
+        assert _norm(payload.vendor.name) == _norm(exp["vendor_name"]), filename
+        assert payload.invoice.number == exp["invoice_number"], filename  # revision suffixes matter
+        assert payload.invoice.date == exp["invoice_date"], filename
+        assert (payload.invoice.currency or "").upper() == exp["currency"].upper(), filename
+        assert payload.totals.grand_total == pytest.approx(float(exp["grand_total"]), abs=0.05), filename
+
+        assert len(payload.lines) == len(exp["lines"]), f"{filename}: line count mismatch"
+        for idx, expected_line in enumerate(exp["lines"]):
+            actual = payload.lines[idx]
+            item_ok = _norm(actual.item) == _norm(expected_line["item"]) or (
+                _norm(expected_line["item"]) in _norm(actual.item)
+            )
+            assert item_ok, f"{filename}: line {idx} item {actual.item!r} != {expected_line['item']!r}"
+            assert actual.quantity == pytest.approx(float(expected_line["quantity"]), abs=0.05), filename
+            assert actual.unit_price == pytest.approx(float(expected_line["unit_price"]), abs=0.05), filename
+            assert actual.tax_pct == pytest.approx(float(expected_line["tax_pct"]), abs=0.05), filename
+            assert actual.line_total == pytest.approx(float(expected_line["line_total"]), abs=0.05), filename
+
+        warnings = extracted.get("verification_warnings") or []
+        if entry["expect_needs_review"]:
+            assert warnings, f"{filename}: intentional math mismatch must fail closed into needs_review"
+        else:
+            assert warnings == [], f"{filename}: clean invoice extracted with unexpected warnings: {warnings}"
