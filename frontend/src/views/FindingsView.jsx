@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
+import { Search, X } from "lucide-react";
 import { RuleBadge } from "../components/RuleBadge";
 import { StatusBadge } from "../components/StatusBadge";
 import { ProofTrailInspector } from "../components/ProofTrailInspector";
@@ -23,6 +24,7 @@ export function FindingsView({
   const [ruleFilter, setRuleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [checkedIds, setCheckedIds] = useState([]);
+  const searchInputRef = useRef(null);
 
   const rulesList = [
     { id: "all", label: "All Rules" },
@@ -76,6 +78,43 @@ export function FindingsView({
   useEffect(() => {
     const validIds = new Set((findings || []).map((f) => f.finding_id));
     setCheckedIds((prev) => prev.filter((id) => validIds.has(id)));
+  }, [findings]);
+
+  // Keyboard triage: j/k or ArrowDown/ArrowUp to step through exceptions, / to focus search
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      const tag = (e.target?.tagName || "").toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select" || e.target?.isContentEditable) {
+        return;
+      }
+      if (e.key === "/") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        return;
+      }
+      if (!filteredFindings.length) return;
+      if (e.key === "j" || e.key === "ArrowDown") {
+        e.preventDefault();
+        const idx = filteredFindings.findIndex((f) => f.finding_id === selectedFindingId);
+        const nextIdx = idx < 0 ? 0 : Math.min(idx + 1, filteredFindings.length - 1);
+        onSelectFinding(filteredFindings[nextIdx].finding_id);
+      } else if (e.key === "k" || e.key === "ArrowUp") {
+        e.preventDefault();
+        const idx = filteredFindings.findIndex((f) => f.finding_id === selectedFindingId);
+        const prevIdx = idx <= 0 ? 0 : idx - 1;
+        onSelectFinding(filteredFindings[prevIdx].finding_id);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [filteredFindings, selectedFindingId, onSelectFinding]);
+
+  const ruleBreakdown = useMemo(() => {
+    const counts = {};
+    for (const f of findings || []) {
+      counts[f.rule_id] = (counts[f.rule_id] || 0) + 1;
+    }
+    return Object.entries(counts).sort(([a], [b]) => a.localeCompare(b));
   }, [findings]);
 
   const allFilteredChecked =
@@ -196,16 +235,53 @@ export function FindingsView({
               </option>
             ))}
           </select>
+
+          {ruleBreakdown.length > 0 && (
+            <div className="hidden xl:flex items-center gap-1.5 pl-1" aria-label="Active rule counts">
+              {ruleBreakdown.map(([ruleId, count]) => {
+                const active = ruleFilter === ruleId;
+                return (
+                  <button
+                    key={ruleId}
+                    type="button"
+                    onClick={() => setRuleFilter(active ? "all" : ruleId)}
+                    className={`px-2 py-1 rounded-md text-[11px] font-mono tabular-nums border transition-colors ${
+                      active
+                        ? "bg-[#111827] text-white border-[#111827]"
+                        : "bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:text-[#111827]"
+                    }`}
+                    title={`Filter by ${ruleId}`}
+                  >
+                    {ruleId} · {count}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search vendor, invoice #, finding..."
-          aria-label="Search exceptions"
-          className="w-full sm:w-64 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs text-[#111827] placeholder-gray-400 focus:outline-none focus:border-gray-400"
-        />
+        <div className="relative w-full sm:w-64">
+          <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <input
+            ref={searchInputRef}
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search vendor, invoice #, finding... (/)"
+            aria-label="Search exceptions"
+            className="w-full pl-8 pr-7 py-1.5 bg-white border border-gray-200 rounded-lg text-xs text-[#111827] placeholder-gray-400 focus:outline-none focus:border-gray-400"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              aria-label="Clear search"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Inline Bulk Triage Bar */}
@@ -248,10 +324,10 @@ export function FindingsView({
           <h3 className="text-sm font-semibold text-[#111827]">No matching exceptions</h3>
           <p className="text-xs text-[#6B7280] max-w-sm mx-auto">
             {findings?.length === 0
-              ? "Load the demo dataset or upload CSV/PDF documents to run deterministic rules R1–R5."
+              ? "Load the demo dataset or upload CSV/PDF documents to run deterministic rules R1–R7."
               : "Adjust your status, rule, or search filters."}
           </p>
-          {findings?.length === 0 && (
+          {findings?.length === 0 ? (
             <button
               type="button"
               onClick={onSeedDemo}
@@ -259,6 +335,18 @@ export function FindingsView({
               className="px-3.5 py-1.5 rounded-lg bg-[#111827] hover:bg-gray-800 text-white font-medium text-xs transition-colors disabled:opacity-50"
             >
               Load Demo Dataset
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchQuery("");
+                setRuleFilter("all");
+                setStatusFilter("all");
+              }}
+              className="px-3.5 py-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-[#111827] font-medium text-xs transition-colors"
+            >
+              Reset Filters
             </button>
           )}
         </div>
@@ -294,9 +382,19 @@ export function FindingsView({
                     return (
                       <tr
                         key={finding.finding_id}
+                        tabIndex={0}
+                        aria-selected={isSelected}
                         onClick={() => onSelectFinding(finding.finding_id)}
-                        className={`cursor-pointer transition-colors ${
-                          isSelected ? "bg-gray-50" : "hover:bg-gray-50/70"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            onSelectFinding(finding.finding_id);
+                          }
+                        }}
+                        className={`cursor-pointer transition-colors focus-visible:outline-none focus-visible:bg-gray-100 ${
+                          isSelected
+                            ? "bg-gray-50 border-l-2 border-l-[#111827]"
+                            : "hover:bg-gray-50/70 border-l-2 border-l-transparent"
                         }`}
                       >
                         <td
@@ -358,7 +456,7 @@ export function FindingsView({
               <span>
                 {filteredFindings.length} of {findings.length} exceptions
               </span>
-              <span>Sorted by exposure</span>
+              <span className="hidden sm:inline">j/k navigate · / search</span>
             </div>
           </div>
 

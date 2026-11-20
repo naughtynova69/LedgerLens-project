@@ -23,10 +23,11 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 import sqlite3
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import Body, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Body, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -59,13 +60,37 @@ from .services import (
     get_finding_with_sources,
     get_stats,
     ingest_csv_file_to_table,
+    make_workspace_view_conn,
     record_decision,
     run_detection,
     run_extraction_for_batch,
     seed_sample_dataset,
 )
 from .skills import GEMINI_TOOL_DECLARATIONS, execute_skill
-from .workspaces import create_workspace, list_workspaces
+from .workspaces import _DEFAULT_ROLE_POLICY, create_workspace, list_workspaces, require_role
+
+_ROLE_POLICY_MAP: dict[str, list[str]] = json.loads(_DEFAULT_ROLE_POLICY)
+
+
+def _resolve_workspace_id(
+    workspace_id: str | None = None,
+    x_workspace_id: str | None = None,
+) -> str:
+    ws = (workspace_id or x_workspace_id or "default").strip()
+    return ws or "default"
+
+
+def _enforce_rbac(x_user_role: str | None, permission: str) -> None:
+    """Enforce RBAC via workspaces.require_role when X-User-Role header is provided."""
+    if x_user_role is None:
+        return
+    allowed_roles = [
+        role for role, perms in _ROLE_POLICY_MAP.items() if permission in perms
+    ]
+    try:
+        require_role(x_user_role, allowed_roles)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
 
 
 class BulkDecisionIn(BaseModel):
@@ -164,7 +189,17 @@ def _derive_finding_subgraph(client, entity_refs: dict) -> dict:
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     conn = _get_ready_conn()
-    conn.close()
+    try:
+        auto_seed = os.getenv("AUTO_SEED_DEMO", "true").strip().lower() in ("1", "true", "yes")
+        if auto_seed:
+            batch_count = conn.execute("SELECT COUNT(*) FROM batches").fetchone()[0]
+            if batch_count == 0:
+                try:
+                    seed_sample_dataset(conn)
+                except Exception:
+                    pass
+    finally:
+        conn.close()
     yield
 
 
@@ -175,6 +210,8 @@ app = FastAPI(
                 "the rules engine decides; the workflow logs.",
     lifespan=lifespan,
 )
+
+app.add_middleware(GZipMiddleware, minimum_size=500)
 
 # Enable CORS for local development and preview environments
 app.add_middleware(
@@ -283,22 +320,35 @@ def health() -> dict:
 
 
 @app.get("/api/stats")
-def stats() -> dict:
+def stats(
+    workspace_id: str | None = None,
+    x_workspace_id: Annotated[str | None, Header(alias="X-Workspace-Id")] = None,
+    x_user_role: Annotated[str | None, Header(alias="X-User-Role")] = None,
+) -> dict:
     """Return dashboard analytics and spend exposure KPIs."""
+    _enforce_rbac(x_user_role, "read")
+    ws_id = _resolve_workspace_id(workspace_id, x_workspace_id)
     conn = _get_ready_conn()
     try:
-        return get_stats(conn)
+        return get_stats(conn, workspace_id=ws_id)
     finally:
         conn.close()
 
 
 @app.get("/api/batches")
-def list_batches() -> list[dict]:
+def list_batches(
+    workspace_id: str | None = None,
+    x_workspace_id: Annotated[str | None, Header(alias="X-Workspace-Id")] = None,
+    x_user_role: Annotated[str | None, Header(alias="X-User-Role")] = None,
+) -> list[dict]:
     """List all ingested document batches."""
+    _enforce_rbac(x_user_role, "read")
+    ws_id = _resolve_workspace_id(workspace_id, x_workspace_id)
     conn = _get_ready_conn()
     try:
         rows = conn.execute(
-            "SELECT * FROM batches ORDER BY created_at DESC"
+            "SELECT * FROM batches WHERE workspace_id = ? ORDER BY created_at DESC",
+            (ws_id,),
         ).fetchall()
         return [dict(r) for r in rows]
     finally:
@@ -306,7 +356,11 @@ def list_batches() -> list[dict]:
 
 
 @app.get("/api/batches/{batch_id}")
-def get_batch(batch_id: str) -> dict:
+def get_batch(
+    batch_id: str,
+    x_user_role: Annotated[str | None, Header(alias="X-User-Role")] = None,
+) -> dict:
+    _enforce_rbac(x_user_role, "read")
     conn = _get_ready_conn()
     try:
         row = conn.execute(
@@ -320,21 +374,35 @@ def get_batch(batch_id: str) -> dict:
 
 
 @app.post("/api/seed/sample_data")
-def seed_demo_data() -> dict:
+def seed_demo_data(
+    workspace_id: str | None = None,
+    x_workspace_id: Annotated[str | None, Header(alias="X-Workspace-Id")] = None,
+    x_user_role: Annotated[str | None, Header(alias="X-User-Role")] = None,
+) -> dict:
     """1-click populate the database with the official demo sample dataset."""
+    _enforce_rbac(x_user_role, "upload")
+    ws_id = _resolve_workspace_id(workspace_id, x_workspace_id)
     conn = _get_ready_conn()
     try:
         sample_dir = Path(__file__).resolve().parent.parent.parent / "sample_data"
         if not sample_dir.exists():
             raise HTTPException(status_code=404, detail="sample_data directory not found")
-        return seed_sample_dataset(conn, sample_dir)
+        return seed_sample_dataset(conn, sample_dir, workspace_id=ws_id)
     finally:
         conn.close()
 
 
 @app.post("/api/ingest/upload")
-async def upload(kind: str = Form(...), file: UploadFile = File(...)) -> dict:
+async def upload(
+    kind: str = Form(...),
+    file: UploadFile = File(...),
+    workspace_id: str | None = None,
+    x_workspace_id: Annotated[str | None, Header(alias="X-Workspace-Id")] = None,
+    x_user_role: Annotated[str | None, Header(alias="X-User-Role")] = None,
+) -> dict:
     """Store an uploaded CSV/PDF, validate CSV headers, register a batch, and ingest rows (docs/05)."""
+    _enforce_rbac(x_user_role, "upload")
+    ws_id = _resolve_workspace_id(workspace_id, x_workspace_id)
     if kind not in VALID_KINDS:
         raise HTTPException(status_code=400, detail=f"unknown kind: {kind}")
 
@@ -349,21 +417,23 @@ async def upload(kind: str = Form(...), file: UploadFile = File(...)) -> dict:
         if dest.suffix.lower() == ".csv":
             problems = validate_csv(dest, kind)
             if not problems:
-                rows_detected = ingest_csv_file_to_table(conn, dest, kind)
+                rows_detected = ingest_csv_file_to_table(
+                    conn, dest, kind, workspace_id=ws_id
+                )
             else:
                 with dest.open("r", encoding="utf-8", errors="replace") as fh:
                     rows_detected = max(sum(1 for _ in fh) - 1, 0)
 
         state = "uploaded" if (problems or dest.suffix.lower() != ".csv") else "ready"
         conn.execute(
-            "INSERT INTO batches (batch_id, kind, stored_path, rows_detected, state) "
-            "VALUES (?, ?, ?, ?, ?)",
-            (batch_id, kind, str(dest), rows_detected, state),
+            "INSERT INTO batches (batch_id, kind, stored_path, rows_detected, state, workspace_id) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (batch_id, kind, str(dest), rows_detected, state, ws_id),
         )
         conn.execute(
-            """INSERT INTO audit_log (actor, action, object_type, object_id, detail)
-               VALUES ('ingest_api', 'ingest', 'batch', ?, ?)""",
-            (batch_id, f"Uploaded {dest.name} ({kind}, {rows_detected} rows)"),
+            """INSERT INTO audit_log (actor, action, object_type, object_id, detail, workspace_id)
+               VALUES ('ingest_api', 'ingest', 'batch', ?, ?, ?)""",
+            (batch_id, f"Uploaded {dest.name} ({kind}, {rows_detected} rows)", ws_id),
         )
         conn.commit()
         evidence_obj = store_evidence_object(dest, batch_id, file.filename or "upload")
@@ -375,17 +445,25 @@ async def upload(kind: str = Form(...), file: UploadFile = File(...)) -> dict:
             "problems": problems,
             "sha256": evidence_obj["sha256"],
             "storage_uri": evidence_obj["uri"],
+            "workspace_id": ws_id,
         }
     finally:
         conn.close()
 
 
 @app.post("/api/run/{batch_id}/extract")
-def run_extract(batch_id: str) -> dict:
+def run_extract(
+    batch_id: str,
+    workspace_id: str | None = None,
+    x_workspace_id: Annotated[str | None, Header(alias="X-Workspace-Id")] = None,
+    x_user_role: Annotated[str | None, Header(alias="X-User-Role")] = None,
+) -> dict:
     """Extract CSV or PDF/scan batch into normalized structured records (docs/06)."""
+    _enforce_rbac(x_user_role, "upload")
+    ws_id = _resolve_workspace_id(workspace_id, x_workspace_id)
     conn = _get_ready_conn()
     try:
-        return run_extraction_for_batch(conn, batch_id)
+        return run_extraction_for_batch(conn, batch_id, workspace_id=ws_id)
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except FileNotFoundError as exc:
@@ -397,11 +475,21 @@ def run_extract(batch_id: str) -> dict:
 
 
 @app.post("/api/run/{batch_id}/detect")
-def run_detect(batch_id: str) -> dict:
+def run_detect(
+    batch_id: str,
+    workspace_id: str | None = None,
+    x_workspace_id: Annotated[str | None, Header(alias="X-Workspace-Id")] = None,
+    x_user_role: Annotated[str | None, Header(alias="X-User-Role")] = None,
+) -> dict:
+    _enforce_rbac(x_user_role, "run_detection")
+    ws_id = _resolve_workspace_id(workspace_id, x_workspace_id)
     conn = _get_ready_conn()
     try:
-        result = run_detection(conn, batch_id=batch_id)
-        conn.execute("UPDATE batches SET state = 'detected' WHERE batch_id = ?", (batch_id,))
+        result = run_detection(conn, batch_id=batch_id, workspace_id=ws_id)
+        conn.execute(
+            "UPDATE batches SET state = 'detected' WHERE batch_id = ? AND workspace_id = ?",
+            (batch_id, ws_id),
+        )
         conn.commit()
         result["batch_id"] = batch_id
         return result
@@ -410,20 +498,34 @@ def run_detect(batch_id: str) -> dict:
 
 
 @app.post("/api/run-detection")
-def run_global_detect() -> dict:
+def run_global_detect(
+    workspace_id: str | None = None,
+    x_workspace_id: Annotated[str | None, Header(alias="X-Workspace-Id")] = None,
+    x_user_role: Annotated[str | None, Header(alias="X-User-Role")] = None,
+) -> dict:
     """Trigger full detection across all current tables."""
+    _enforce_rbac(x_user_role, "run_detection")
+    ws_id = _resolve_workspace_id(workspace_id, x_workspace_id)
     conn = _get_ready_conn()
     try:
-        return run_detection(conn)
+        return run_detection(conn, workspace_id=ws_id)
     finally:
         conn.close()
 
 
 @app.get("/api/findings")
-def list_findings(status: str | None = None, severity: str | None = None,
-                  rule_id: str | None = None) -> list[dict]:
-    query = "SELECT * FROM findings WHERE 1=1"
-    params: list = []
+def list_findings(
+    status: str | None = None,
+    severity: str | None = None,
+    rule_id: str | None = None,
+    workspace_id: str | None = None,
+    x_workspace_id: Annotated[str | None, Header(alias="X-Workspace-Id")] = None,
+    x_user_role: Annotated[str | None, Header(alias="X-User-Role")] = None,
+) -> list[dict]:
+    _enforce_rbac(x_user_role, "read")
+    ws_id = _resolve_workspace_id(workspace_id, x_workspace_id)
+    query = "SELECT * FROM findings WHERE workspace_id = ?"
+    params: list = [ws_id]
     if status and status != "all":
         query += " AND status = ?"
         params.append(status)
@@ -453,7 +555,11 @@ def list_findings(status: str | None = None, severity: str | None = None,
 
 
 @app.get("/api/findings/{finding_id}")
-def get_finding(finding_id: str) -> dict:
+def get_finding(
+    finding_id: str,
+    x_user_role: Annotated[str | None, Header(alias="X-User-Role")] = None,
+) -> dict:
+    _enforce_rbac(x_user_role, "read")
     conn = _get_ready_conn()
     try:
         finding = get_finding_with_sources(conn, finding_id)
@@ -465,7 +571,12 @@ def get_finding(finding_id: str) -> dict:
 
 
 @app.post("/api/findings/{finding_id}/decision")
-def decide(finding_id: str, body: DecisionIn) -> dict:
+def decide(
+    finding_id: str,
+    body: DecisionIn,
+    x_user_role: Annotated[str | None, Header(alias="X-User-Role")] = None,
+) -> dict:
+    _enforce_rbac(x_user_role, "decide")
     conn = _get_ready_conn()
     try:
         return record_decision(conn, finding_id, body.action, body.reviewer, body.note)
@@ -478,19 +589,35 @@ def decide(finding_id: str, body: DecisionIn) -> dict:
 
 
 @app.get("/api/memo")
-def memo(batch_id: str | None = None) -> dict:
+def memo(
+    batch_id: str | None = None,
+    workspace_id: str | None = None,
+    x_workspace_id: Annotated[str | None, Header(alias="X-Workspace-Id")] = None,
+    x_user_role: Annotated[str | None, Header(alias="X-User-Role")] = None,
+) -> dict:
+    _enforce_rbac(x_user_role, "read")
+    ws_id = _resolve_workspace_id(workspace_id, x_workspace_id)
     conn = _get_ready_conn()
     try:
-        return build_memo_structured(conn, batch_id=batch_id)
+        return build_memo_structured(conn, batch_id=batch_id, workspace_id=ws_id)
     finally:
         conn.close()
 
 
 @app.get("/api/audit-log")
-def audit_log() -> list[dict]:
+def audit_log(
+    workspace_id: str | None = None,
+    x_workspace_id: Annotated[str | None, Header(alias="X-Workspace-Id")] = None,
+    x_user_role: Annotated[str | None, Header(alias="X-User-Role")] = None,
+) -> list[dict]:
+    _enforce_rbac(x_user_role, "read")
+    ws_id = _resolve_workspace_id(workspace_id, x_workspace_id)
     conn = _get_ready_conn()
     try:
-        rows = conn.execute("SELECT * FROM audit_log ORDER BY id DESC LIMIT 100").fetchall()
+        rows = conn.execute(
+            "SELECT * FROM audit_log WHERE workspace_id = ? ORDER BY id DESC LIMIT 100",
+            (ws_id,),
+        ).fetchall()
         return [dict(r) for r in rows]
     finally:
         conn.close()
@@ -535,18 +662,32 @@ def bigquery_sync() -> dict:
 
 
 @app.get("/api/analytics/executive")
-def executive_analytics() -> dict:
+def executive_analytics(
+    workspace_id: str | None = None,
+    x_workspace_id: Annotated[str | None, Header(alias="X-Workspace-Id")] = None,
+    x_user_role: Annotated[str | None, Header(alias="X-User-Role")] = None,
+) -> dict:
     """Return FX-normalized INR KPIs, vendor exposure ranking, and R1-R5 breakdown."""
+    _enforce_rbac(x_user_role, "read")
+    ws_id = _resolve_workspace_id(workspace_id, x_workspace_id)
     conn = _get_ready_conn()
+    scoped_conn = None
     try:
-        return compute_executive_analytics(conn)
+        scoped_conn = make_workspace_view_conn(conn, workspace_id=ws_id)
+        return compute_executive_analytics(scoped_conn)
     finally:
+        if scoped_conn is not None:
+            scoped_conn.close()
         conn.close()
 
 
 @app.get("/api/findings/{finding_id}/dispute-packet")
-def finding_dispute_packet(finding_id: str) -> dict:
+def finding_dispute_packet(
+    finding_id: str,
+    x_user_role: Annotated[str | None, Header(alias="X-User-Role")] = None,
+) -> dict:
     """Generate a formal vendor dispute notice packet for a finding."""
+    _enforce_rbac(x_user_role, "export")
     conn = _get_ready_conn()
     try:
         finding = get_finding_with_sources(conn, finding_id)
@@ -558,8 +699,12 @@ def finding_dispute_packet(finding_id: str) -> dict:
 
 
 @app.post("/api/findings/bulk-decision")
-def bulk_decide(body: BulkDecisionIn) -> dict:
+def bulk_decide(
+    body: BulkDecisionIn,
+    x_user_role: Annotated[str | None, Header(alias="X-User-Role")] = None,
+) -> dict:
     """Apply a reviewer decision across multiple findings."""
+    _enforce_rbac(x_user_role, "decide")
     conn = _get_ready_conn()
     try:
         return apply_bulk_decision(
@@ -572,23 +717,38 @@ def bulk_decide(body: BulkDecisionIn) -> dict:
 
 
 @app.get("/api/export/findings.csv")
-def export_findings(status: str | None = None, rule_id: str | None = None) -> Response:
+def export_findings(
+    status: str | None = None,
+    rule_id: str | None = None,
+    workspace_id: str | None = None,
+    x_workspace_id: Annotated[str | None, Header(alias="X-Workspace-Id")] = None,
+    x_user_role: Annotated[str | None, Header(alias="X-User-Role")] = None,
+) -> Response:
     """Export findings as an RFC-4180 CSV download."""
+    _enforce_rbac(x_user_role, "export")
+    ws_id = _resolve_workspace_id(workspace_id, x_workspace_id)
     conn = _get_ready_conn()
+    scoped_conn = None
     try:
-        csv_content = export_findings_csv(conn, status=status, rule_id=rule_id)
+        scoped_conn = make_workspace_view_conn(conn, workspace_id=ws_id)
+        csv_content = export_findings_csv(scoped_conn, status=status, rule_id=rule_id)
         return Response(
             content=csv_content,
             media_type="text/csv",
             headers={"Content-Disposition": "attachment; filename=ledgerlens-exceptions.csv"},
         )
     finally:
+        if scoped_conn is not None:
+            scoped_conn.close()
         conn.close()
 
 
 @app.get("/api/policy")
-def read_policy() -> dict:
+def read_policy(
+    x_user_role: Annotated[str | None, Header(alias="X-User-Role")] = None,
+) -> dict:
     """Return current deterministic audit policy thresholds."""
+    _enforce_rbac(x_user_role, "read")
     conn = _get_ready_conn()
     try:
         return get_policy(conn)
@@ -597,8 +757,12 @@ def read_policy() -> dict:
 
 
 @app.put("/api/policy")
-def write_policy(body: PolicyUpdateIn) -> dict:
+def write_policy(
+    body: PolicyUpdateIn,
+    x_user_role: Annotated[str | None, Header(alias="X-User-Role")] = None,
+) -> dict:
     """Validate and update deterministic audit policy thresholds."""
+    _enforce_rbac(x_user_role, "manage_workspaces")
     conn = _get_ready_conn()
     try:
         return update_policy(conn, body.model_dump(exclude_none=True))
@@ -688,8 +852,11 @@ def read_fx_rates() -> dict[str, float]:
 
 
 @app.get("/api/audit-log/verify")
-def verify_audit_log() -> dict:
+def verify_audit_log(
+    x_user_role: Annotated[str | None, Header(alias="X-User-Role")] = None,
+) -> dict:
     """Verify cryptographic hash-chain integrity across audit_chain rows."""
+    _enforce_rbac(x_user_role, "verify_audit")
     conn = _get_ready_conn()
     try:
         ensure_audit_chain_table(conn)
@@ -700,8 +867,11 @@ def verify_audit_log() -> dict:
 
 
 @app.get("/api/workspaces")
-def get_workspaces() -> list[dict]:
+def get_workspaces(
+    x_user_role: Annotated[str | None, Header(alias="X-User-Role")] = None,
+) -> list[dict]:
     """List tenant workspaces (auto-seeding default if empty)."""
+    _enforce_rbac(x_user_role, "read")
     conn = _get_ready_conn()
     try:
         return list_workspaces(conn)
@@ -710,8 +880,12 @@ def get_workspaces() -> list[dict]:
 
 
 @app.post("/api/workspaces")
-def post_workspace(body: WorkspaceCreateIn) -> dict:
+def post_workspace(
+    body: WorkspaceCreateIn,
+    x_user_role: Annotated[str | None, Header(alias="X-User-Role")] = None,
+) -> dict:
     """Create a new multi-tenant workspace."""
+    _enforce_rbac(x_user_role, "manage_workspaces")
     conn = _get_ready_conn()
     try:
         return create_workspace(conn, body.name, client_code=body.client_code)
@@ -722,8 +896,12 @@ def post_workspace(body: WorkspaceCreateIn) -> dict:
 
 
 @app.post("/api/copilot/ask")
-def post_copilot_ask(body: CopilotAskIn) -> dict:
+def post_copilot_ask(
+    body: CopilotAskIn,
+    x_user_role: Annotated[str | None, Header(alias="X-User-Role")] = None,
+) -> dict:
     """Answer a CFO question grounded in findings and proof_trail math."""
+    _enforce_rbac(x_user_role, "read")
     conn = _get_ready_conn()
     try:
         return ask_copilot(conn, body.question, workspace_id=body.workspace_id)
