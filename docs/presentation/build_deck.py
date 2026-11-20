@@ -1,14 +1,18 @@
 """LedgerLens - Startup Buildathon India 2026 Prototype Submission Deck generator.
 
-Deterministic python-pptx build: every fact on the slides is aligned to the
-shipped code in this repository (see README.md, backend/app/config.py,
-backend/app/main.py, backend/app/detect/rules/, docs/CONTEXT_LOG.md).
-
-Outputs (next to this script):
-  LedgerLens_Startup_Buildathon_Submission.pptx
-
-Branding assets in assets/ are extracted from the official Startup
-Buildathon - India 2026 template PDF.
+Strictly follows the 12-slide Startup Buildathon Prototype Submission template:
+  1. Cover (Team Name, Team Size, Problem Statement, Brief about the idea)
+  2. Opportunities · Differentiation · Problem Solving · USP
+  3. List of features offered by the solution
+  4. Process flow diagram or Use-case diagram
+  5. Wireframes/Mock diagrams of the proposed solution
+  6. Architecture diagram of the proposed solution
+  7. Technologies to be used in the solution
+  8. Estimated implementation cost (optional)
+  9. Snapshots of the prototype
+ 10. Prototype Performance report/Benchmarking
+ 11. Additional Details/Future Development (if any)
+ 12. Thank you
 
 Run:  python build_deck.py
 """
@@ -45,6 +49,7 @@ AMBER = RGBColor(0xE3, 0x74, 0x00)
 BLUE_TINT = RGBColor(0xE8, 0xF0, 0xFE)
 GREY_TINT = RGBColor(0xF8, 0xF9, 0xFA)
 GREEN_TINT = RGBColor(0xE6, 0xF4, 0xEA)
+RED_TINT = RGBColor(0xFC, 0xE8, 0xE6)
 
 HEADER_STRIP = os.path.join(ASSETS, "header_strip.png")
 BRAND_BLOCK = os.path.join(ASSETS, "brand_block.png")
@@ -53,7 +58,7 @@ COLLAGE = os.path.join(ASSETS, "graphics_collage.png")
 prs = Presentation()
 prs.slide_width = Inches(W)
 prs.slide_height = Inches(H)
-prs.core_properties.title = "LedgerLens - Startup Buildathon India 2026 Prototype Deck"
+prs.core_properties.title = "LedgerLens - Startup Buildathon India 2026 Prototype Submission"
 prs.core_properties.author = "Team Builders"
 BLANK = prs.slide_layouts[6]
 
@@ -123,25 +128,26 @@ def add_text(slide, x, y, w, h, runs, size=13, color=INK, bold=False, align=PP_A
     return box
 
 
-def header(slide, title, subtitle):
+def header(slide, title, subtitle=""):
     add_rect(slide, 0, 0, W, H, fill=WHITE)
     add_pic(slide, HEADER_STRIP, 0, 0, w=W, h=0.84)
-    add_text(slide, MX, 0.90, W - 2 * MX, 0.56, title, size=28, bold=True)
-    add_text(slide, MX, 1.48, W - 2 * MX, 0.34, subtitle, size=13, color=MUTED)
+    add_text(slide, MX, 0.90, W - 2 * MX, 0.54, title, size=26, bold=True)
+    if subtitle:
+        add_text(slide, MX, 1.44, W - 2 * MX, 0.30, subtitle, size=12.5, color=MUTED)
 
 
-def chip(slide, x, y, text, size=11, fill=CARD, border=LINE, color=INK, h=0.31, font=FONT):
-    cw = max(0.85, len(text) * (size * 0.0081) + 0.32)
+def chip(slide, x, y, text, size=10.5, fill=CARD, border=LINE, color=INK, h=0.30, font=FONT):
+    cw = max(0.82, len(text) * (size * 0.0081) + 0.30)
     add_rect(slide, x, y, cw, h, fill=fill, line=border, rounded=True, radius=0.45)
     add_text(slide, x, y, cw, h, text, size=size, color=color, font=font,
              align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE, wrap=False)
     return cw
 
 
-def chip_rows(labels, max_w, size=11, gap=0.08):
+def chip_rows(labels, max_w, size=10.5, gap=0.08):
     rows, row, x = [], [], 0.0
     for text in labels:
-        w = max(0.85, len(text) * (size * 0.0081) + 0.32)
+        w = max(0.82, len(text) * (size * 0.0081) + 0.30)
         if row and x + w > max_w:
             rows.append(row)
             row, x = [], 0.0
@@ -156,197 +162,265 @@ def notes(slide, text):
     slide.notes_slide.notes_text_frame.text = text
 
 
-# ================================================================ Slide 1 - Cover
+# ================================================================ Slide 1 - Cover (Template Match)
 s = slide_new()
 add_rect(s, 0, 0, W, H, fill=WHITE)
 add_pic(s, BRAND_BLOCK, 0, 0, w=7.80, h=4.07)
 add_pic(s, COLLAGE, 8.42, 0.30, w=4.80, h=6.68)
 
-add_text(s, MX, 4.18, 7.1, 0.78, [[
-    ("Ledger", {}), ("Lens", {"color": BLUE}),
-]], size=44, bold=True)
-add_text(s, MX, 4.98, 7.7, 0.50,
-         "Pre-payment neuro-symbolic AI auditor for Accounts Payable",
-         size=16, color=MUTED, line_spacing=1.0)
-add_text(s, MX, 5.54, 7.6, 0.28, [[
-    ("Team Builders", {"bold": True}),
-    ("   ·   Team Size ", {"bold": True}), ("5", {}),
-    ("   ·   Lead: ", {"bold": True}), ("Vijay Prakash Sahu", {}),
-]], size=12.5)
+add_text(s, MX, 4.18, 7.3, 0.32, [[
+    ("Team Name: ", {"bold": True}), ("Team Builders", {}),
+    ("   ·   ", {"color": MUTED}),
+    ("Team Size: ", {"bold": True}), ("5", {}),
+    ("   ·   ", {"color": MUTED}),
+    ("Lead: ", {"bold": True}), ("Vijay Prakash Sahu", {}),
+]], size=13)
 
-add_rect(s, MX, 5.92, 7.35, 1.44, fill=CARD, rounded=True, radius=0.10)
-add_text(s, MX + 0.22, 6.04, 6.91, 1.22, [[
-    ("Problem & Idea Brief: ", {"bold": True}),
+add_rect(s, MX, 4.58, 7.45, 1.15, fill=CARD, rounded=True, radius=0.08)
+add_text(s, MX + 0.20, 4.68, 7.05, 0.96, [[
+    ("Problem Statement: ", {"bold": True, "color": RED}),
     ("Mid-market finance teams ($20M-$500M spend) lose 0.1%-0.35% of supplier spend to "
-     "near-duplicate invoices, contract price drift, and cancelled renewals before every pay run. "
-     "LedgerLens pairs Gemini 3.8 Vision Flash extraction with pure Python rules (R1-R7) so every "
-     "payout hold carries a deterministic, line-level proof trail.", {}),
-]], size=11.5, line_spacing=1.08)
+     "near-duplicate invoices, contract price drift, and cancelled renewals before every pay run — "
+     "manual AP checks cost ~$10 & 10+ days/invoice, ERPs miss fuzzy errors, and CFOs ignore black-box AI.", {}),
+]], size=11.5, line_spacing=1.10)
 
-notes(s, "Prototype Submission Deck — LedgerLens by Team Builders (5 members, lead: Vijay Prakash Sahu).")
+add_rect(s, MX, 5.86, 7.45, 1.38, fill=BLUE_TINT, rounded=True, radius=0.08)
+add_text(s, MX + 0.20, 5.96, 7.05, 1.20, [[
+    ("Brief about the idea: ", {"bold": True, "color": BLUE}),
+    ("LedgerLens is a pre-payment neuro-symbolic AI \"money-leak auditor.\" "
+     "Gemini 3.8 Vision Flash extracts PDFs/CSVs and writes CFO narratives; pure deterministic "
+     "Python rules (R1-R7) decide with line-level proof trails; immutable SHA-256 hash-chained tables log.", {}),
+]], size=11.5, line_spacing=1.10)
+
+notes(s, "Slide 1 follows template fields: Team Name, Team Size, Problem Statement, Brief about the idea.")
 
 
-# ================================================================ Slide 2 - Problem & Opportunities
+# ================================================================ Slide 2 - Opportunities / Differentiation / Solving / USP
 s = slide_new()
-header(s, "Problem Statement & Opportunities",
-       "Why existing AP tools fail — and how LedgerLens captures the market.")
+header(s, "Opportunities, Differentiation & USP",
+       "Updated from our Idea Submission with verified mid-market benchmarks and V1 shipped capabilities.")
 
-kpis = [
-    (RED, "0.1%-0.35%",
-     [[("of annual supplier spend lost to AP leakage — ", {}),
-       ("~$1M per $1B", {"bold": True}), (" recovered post-payment (PRGX) vs up to ", {}),
-       ("0.2%-0.35%", {"bold": True}), (" saved pre-payment (Xelix, Duplo)", {})]]),
-    (AMBER, "20%-22%",
-     [[("of invoices trigger manual exceptions — ", {}),
-       ("~1 in 5", {"bold": True}), (" flagged (PRGX); ", {}),
-       ("22%", {"bold": True}), (" average exception rate (Ardent Partners)", {})]]),
-    (BLUE, "~$10 · 10+d",
-     [[("average manual review cost and cycle time per invoice — leaving AP teams with ", {}),
-       ("zero capacity", {"bold": True}), (" to cross-check every line vs contracts & POs (PRGX)", {})]]),
+quads = [
+    (BLUE, "Opportunities",
+     "• Global AP automation: $6.94B (2026) → $12.46B (2031) at 12.44% CAGR (Mordor Intelligence).\n"
+     "• 0.1% post-payment recovery (PRGX) vs 0.2%-0.35% pre-payment savings (Xelix / Duplo).\n"
+     "• Zero-ERP 48-Hr Diagnostic wedge for $20M-$500M finance teams & CA / audit firms."),
+    (RED, "How different is it from any of the other existing ideas?",
+     "• Exact-match ERPs miss fuzzy duplicates (INV-8821 vs INV-8821-R2) and cross-document drift.\n"
+     "• Generic LLM wrappers emit opaque anomaly scores CFOs refuse to act on.\n"
+     "• Legacy recovery auditors charge 10%-40% contingency months after cash leaves the bank."),
+    (GREEN, "How will it be able to solve the problem?",
+     "• Ingests CSVs, PDFs & scans via Gemini 3.8 Vision Flash with 1-retry arithmetic repair.\n"
+     "• Evaluates R1-R7 pure Python stdlib rules across invoices, contracts, POs, GRNs & payments.\n"
+     "• Equips analysts with 3-way Proof Trail diffs, inline PDF view & 1-click dispute packets."),
+    (AMBER, "USP of the proposed solution",
+     "• The LLM is NEVER the judge: zero AI/DB/network imports inside backend/app/detect/.\n"
+     "• Every finding carries deterministic proof_trail math + SHA-256 hash-chained audit log.\n"
+     "• 0-token rule evaluation delivers 85%-92%+ SaaS gross margins + multi-tenant CA workspaces."),
 ]
-cw, gap = 3.92, 0.24
-for i, (accent, num, label) in enumerate(kpis):
-    x = MX + i * (cw + gap)
-    add_rect(s, x, 2.02, cw, 2.05, fill=CARD, rounded=True, radius=0.055)
-    add_rect(s, x + 0.03, 2.05, cw - 0.06, 0.075, fill=accent)
-    add_text(s, x + 0.26, 2.26, cw - 0.5, 0.52, num, size=28, bold=True, color=accent)
-    add_text(s, x + 0.26, 2.86, cw - 0.5, 1.10, label, size=11.5, line_spacing=1.08)
+qw, qh, qgap = (W - 2 * MX - 0.30) / 2, 2.50, 0.24
+for i, (accent, title, body) in enumerate(quads):
+    x = MX + (i % 2) * (qw + 0.30)
+    y = 1.92 + (i // 2) * (qh + qgap)
+    add_rect(s, x, y, qw, qh, fill=CARD, rounded=True, radius=0.05)
+    add_rect(s, x + 0.03, y + 0.03, qw - 0.06, 0.075, fill=accent)
+    add_text(s, x + 0.24, y + 0.20, qw - 0.48, 0.34, title, size=14, bold=True, color=accent)
+    add_text(s, x + 0.24, y + 0.62, qw - 0.48, 1.75, body.split("\n"), size=11.5,
+             line_spacing=1.18, space_after=6)
 
-pillars = [
-    (RED, "Zero-ERP 48-Hour Diagnostic Wedge",
-     "Mid-market finance teams & CA/audit firms export CSVs/PDFs without heavy SAP/Oracle setup — "
-     "proving $50k-$250k in historical leaks before converting to pre-payment SaaS."),
-    (AMBER, "USP: The LLM Is Never the Judge",
-     "Unlike black-box AI anomaly scores CFOs ignore, LedgerLens separates Gemini 3.8 Vision Flash "
-     "extraction/narration from 100% deterministic Python rules (R1-R7) with line-level math."),
-    (BLUE, "Market Timing ($6.94B → $12.46B)",
-     "Global AP automation grows at 12.44% CAGR (2026-2031, Mordor Intelligence). Multi-tenant "
-     "CA workspaces turn accounting firms into a scalable distribution channel."),
-]
-pw = (W - 2 * MX - 2 * 0.4) / 3
-for i, (accent, title, body) in enumerate(pillars):
-    x = MX + i * (pw + 0.4)
-    add_rect(s, x, 4.38, 0.16, 0.16, fill=accent, rounded=True, radius=0.5)
-    add_text(s, x + 0.28, 4.30, pw - 0.28, 0.34, title, size=14, bold=True)
-    add_text(s, x, 4.74, pw, 1.35, body, size=11.5, color=MUTED, line_spacing=1.14)
-
-add_rect(s, MX, 6.32, W - 2 * MX, 0.82, fill=BLUE_TINT, rounded=True, radius=0.07)
-add_text(s, MX + 0.24, 6.46, W - 2 * MX - 0.48, 0.56, [[
-    ("Core Differentiation: ", {"bold": True}),
-    ("Exact-match ERPs miss fuzzy duplicates (INV-8821 vs INV-8821-R2); black-box LLMs lack proof. "
-     "LedgerLens delivers deterministic math + one-click vendor dispute packets.", {}),
-]], size=12, line_spacing=1.12)
-
-notes(s, "Problem benchmarks: PRGX, Xelix, Duplo, Ardent Partners, Mordor Intelligence.")
+notes(s, "Slide 2 maps 1:1 to the four template prompts on page 4.")
 
 
-# ================================================================ Slide 3 - Proposed Solution & Features
+# ================================================================ Slide 3 - List of features offered by the solution
 s = slide_new()
-header(s, "Proposed Solution & Core Feature Set",
-       "Seven deterministic rules (R1-R7) + enterprise controller workbench.")
+header(s, "List of features offered by the solution",
+       "All 7 deterministic checks (R1-R7) and enterprise controller features shipped in the repository.")
 
 rules = [
-    (RED, "R1 · Duplicates", "Fuzzy invoice #, date gap & same-PO double billing"),
+    (RED, "R1 · Duplicate Invoices", "Fuzzy invoice #, date gap & same-PO double billing"),
     (AMBER, "R2 · Contract Price", "Unit price drift & missed discounts (contract governs)"),
-    (GREEN, "R3 · PO Overbill", "Cumulative qty excess, premature & unordered items"),
-    (BLUE, "R4 · FX & Tax", "Currency mismatch, GST/tax overcharge & live FX drift"),
-    (RED, "R5 · Cancelled", "Charges post-termination for contracts, vendors, POs"),
-    (PURPLE, "R6 · Split-PO", "Multiple POs/invoices structured below approval limits"),
+    (GREEN, "R3 · PO Overbilling", "Cumulative qty excess, premature & unordered items"),
+    (BLUE, "R4 · Currency & Tax", "Currency mismatch, GST/tax overcharge & FX drift"),
+    (RED, "R5 · Cancelled Service", "Charges post-termination for contracts, vendors, POs"),
+    (PURPLE, "R6 · Split-PO Bypass", "Multiple POs/invoices structured below approval limits"),
     (BLUE, "R7 · 3-Way GRN", "Billed quantities exceeding Goods Receipt Note (GRN)"),
 ]
 rw, rgap = 2.85, 0.22
 for i, (accent, rid, desc) in enumerate(rules[:4]):
     x = MX + i * (rw + rgap)
-    add_rect(s, x, 2.04, rw, 1.26, fill=WHITE, line=LINE, rounded=True, radius=0.09)
-    add_text(s, x + 0.16, 2.16, rw - 0.32, 0.28, rid, size=13.5, bold=True, color=accent)
-    add_text(s, x + 0.16, 2.48, rw - 0.32, 0.72, desc, size=10.8, line_spacing=1.08)
+    add_rect(s, x, 1.92, rw, 1.18, fill=WHITE, line=LINE, rounded=True, radius=0.09)
+    add_text(s, x + 0.16, 2.04, rw - 0.32, 0.26, rid, size=13, bold=True, color=accent)
+    add_text(s, x + 0.16, 2.34, rw - 0.32, 0.68, desc, size=10.5, line_spacing=1.08)
 
 rw2 = (W - 2 * MX - 2 * 0.22) / 3
 for i, (accent, rid, desc) in enumerate(rules[4:]):
     x = MX + i * (rw2 + 0.22)
-    add_rect(s, x, 3.46, rw2, 1.22, fill=WHITE, line=LINE, rounded=True, radius=0.09)
-    add_text(s, x + 0.18, 3.58, rw2 - 0.36, 0.28, rid, size=13.5, bold=True, color=accent)
-    add_text(s, x + 0.18, 3.90, rw2 - 0.36, 0.68, desc, size=11, line_spacing=1.08)
+    add_rect(s, x, 3.24, rw2, 1.14, fill=WHITE, line=LINE, rounded=True, radius=0.09)
+    add_text(s, x + 0.18, 3.36, rw2 - 0.36, 0.26, rid, size=13, bold=True, color=accent)
+    add_text(s, x + 0.18, 3.66, rw2 - 0.36, 0.64, desc, size=10.8, line_spacing=1.08)
 
-features = [
-    (BLUE, "Controller Workbench & Triage",
-     ["Split-View Proof Trail Inspector", "Inline PDF / Image Evidence Preview",
-      "Needs-Review Extraction Repair Drawer", "Bulk Triage & Dispute Email Packets"]),
-    (GREEN, "Enterprise Governance & AI",
-     ["SHA-256 Hash-Chained Audit Log", "Multi-Tenant CA Workspaces + RBAC",
-      "Grounded CFO Copilot (/api/copilot/ask)", "Configurable Policy & Live FX Rates"]),
+feat_cols = [
+    (BLUE, "Extraction & Triage Workbench", [
+        "Gemini 3.8 Vision Flash PDF/Image/CSV extraction",
+        "1-retry arithmetic repair + fail-closed gate",
+        "Needs-Review Drawer to fix quarantined lines",
+        "Split-View Proof Trail Inspector + inline PDF viewer",
+        "Bulk triage & 1-click vendor Dispute Email packets",
+    ]),
+    (GREEN, "Governance, Multi-Tenancy & AI", [
+        "SHA-256 hash-chained audit log (/api/audit-log/verify)",
+        "Multi-tenant CA Workspaces + RBAC (WorkspaceSwitcher)",
+        "Grounded CFO Copilot (/api/copilot/ask) + Webhooks",
+        "Configurable Policy Thresholds & Live FX Rate Service",
+        "One-click CFO Audit Memo (.md) & RFC-4180 CSV export",
+    ]),
 ]
 fw = (W - 2 * MX - 0.30) / 2
-for i, (accent, title, items) in enumerate(features):
+for i, (accent, title, items) in enumerate(feat_cols):
     x = MX + i * (fw + 0.30)
-    add_rect(s, x, 4.92, fw, 2.18, fill=CARD, rounded=True, radius=0.06)
-    add_rect(s, x + 0.03, 4.95, fw - 0.06, 0.075, fill=accent)
-    add_text(s, x + 0.24, 5.14, fw - 0.48, 0.30, title, size=14.5, bold=True)
-    bullet_runs = [[("•  " + it, {})] for it in items]
-    add_text(s, x + 0.24, 5.52, fw - 0.48, 1.45, bullet_runs, size=11.5, color=INK,
-             line_spacing=1.18, space_after=4)
+    add_rect(s, x, 4.58, fw, 2.58, fill=CARD, rounded=True, radius=0.06)
+    add_rect(s, x + 0.03, 4.61, fw - 0.06, 0.075, fill=accent)
+    add_text(s, x + 0.24, 4.80, fw - 0.48, 0.30, title, size=14, bold=True)
+    runs = [[("•  " + it, {})] for it in items]
+    add_text(s, x + 0.24, 5.18, fw - 0.48, 1.85, runs, size=11, line_spacing=1.18, space_after=4)
 
-notes(s, "R1-R7 live in backend/app/detect/rules/; UI components in frontend/src/components/.")
+notes(s, "Slide 3 lists all R1-R7 rules and shipped workbench/enterprise features.")
 
 
-# ================================================================ Slide 4 - Process Flow
+# ================================================================ Slide 4 - Process flow / Use-case diagram
 s = slide_new()
-header(s, "Process Flow & Pre-Payment Gate",
-       "End-to-end neuro-symbolic workflow with fail-closed extraction and human-in-the-loop repair.")
+header(s, "Process flow diagram or Use-case diagram",
+       "Pre-payment audit pipeline with fail-closed extraction repair and immutable logging.")
 
 pipeline = [
-    ("1. Ingest", "Upload CSV/PDF/Image\nor 1-click Demo Seed"),
+    ("1. Ingest", "Upload CSV/PDF/Scan\nor 1-click Demo Seed"),
     ("2. Vision Extract", "Gemini 3.8 Vision Flash\n+ 1-retry math repair"),
-    ("3. Fail-Closed Gate", "Math mismatch > 0.05\n-> Repair Drawer"),
+    ("3. Fail-Closed Gate", "Delta > 0.05 ->\nNeedsReviewDrawer"),
     ("4. Normalize", "Vendor keys, ISO dates,\nLive FX -> INR"),
-    ("5. Detect (R1-R7)", "Pure Python stdlib rules\n-> proof_trail JSON"),
+    ("5. Detect (R1-R7)", "Pure Python stdlib\n-> proof_trail JSON"),
     ("6. Act & Verify", "Hold/Recover, Copilot,\nSHA-256 Audit Chain"),
 ]
-nx, nw, nh, ngap = 0.45, 1.95, 1.38, 0.145
+nx, nw, nh, ngap = 0.45, 1.95, 1.42, 0.145
 for i, (t, sub) in enumerate(pipeline):
     x = nx + i * (nw + ngap)
-    add_rect(s, x, 2.18, nw, nh, fill=CARD, rounded=True, radius=0.10)
-    add_rect(s, x + 0.03, 2.21, nw - 0.06, 0.07, fill=BLUE if i in (1, 5) else (RED if i == 4 else GREEN))
-    add_text(s, x + 0.08, 2.40, nw - 0.16, 0.28, t, size=12, bold=True, align=PP_ALIGN.CENTER)
-    add_text(s, x + 0.10, 2.74, nw - 0.20, 0.72, sub, size=10.2, color=MUTED,
+    add_rect(s, x, 1.98, nw, nh, fill=CARD, rounded=True, radius=0.10)
+    add_rect(s, x + 0.03, 2.01, nw - 0.06, 0.07, fill=BLUE if i in (1, 5) else (RED if i == 4 else GREEN))
+    add_text(s, x + 0.08, 2.20, nw - 0.16, 0.28, t, size=12, bold=True, align=PP_ALIGN.CENTER)
+    add_text(s, x + 0.10, 2.54, nw - 0.20, 0.76, sub, size=10.2, color=MUTED,
              align=PP_ALIGN.CENTER, line_spacing=1.12)
     if i < len(pipeline) - 1:
-        add_text(s, x + nw - 0.02, 2.72, ngap + 0.04, 0.30, "→", size=14, color=MUTED,
+        add_text(s, x + nw - 0.02, 2.54, ngap + 0.04, 0.30, "→", size=14, color=MUTED,
                  align=PP_ALIGN.CENTER, wrap=False)
 
 use_cases = [
-    (BLUE, "Weekly Pay-Run Gate (AP Analyst)",
-     "Uploads exported AP batch -> reviews prioritized R1-R7 queue sorted by INR exposure -> "
-     "inspects side-by-side PDF & 3-way diff -> holds duplicate or sends dispute email."),
-    (AMBER, "48-Hour Historical Leak Audit (CA / Audit Firm)",
-     "Switches client workspace in Navbar -> ingests 6-12 months of CSVs/PDFs -> exports "
-     "deterministic CFO Audit Memo (.md) & RFC-4180 CSV with cryptographic audit-chain proof."),
-    (GREEN, "Self-Healing Extraction (Needs Review)",
-     "Low-DPI scan or GST math mismatch triggers 1 live Gemini retry; if still > 0.05 delta, "
-     "quarantines in NeedsReviewDrawer for 1-click analyst fix & re-detection."),
+    (BLUE, "Use Case 1 · AP Analyst (Weekly Pay Run)",
+     "1. Uploads weekly invoice/PO/contract batch.\n"
+     "2. Reviews R1-R7 queue sorted by INR at risk.\n"
+     "3. Opens Proof Trail + inline PDF preview.\n"
+     "4. Holds payout & copies vendor dispute email."),
+    (AMBER, "Use Case 2 · CA / Audit Firm (48-Hr Audit)",
+     "1. Switches client workspace in Navbar.\n"
+     "2. Runs 6-12 mo historical CSV/PDF sweep.\n"
+     "3. Queries Grounded CFO Copilot on findings.\n"
+     "4. Exports CFO Memo (.md) & verified audit log."),
+    (GREEN, "Use Case 3 · Controller / CFO (Governance)",
+     "1. Sets policy thresholds & approval limits (R6).\n"
+     "2. Fixes quarantined scans in NeedsReviewDrawer.\n"
+     "3. Verifies tamper-evident SHA-256 audit chain.\n"
+     "4. Tracks Blocked / Recovered ROI in BigQuery."),
 ]
 uw = (W - 2 * MX - 2 * 0.30) / 3
 for i, (accent, title, body) in enumerate(use_cases):
     x = MX + i * (uw + 0.30)
-    add_rect(s, x, 3.92, uw, 2.15, fill=WHITE, line=LINE, rounded=True, radius=0.06)
-    add_rect(s, x + 0.03, 3.95, uw - 0.06, 0.075, fill=accent)
-    add_text(s, x + 0.22, 4.16, uw - 0.44, 0.44, title, size=13.5, bold=True)
-    add_text(s, x + 0.22, 4.66, uw - 0.44, 1.30, body, size=11, color=MUTED, line_spacing=1.14)
+    add_rect(s, x, 3.74, uw, 2.48, fill=WHITE, line=LINE, rounded=True, radius=0.06)
+    add_rect(s, x + 0.03, 3.77, uw - 0.06, 0.075, fill=accent)
+    add_text(s, x + 0.22, 3.98, uw - 0.44, 0.44, title, size=13, bold=True)
+    add_text(s, x + 0.22, 4.48, uw - 0.44, 1.62, body.split("\n"), size=11, color=MUTED,
+             line_spacing=1.16, space_after=4)
 
-add_rect(s, MX, 6.32, W - 2 * MX, 0.78, fill=BLUE_TINT, rounded=True, radius=0.08)
-add_text(s, MX + 0.24, 6.48, W - 2 * MX - 0.48, 0.46, [[
-    ("Neuro-Symbolic Guarantee: ", {"bold": True}),
-    ("Gemini never computes risk figures or triggers holds directly — every finding is reproducible "
-     "by pure Python stdlib rules and verified via GET /api/audit-log/verify.", {}),
+add_rect(s, MX, 6.42, W - 2 * MX, 0.72, fill=BLUE_TINT, rounded=True, radius=0.08)
+add_text(s, MX + 0.24, 6.56, W - 2 * MX - 0.48, 0.44, [[
+    ("Core Invariant: ", {"bold": True}),
+    ("Gemini extracts and explains; deterministic Python rules R1-R7 decide; SHA-256 hash-chained tables log.", {}),
 ]], size=12)
 
-notes(s, "Covers both weekly pay-run gating and CA firm client-portfolio audits.")
+notes(s, "Slide 4 covers the 6-stage process flow and 3 primary user personas.")
 
 
-# ================================================================ Slide 5 - Solution Architecture
+# ================================================================ Slide 5 - Wireframes / Mock diagrams
 s = slide_new()
-header(s, "Solution Architecture",
-       "Updated production-ready architecture shipped in naughtynova69/LedgerLens-project.")
+header(s, "Wireframes/Mock diagrams of the proposed solution",
+       "Minimalist 3-surface Controller Workbench (Exceptions · Activity · Cloud & Policy) + Split-View Inspector.")
+
+# Outer browser wireframe frame
+fx, fy, fw_box, fh_box = MX, 1.88, W - 2 * MX, 5.26
+add_rect(s, fx, fy, fw_box, fh_box, fill=GREY_TINT, line=LINE, line_w=1.2, rounded=True, radius=0.03)
+# Top Navbar mock
+add_rect(s, fx + 0.08, fy + 0.08, fw_box - 0.16, 0.52, fill=WHITE, line=LINE, rounded=True, radius=0.04)
+add_text(s, fx + 0.24, fy + 0.18, 2.2, 0.30, "LedgerLens", size=14, bold=True, color=BLUE)
+chip(s, fx + 2.35, fy + 0.19, "Exceptions", size=9.5, fill=BLUE_TINT, color=BLUE, h=0.28)
+chip(s, fx + 3.45, fy + 0.19, "Activity", size=9.5, fill=CARD, h=0.28)
+chip(s, fx + 4.42, fy + 0.19, "Cloud & Policy", size=9.5, fill=CARD, h=0.28)
+chip(s, fx + 7.65, fy + 0.19, "Workspace: Acme Mfg", size=9.5, fill=GREY_TINT, h=0.28)
+chip(s, fx + 9.75, fy + 0.19, "+ Upload / Seed Demo", size=9.5, fill=GREEN_TINT, color=GREEN, h=0.28)
+
+# 4 KPI cards strip
+kw_m = (fw_box - 0.48 - 3 * 0.14) / 4
+mock_kpis = [
+    ("Total Spend Audited", "₹1,42,500", INK),
+    ("Money at Risk", "₹40,531.60", RED),
+    ("Open Exceptions", "6 Findings", AMBER),
+    ("Recovered / Blocked", "₹34,456.00", GREEN),
+]
+for i, (klbl, kval, kcol) in enumerate(mock_kpis):
+    kx = fx + 0.24 + i * (kw_m + 0.14)
+    add_rect(s, kx, fy + 0.74, kw_m, 0.82, fill=WHITE, line=LINE, rounded=True, radius=0.06)
+    add_text(s, kx + 0.14, fy + 0.84, kw_m - 0.28, 0.22, klbl, size=9.5, color=MUTED)
+    add_text(s, kx + 0.14, fy + 1.10, kw_m - 0.28, 0.34, kval, size=15, bold=True, color=kcol, font=MONO)
+
+# Left pane: Exception Queue wireframe
+lx, ly_m, lw_m, lh_m = fx + 0.24, fy + 1.72, 5.45, 3.34
+add_rect(s, lx, ly_m, lw_m, lh_m, fill=WHITE, line=LINE, rounded=True, radius=0.04)
+add_text(s, lx + 0.18, ly_m + 0.14, 3.5, 0.26, "Exception Queue (R1-R7)", size=12, bold=True)
+q_rows = [
+    ("R5 · CRITICAL", "INV-9250 · CloudSuite cancelled renewal", "₹29,500.00", RED_TINT, RED),
+    ("R1 · CRITICAL", "INV-8821-R2 · Sunbeam duplicate (2d gap)", "₹4,956.00", RED_TINT, RED),
+    ("R3 · HIGH", "INV-9155 · A4 Paper Box 60 vs 50 PO qty", "₹2,832.00", CARD, AMBER),
+    ("R4 · HIGH", "INV-9301 · Export Freight 18% vs 0% GST", "₹2,700.00", CARD, BLUE),
+]
+for idx, (tag, title, amt, bg, col) in enumerate(q_rows):
+    ry = ly_m + 0.52 + idx * 0.66
+    add_rect(s, lx + 0.14, ry, lw_m - 0.28, 0.56, fill=BLUE_TINT if idx == 1 else GREY_TINT,
+             line=BLUE if idx == 1 else LINE, rounded=True, radius=0.06)
+    chip(s, lx + 0.24, ry + 0.13, tag, size=8.5, fill=bg, color=col, h=0.28)
+    add_text(s, lx + 1.48, ry + 0.15, 2.75, 0.26, title, size=9.5, bold=(idx == 1))
+    add_text(s, lx + 4.18, ry + 0.15, 0.95, 0.26, amt, size=9.5, bold=True, font=MONO, align=PP_ALIGN.RIGHT)
+
+# Right pane: Split-View Proof Trail Inspector wireframe
+rx, rw_m = lx + lw_m + 0.18, fw_box - 0.48 - lw_m - 0.18
+add_rect(s, rx, ly_m, rw_m, lh_m, fill=WHITE, line=LINE, rounded=True, radius=0.04)
+add_text(s, rx + 0.18, ly_m + 0.14, 4.2, 0.26, "Split-View Proof Trail Inspector", size=12, bold=True)
+chip(s, rx + 0.18, ly_m + 0.48, "Decision: Rule R1 · Narrative: Gemini 3.8 Vision Flash", size=8.5,
+     fill=BLUE_TINT, color=BLUE, h=0.26)
+add_rect(s, rx + 0.18, ly_m + 0.84, rw_m - 0.36, 0.72, fill=GREY_TINT, line=LINE, rounded=True, radius=0.05)
+add_text(s, rx + 0.28, ly_m + 0.92, rw_m - 0.56, 0.58,
+         "3-Way Evidence Diff: INV-8821 (₹4,956, PAY-5001) vs INV-8821-R2 (₹4,956, PAY-5002) · line_sim=1.0",
+         size=9.5, color=MUTED, line_spacing=1.12)
+add_rect(s, rx + 0.18, ly_m + 1.66, rw_m - 0.36, 0.92, fill=CARD, line=LINE, rounded=True, radius=0.05)
+add_text(s, rx + 0.28, ly_m + 1.74, rw_m - 0.56, 0.78,
+         "Inline PDF Evidence Preview (PdfEvidencePreview) + Collapsible Proof Math + NeedsReviewDrawer",
+         size=9.5, color=INK, line_spacing=1.12)
+chip(s, rx + 0.18, ly_m + 2.74, "Hold / Recover", size=9.5, fill=RED_TINT, color=RED, h=0.32)
+chip(s, rx + 1.60, ly_m + 2.74, "Copy Dispute Email", size=9.5, fill=BLUE_TINT, color=BLUE, h=0.32)
+chip(s, rx + 3.45, ly_m + 2.74, "Approve", size=9.5, fill=GREEN_TINT, color=GREEN, h=0.32)
+
+notes(s, "Slide 5 wireframe matches ExceptionsView + ProofTrailInspector + WorkspaceSwitcher.")
+
+
+# ================================================================ Slide 6 - Architecture diagram
+s = slide_new()
+header(s, "Architecture diagram of the proposed solution",
+       "Neuro-symbolic 5-layer architecture shipped in naughtynova69/LedgerLens-project.")
 
 layers = [
     (BLUE, WHITE, "Frontend Workbench", "React 19 · Vite 6 · Vitest",
@@ -365,7 +439,7 @@ layers = [
      ["DBAdapter (SQLite / AlloyDB)", "Live FX Service", "BigQuery analytics",
       "Cloud Storage", "Pub/Sub", "Cloud Run (Dockerfile + cloudbuild.yaml)"]),
 ]
-ly, lh, lgap, label_w = 2.02, 0.94, 0.06, 3.05
+ly, lh, lgap, label_w = 1.98, 0.94, 0.06, 3.05
 chips_x = MX + label_w + 0.18
 chips_maxw = W - MX - 0.20 - chips_x
 for i, (accent, label_text_color, name, sub, chips) in enumerate(layers):
@@ -386,61 +460,138 @@ for i, (accent, label_text_color, name, sub, chips) in enumerate(layers):
             chip(s, chips_x + dx, ry, text, size=10.5, h=row_h,
                  fill=GREY_TINT if accent != YELLOW else CARD)
 
-add_rect(s, MX, 7.04, W - 2 * MX, 0.34, fill=CARD, rounded=True, radius=0.16)
-add_text(s, MX + 0.24, 7.11, W - 2 * MX - 0.48, 0.20, [[
-    ("Verified Architecture Gate: ", {"bold": True}),
-    ("DETECT_PURITY_OK (AST-verified 0 LLM/DB/network imports in detect/) · 88 backend pytest + 6 frontend Vitest passed", {}),
+add_rect(s, MX, 7.02, W - 2 * MX, 0.34, fill=CARD, rounded=True, radius=0.16)
+add_text(s, MX + 0.24, 7.09, W - 2 * MX - 0.48, 0.20, [[
+    ("Architecture Principle: ", {"bold": True}),
+    ("The LLM is never the sole source of a finding — AST Purity Gate confirms 0 LLM/DB/network imports in detect/.", {}),
 ]], size=11)
 
-notes(s, "Updated from 51 tests / R1-R5 / gemini-4-carbon to 88 tests / R1-R7 / gemini-3.8-vision-flash unified.")
+notes(s, "Slide 6 updates the original Architecture slide with R1-R7, Gemini 3.8 Vision Flash, and V1 modules.")
 
 
-# ================================================================ Slide 6 - Google AI Tools & Unified Model
+# ================================================================ Slide 7 - Technologies to be used
 s = slide_new()
-header(s, "Google AI Stack & Unified Gemini 3.8 Vision Flash",
-       "Consolidated on gemini-3.8-vision-flash for high accuracy and 85%-92% SaaS gross margins.")
+header(s, "Technologies to be used in the solution",
+       "Google AI, Google Cloud, and deterministic Python/React stack.")
 
-add_rect(s, MX, 2.02, W - 2 * MX, 1.48, fill=WHITE, line=LINE, rounded=True, radius=0.06)
-add_rect(s, MX + 0.03, 2.05, W - 2 * MX - 0.06, 0.075, fill=BLUE)
-add_text(s, MX + 0.26, 2.24, 5.5, 0.32, "gemini-3.8-vision-flash", size=17, bold=True, font=MONO)
-chip(s, W - MX - 2.95, 2.24, "Unified Primary & Batch", size=10.5, fill=BLUE_TINT, color=BLUE, h=0.30)
-add_text(s, MX + 0.26, 2.66, W - 2 * MX - 0.52, 0.72,
-         "Single high-speed multimodal model for PDF/image OCR, CSV batch extraction, CFO-ready proof-trail "
-         "explanations, and grounded Copilot Q&A — hardened with a locale-aware AP prompt (US/EU/India GST, "
-         "lakh/crore grouping, revision suffixes) and a 1-retry arithmetic repair loop.",
-         size=11.5, color=MUTED, line_spacing=1.14)
-
-tools = [
-    (BLUE, "Google AI Studio Schemas",
-     "Version-controlled JSON schemas enforcing zero-hallucination structured extraction & CFO cards.",
-     "docs/ai_studio_schemas/ · eval_gemini_extraction.py"),
-    (RED, "Google Antigravity + Multi-Harness",
-     "Parallel swarm & ZCode isolation via scripts/harness_lock.py + ECC memory + PR-protected main.",
-     "AGENTS.md · CLAUDE.md · scripts/harness_lock.py"),
-    (AMBER, "Google Agent Skills & Copilot",
-     "Function calling for payment lookups, deterministic memos, recovery routing & grounded Q&A.",
-     "/api/skills/{tool_name} · POST /api/copilot/ask"),
-    (GREEN, "Google Cloud Platform",
-     "Unified Cloud Run container with Vertex AI IAM, AlloyDB adapter, BigQuery sync, GCS & Pub/Sub.",
-     "Dockerfile · cloudbuild.yaml · backend/app/gcp/"),
+tech_cards = [
+    (BLUE, "Google AI & Model Stack",
+     "• gemini-3.8-vision-flash (unified vision OCR, batch CSV, CFO narration & Copilot)\n"
+     "• Google AI Studio JSON schemas (docs/ai_studio_schemas/)\n"
+     "• Google Agent Skills (/api/skills) + Google Antigravity + ZCode multi-harness"),
+    (GREEN, "Backend & Pure Rules Engine",
+     "• Python 3.11+ · FastAPI · Pydantic v2 · Uvicorn\n"
+     "• Pure Python stdlib Detection Engine (R1-R7, zero external imports)\n"
+     "• SHA-256 cryptographic audit chain + Live FX Service + DBAdapter"),
+    (AMBER, "Frontend & Testing",
+     "• React 19 · Vite 6 · Tailwind CSS 3.4 · Lucide Icons\n"
+     "• Vitest + React Testing Library + jsdom (6 smoke tests)\n"
+     "• Backend pytest suite (88 passed, 3 live-API evals)"),
+    (PURPLE, "Google Cloud Platform",
+     "• Cloud Run (multi-stage Dockerfile + cloudbuild.yaml + deploy/cloudrun.sh)\n"
+     "• Vertex AI + Secret Manager (GEMINI_API_KEY)\n"
+     "• AlloyDB for PostgreSQL · BigQuery (ledgerlens_analytics) · GCS · Pub/Sub"),
 ]
-tw, th, tgap = (W - 2 * MX - 0.30) / 2, 1.66, 0.30
-for i, (accent, name, body, arti) in enumerate(tools):
-    x = MX + (i % 2) * (tw + tgap)
-    y = 3.68 + (i // 2) * (th + 0.22)
-    add_rect(s, x, y, tw, th, fill=CARD, rounded=True, radius=0.05)
-    add_rect(s, x + 0.03, y + 0.03, tw - 0.06, 0.075, fill=accent)
-    add_text(s, x + 0.24, y + 0.18, tw - 0.48, 0.30, name, size=14.5, bold=True)
-    add_text(s, x + 0.24, y + 0.50, tw - 0.48, 0.66, body, size=11, line_spacing=1.10)
-    add_text(s, x + 0.24, y + th - 0.38, tw - 0.48, 0.28, arti, size=10, color=MUTED, font=MONO)
+for i, (accent, title, body) in enumerate(tech_cards):
+    x = MX + (i % 2) * (qw + 0.30)
+    y = 1.98 + (i // 2) * (2.48 + 0.24)
+    add_rect(s, x, y, qw, 2.48, fill=CARD, rounded=True, radius=0.05)
+    add_rect(s, x + 0.03, y + 0.03, qw - 0.06, 0.075, fill=accent)
+    add_text(s, x + 0.24, y + 0.20, qw - 0.48, 0.34, title, size=14.5, bold=True, color=accent)
+    add_text(s, x + 0.24, y + 0.62, qw - 0.48, 1.72, body.split("\n"), size=11.5,
+             line_spacing=1.20, space_after=6)
 
-notes(s, "Highlights removal of gemini-4-carbon and full consolidation onto gemini-3.8-vision-flash.")
+notes(s, "Slide 7 covers all Google AI, backend, frontend, and GCP technologies.")
 
 
-# ================================================================ Slide 7 - Performance & Benchmarking
+# ================================================================ Slide 8 - Estimated implementation cost
 s = slide_new()
-header(s, "Prototype Performance Report & Benchmarking",
-       "All metrics directly observed from automated test suites and sample_data/ acceptance gates.")
+header(s, "Estimated implementation cost (optional)",
+       "Deterministic rules keep AI compute at pennies per invoice -> 85%-92%+ SaaS gross margins.")
+
+cost_cards = [
+    (BLUE, "$0.05 – $1.00 / demo", "Vertex AI (Gemini 3.8 Vision Flash)",
+     "Pay-per-token only on unstructured PDF/image uploads & flagged finding narratives. "
+     "R1-R7 deterministic detection uses 0 AI tokens."),
+    (GREEN, "~$0 – $25 / mo", "Cloud Run + GCS + BigQuery (MVP/Pilot)",
+     "Scale-to-zero Cloud Run container (1 vCPU, 1 GiB) + GCS evidence storage + BigQuery "
+     "analytics dataset; local SQLite runs at $0."),
+    (AMBER, "85% – 92%+", "SaaS Gross Margin & ARR",
+     "Starter (<=2.5k inv/mo), Growth (<=10k inv/mo), Enterprise ($24k-$96k ARR) — "
+     "5x-10x CFO ROI vs recovered leakage."),
+]
+cw3, gap3 = 3.92, 0.24
+for i, (accent, big, title, body) in enumerate(cost_cards):
+    x = MX + i * (cw3 + gap3)
+    add_rect(s, x, 2.02, cw3, 2.60, fill=CARD, rounded=True, radius=0.06)
+    add_rect(s, x + 0.03, 2.05, cw3 - 0.06, 0.075, fill=accent)
+    add_text(s, x + 0.24, 2.26, cw3 - 0.48, 0.46, big, size=24, bold=True, color=accent)
+    add_text(s, x + 0.24, 2.80, cw3 - 0.48, 0.34, title, size=13.5, bold=True)
+    add_text(s, x + 0.24, 3.22, cw3 - 0.48, 1.28, body, size=11.5, color=MUTED, line_spacing=1.14)
+
+add_rect(s, MX, 4.94, W - 2 * MX, 2.04, fill=BLUE_TINT, rounded=True, radius=0.07)
+add_text(s, MX + 0.28, 5.12, W - 2 * MX - 0.56, 0.32,
+         "Hybrid Wedge → SaaS Business Model", size=15, bold=True)
+add_text(s, MX + 0.28, 5.52, W - 2 * MX - 0.56, 1.32, [
+    [("1. Land (48-Hr Historical Leak Diagnostic): ", {"bold": True}),
+     ("Free pilot or 15%-20% contingency on 6-12 months of exported CSVs/PDFs (zero ERP integration).", {})],
+    [("2. Expand (Weekly Pay-Run Gate): ", {"bold": True}),
+     ("Recurring SaaS subscription gating every weekly AP disbursement before funds leave.", {})],
+    [("3. Distribute (CA / Audit Firm Channel): ", {"bold": True}),
+     ("Multi-tenant WorkspaceSwitcher lets accounting firms standardize audits across all clients.", {})],
+], size=12, line_spacing=1.18, space_after=6)
+
+notes(s, "Slide 8 matches Estimated implementation cost (optional).")
+
+
+# ================================================================ Slide 9 - Snapshots of the prototype
+s = slide_new()
+header(s, "Snapshots of the prototype",
+       "Working 3-surface React 19 + FastAPI prototype verified end-to-end on sample_data/.")
+
+snaps = [
+    (BLUE, "1. Exceptions & Proof Trail Inspector",
+     "• 4-metric INR executive strip + R1-R7 filterable queue\n"
+     "• Split-View 3-Way Diff (Invoice vs Contract vs PO)\n"
+     "• Inline PdfEvidencePreview + Copy Dispute Email\n"
+     "• NeedsReviewDrawer for quarantined math mismatches",
+     "frontend/src/views/FindingsView.jsx · ProofTrailInspector.jsx"),
+    (GREEN, "2. Activity & Hash-Chained Audit Log",
+     "• Batch lifecycle tracker (uploaded -> extracted -> detected)\n"
+     "• Append-only chronological decision trail\n"
+     "• Tamper-evident SHA-256 verification (/api/audit-log/verify)\n"
+     "• One-click CFO Audit Memo (.md) download",
+     "frontend/src/views/AuditLogView.jsx · MemoView.jsx"),
+    (AMBER, "3. Cloud, Policy & Multi-Tenant CA View",
+     "• Live GCP readiness (BigQuery, AlloyDB, GCS, Vertex AI, Pub/Sub)\n"
+     "• Configurable R1-R7 policy thresholds (GET/PUT /api/policy)\n"
+     "• WorkspaceSwitcher for CA / audit client isolation\n"
+     "• Grounded CFO Copilot (/api/copilot/ask) + CSV export",
+     "frontend/src/views/CloudIntegrationsView.jsx · WorkspaceSwitcher.jsx"),
+]
+sw = (W - 2 * MX - 2 * 0.24) / 3
+for i, (accent, title, body, path_txt) in enumerate(snaps):
+    x = MX + i * (sw + 0.24)
+    add_rect(s, x, 1.98, sw, 4.30, fill=WHITE, line=LINE, rounded=True, radius=0.06)
+    add_rect(s, x + 0.03, 2.01, sw - 0.06, 0.08, fill=accent)
+    add_text(s, x + 0.20, 2.22, sw - 0.40, 0.44, title, size=13.5, bold=True, color=accent)
+    add_text(s, x + 0.20, 2.74, sw - 0.40, 2.70, body.split("\n"), size=11, line_spacing=1.18, space_after=6)
+    add_rect(s, x + 0.16, 5.64, sw - 0.32, 0.48, fill=GREY_TINT, rounded=True, radius=0.08)
+    add_text(s, x + 0.24, 5.74, sw - 0.48, 0.30, path_txt, size=8.8, color=MUTED, font=MONO)
+
+add_rect(s, MX, 6.46, W - 2 * MX, 0.68, fill=GREEN_TINT, rounded=True, radius=0.08)
+add_text(s, MX + 0.24, 6.62, W - 2 * MX - 0.48, 0.36, [[
+    ("1-Click Demo Seed (POST /api/seed/sample_data): ", {"bold": True, "color": GREEN}),
+    ("Seeds 5 CSVs -> runs R1-R7 -> surfaces all 6 planted anomalies (₹40,531.60) with 0 FPs in <2 seconds.", {}),
+]], size=12)
+
+notes(s, "Slide 9 summarizes the 3 live UI surfaces (can also swap in browser screenshots before final PDF export).")
+
+
+# ================================================================ Slide 10 - Prototype Performance report / Benchmarking
+s = slide_new()
+header(s, "Prototype Performance report/Benchmarking",
+       "Directly observed test results and sample_data/ acceptance metrics after merging PR #9 + PR #10.")
 
 bench_kpis = [
     (GREEN, "88 Passed", "Backend pytest suite (3 live-API evals skipped without key)"),
@@ -451,10 +602,10 @@ bench_kpis = [
 bw = (W - 2 * MX - 3 * 0.22) / 4
 for i, (accent, num, desc) in enumerate(bench_kpis):
     x = MX + i * (bw + 0.22)
-    add_rect(s, x, 2.04, bw, 1.66, fill=CARD, rounded=True, radius=0.06)
-    add_rect(s, x + 0.03, 2.07, bw - 0.06, 0.075, fill=accent)
-    add_text(s, x + 0.20, 2.26, bw - 0.40, 0.46, num, size=24, bold=True, color=accent)
-    add_text(s, x + 0.20, 2.82, bw - 0.40, 0.78, desc, size=10.8, line_spacing=1.10)
+    add_rect(s, x, 1.98, bw, 1.62, fill=CARD, rounded=True, radius=0.06)
+    add_rect(s, x + 0.03, 2.01, bw - 0.06, 0.075, fill=accent)
+    add_text(s, x + 0.20, 2.20, bw - 0.40, 0.46, num, size=24, bold=True, color=accent)
+    add_text(s, x + 0.20, 2.74, bw - 0.40, 0.78, desc, size=10.8, line_spacing=1.10)
 
 rows_data = [
     ("R1 · Duplicate", "INV-8821 vs INV-8821-R2 (2-day gap, both paid)", "Critical", "₹4,956.00"),
@@ -464,7 +615,7 @@ rows_data = [
     ("R5 · Cancelled", "INV-9250 CloudSuite paid after C-005 cancelled 2026-09-30", "Critical", "₹29,500.00"),
     ("R6 & R7 · V1 Rules", "Split-PO approval bypass & 3-way GRN mismatch (unit tested)", "High", "Policy-driven"),
 ]
-ty = 3.92
+ty = 3.84
 add_rect(s, MX, ty, W - 2 * MX, 0.36, fill=INK, rounded=True, radius=0.04)
 add_text(s, MX + 0.20, ty + 0.06, 2.5, 0.24, "Rule", size=11, bold=True, color=WHITE)
 add_text(s, MX + 2.75, ty + 0.06, 6.2, 0.24, "Verified Case / Coverage", size=11, bold=True, color=WHITE)
@@ -480,69 +631,30 @@ for idx, (rname, rcase, rsev, rexp) in enumerate(rows_data):
              color=RED if rsev == "Critical" else AMBER)
     add_text(s, MX + 10.60, ry + 0.07, 1.3, 0.24, rexp, size=10.5, bold=True, font=MONO)
 
-notes(s, "All test counts directly observed after merging PR #9 + Tracks 2-12 on feat/roadmap-tracks-2-to-12.")
+notes(s, "Slide 10 matches Prototype Performance report/Benchmarking.")
 
 
-# ================================================================ Slide 8 - Cost & Unit Economics
+# ================================================================ Slide 11 - Additional Details / Future Development
 s = slide_new()
-header(s, "Estimated Implementation Cost & SaaS Unit Economics",
-       "Deterministic Python rules keep AI token spend near zero while protecting 85%-92% gross margins.")
-
-cost_cards = [
-    (BLUE, "$0.05 – $1.00 / demo", "Vertex AI (Gemini 3.8 Vision Flash)",
-     "Pay-per-token only on unstructured PDF/image uploads & flagged finding narratives. "
-     "R1-R7 deterministic detection uses 0 AI tokens."),
-    (GREEN, "~$0 – $25 / mo", "Cloud Run + GCS + BigQuery (MVP/Pilot)",
-     "Scale-to-zero Cloud Run container (1 vCPU, 1 GiB) + GCS evidence storage + BigQuery "
-     "analytics dataset; local SQLite runs at $0."),
-    (AMBER, "85% – 92%+", "Target SaaS Gross Margin",
-     "Starter (<=2.5k inv/mo), Growth (<=10k inv/mo), Enterprise ($24k-$96k ARR) — "
-     "5x-10x ROI vs recovered leakage."),
-]
-for i, (accent, big, title, body) in enumerate(cost_cards):
-    x = MX + i * (cw + gap)
-    add_rect(s, x, 2.10, cw, 2.65, fill=CARD, rounded=True, radius=0.06)
-    add_rect(s, x + 0.03, 2.13, cw - 0.06, 0.075, fill=accent)
-    add_text(s, x + 0.24, 2.34, cw - 0.48, 0.48, big, size=24, bold=True, color=accent)
-    add_text(s, x + 0.24, 2.88, cw - 0.48, 0.34, title, size=13.5, bold=True)
-    add_text(s, x + 0.24, 3.30, cw - 0.48, 1.30, body, size=11.5, color=MUTED, line_spacing=1.14)
-
-add_rect(s, MX, 5.08, W - 2 * MX, 1.88, fill=BLUE_TINT, rounded=True, radius=0.07)
-add_text(s, MX + 0.28, 5.26, W - 2 * MX - 0.56, 0.32,
-         "Go-To-Market: Hybrid Diagnostic Wedge → Recurring Pre-Payment SaaS", size=15, bold=True)
-add_text(s, MX + 0.28, 5.66, W - 2 * MX - 0.56, 1.15, [
-    [("1. Land (48-Hr Historical Leak Diagnostic): ", {"bold": True}),
-     ("Free pilot or 15%-20% contingency on 6-12 months of exported CSVs/PDFs — zero ERP integration required.", {})],
-    [("2. Expand (Weekly Pay-Run SaaS): ", {"bold": True}),
-     ("Embed as the mandatory pre-payment gate before weekly disbursements.", {})],
-    [("3. Distribute (CA / Audit Firm Channel): ", {"bold": True}),
-     ("Multi-tenant WorkspaceSwitcher lets accounting firms standardize audits across all client portfolios.", {})],
-], size=12, line_spacing=1.18, space_after=4)
-
-notes(s, "Cost numbers from docs/GCP_INTEGRATION_GUIDE.md; commercial model from docs/PRD.md.")
-
-
-# ================================================================ Slide 9 - Future Development
-s = slide_new()
-header(s, "Future Development & Enterprise Roadmap",
-       "Phase 0 (MVP) & V1 Core Shipped — next milestones for enterprise & CA-firm scale.")
+header(s, "Additional Details/Future Development (if any)",
+       "Roadmap from current verified prototype to full enterprise & CA-firm deployment.")
 
 phases = [
-    (GREEN, "Shipped Now (Phase 0 + V1 Core)",
+    (GREEN, "Shipped Now (MVP + V1 Core)",
      ["Gemini 3.8 Vision Flash + 1-retry math repair",
       "Pure Python R1-R7 + Policy Thresholds",
       "Needs-Review Drawer + Inline PDF Preview",
       "SHA-256 Hash-Chained Audit Log",
       "Multi-Tenant CA Workspaces & CFO Copilot",
       "88 pytest + 6 Vitest + Cloud Run Dockerfile"]),
-    (BLUE, "Next: Design Partner Pilot (Q1)",
-     ["Live AlloyDB end-to-end persistence wiring",
+    (BLUE, "Next: Design Partner Pilot",
+     ["Live Cloud Run deployment + Secret Manager",
+      "Live AlloyDB end-to-end persistence wiring",
       "Live ECB/RBI daily FX feed in production",
       "PDF 300-DPI preprocessing & bbox highlights",
-      "Scheduled GCS / SFTP / AP-inbox ingestion",
-      "Live Gemini eval benchmark on 100+ real PDFs",
+      "Live Gemini eval on 100+ real AP PDFs",
       "GitHub Actions CI + Purity Gate on PRs"]),
-    (PURPLE, "Scale: Enterprise & Graph (Q2+)",
+    (PURPLE, "Scale: Enterprise & Graph",
      ["Spend Relationship Knowledge Graph (LadybugDB)",
       "Multi-hop shell-vendor & split-PO ring detection",
       "Read-only Zoho Books, NetSuite, SAP, Oracle sync",
@@ -551,17 +663,17 @@ phases = [
       "SOC2 / WORM cryptographic audit archival"]),
 ]
 for i, (accent, title, items) in enumerate(phases):
-    x = MX + i * (cw + gap)
-    add_rect(s, x, 2.08, cw, 4.92, fill=WHITE, line=LINE, rounded=True, radius=0.06)
-    add_rect(s, x + 0.03, 2.11, cw - 0.06, 0.08, fill=accent)
-    add_text(s, x + 0.24, 2.34, cw - 0.48, 0.36, title, size=14.5, bold=True, color=accent)
+    x = MX + i * (cw3 + gap3)
+    add_rect(s, x, 1.98, cw3, 5.02, fill=WHITE, line=LINE, rounded=True, radius=0.06)
+    add_rect(s, x + 0.03, 2.01, cw3 - 0.06, 0.08, fill=accent)
+    add_text(s, x + 0.24, 2.24, cw3 - 0.48, 0.36, title, size=14.5, bold=True, color=accent)
     runs = [[("•  " + it, {})] for it in items]
-    add_text(s, x + 0.24, 2.84, cw - 0.48, 3.96, runs, size=11.5, line_spacing=1.22, space_after=8)
+    add_text(s, x + 0.24, 2.74, cw3 - 0.48, 4.06, runs, size=11.5, line_spacing=1.22, space_after=8)
 
-notes(s, "Clear separation between shipped capabilities and upcoming V1/V2 milestones.")
+notes(s, "Slide 11 matches Additional Details/Future Development (if any).")
 
 
-# ================================================================ Slide 10 - Thank You
+# ================================================================ Slide 12 - Thank You (Template Match)
 s = slide_new()
 add_rect(s, 0, 0, W, H, fill=WHITE)
 add_pic(s, BRAND_BLOCK, 0, 0, w=5.55, h=2.90)
@@ -596,7 +708,7 @@ add_text(s, MX, 6.66, 7.35, 0.30, [[
     (" — 5 members · Team Lead: Vijay Prakash Sahu", {}),
 ]], size=13)
 
-notes(s, "Closing slide with verified prototype metrics and repository links.")
+notes(s, "Slide 12 matches official Thank you slide.")
 
 prs.save(OUT_PPTX)
 print("saved", OUT_PPTX)
