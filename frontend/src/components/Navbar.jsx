@@ -1,15 +1,5 @@
 import React from "react";
-import {
-  ShieldCheck,
-  Database,
-  Upload,
-  Activity,
-  ShieldAlert,
-  FileCheck2,
-  BookOpen,
-  Terminal,
-  UploadCloud,
-} from "lucide-react";
+import { api } from "../api";
 
 export function Navbar({
   activeTab,
@@ -18,121 +8,105 @@ export function Navbar({
   isOnline,
   onSeedDemo,
   onOpenUploadModal,
+  onOpenMemoModal,
   loadingAction,
 }) {
   const openCount = stats?.by_status?.open ?? 0;
 
   const navItems = [
-    { id: "dashboard", label: "Overview", icon: Activity },
-    {
-      id: "findings",
-      label: "Exception Queue",
-      icon: ShieldAlert,
-      badge: openCount,
-    },
-    { id: "memo", label: "CFO Audit Memo", icon: FileCheck2 },
-    { id: "audit", label: "Audit Log", icon: Terminal },
-    { id: "upload", label: "Batches & Feeds", icon: UploadCloud },
-    { id: "rules", label: "Rules R1–R5", icon: BookOpen },
+    { id: "exceptions", label: "Exceptions", badge: openCount },
+    { id: "activity", label: "Activity" },
+    { id: "cloud", label: "Cloud & Policy" },
   ];
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-slate-200 bg-white/95 backdrop-blur-md">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-wrap items-center justify-between gap-3 py-3">
-          {/* Brand Header */}
-          <div
-            className="flex items-center gap-3 cursor-pointer"
-            onClick={() => setActiveTab("dashboard")}
+    <header className="sticky top-0 z-40 w-full border-b border-gray-200 bg-white">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between gap-4">
+        {/* Left: Wordmark, Status Dot & 3 Surface Tabs */}
+        <div className="flex items-center gap-6 min-w-0">
+          <button
+            type="button"
+            onClick={() => setActiveTab("exceptions")}
+            className="flex items-center gap-2.5 shrink-0 text-left"
           >
-            <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center shadow-sm shrink-0">
-              <ShieldCheck className="w-5 h-5 text-emerald-400" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-base sm:text-lg font-bold tracking-tight text-slate-900">
-                  LedgerLens
-                </span>
-                <span className="hidden md:inline-block text-xs font-medium text-slate-500">
-                  — Explainable AI Money-Leak Auditor
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-500">
-                Pre-Payment Neuro-Symbolic AP Gate · Deterministic Rules R1–R5
-              </p>
-            </div>
-          </div>
-
-          {/* Right Command Controls */}
-          <div className="flex flex-wrap items-center gap-2.5">
-            <div
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${
-                isOnline
-                  ? "bg-[#ECFDF5] text-[#059669] border-[#A7F3D0]"
-                  : "bg-[#FEF2F2] text-[#DC2626] border-[#FECACA]"
-              }`}
-              title={isOnline ? "FastAPI rules engine online" : "Backend unreachable"}
+            <span className="text-sm font-semibold tracking-tight text-[#111827]">
+              LedgerLens
+            </span>
+            <span
+              className="inline-flex items-center gap-1.5 text-[11px] font-medium text-gray-500"
+              title={isOnline ? "Rules engine online" : "Backend unreachable"}
             >
               <span
-                className={`w-2 h-2 rounded-full ${
-                  isOnline ? "bg-[#059669]" : "bg-[#DC2626]"
+                className={`w-1.5 h-1.5 rounded-full ${
+                  isOnline ? "bg-[#047857]" : "bg-[#B91C1C]"
                 }`}
               />
-              <span>{isOnline ? "Engine Live" : "Offline"}</span>
-            </div>
+              <span className="hidden sm:inline">{isOnline ? "Live" : "Offline"}</span>
+            </span>
+          </button>
 
-            <button
-              onClick={onOpenUploadModal}
-              disabled={loadingAction}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 transition-colors disabled:opacity-50"
-            >
-              <Upload className="w-3.5 h-3.5 text-slate-600" />
-              <span>Upload CSV/PDF</span>
-            </button>
-
-            <button
-              onClick={onSeedDemo}
-              disabled={loadingAction}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-[#059669] hover:bg-[#047857] text-white transition-colors shadow-sm disabled:opacity-50"
-            >
-              <Database className="w-3.5 h-3.5" />
-              <span>Load Demo Dataset (6 Planted Anomalies)</span>
-            </button>
-          </div>
+          <nav className="flex items-center gap-1 overflow-x-auto" aria-label="Primary surfaces">
+            {navItems.map((item) => {
+              const active = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setActiveTab(item.id)}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
+                    active
+                      ? "bg-gray-100 text-[#111827]"
+                      : "text-gray-500 hover:text-[#111827] hover:bg-gray-50"
+                  }`}
+                >
+                  <span>{item.label}</span>
+                  {item.badge !== undefined && item.badge > 0 && (
+                    <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono tabular-nums bg-red-50/80 text-red-700 border border-red-200 leading-none">
+                      {item.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
         </div>
 
-        {/* Navigation Tabs */}
-        <nav className="flex space-x-1 border-t border-slate-100 overflow-x-auto py-2">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const active = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
-                  active
-                    ? "bg-slate-900 text-white"
-                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-                }`}
-              >
-                <Icon className="w-3.5 h-3.5" />
-                <span>{item.label}</span>
-                {item.badge !== undefined && item.badge > 0 && (
-                  <span
-                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold tabular-nums ${
-                      active
-                        ? "bg-rose-500 text-white"
-                        : "bg-[#FEF2F2] text-[#DC2626] border border-[#FECACA]"
-                    }`}
-                  >
-                    {item.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </nav>
+        {/* Right: Quiet Action Controls */}
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={onOpenUploadModal}
+            disabled={loadingAction}
+            className="px-2.5 py-1.5 text-xs font-medium rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 transition-colors disabled:opacity-50"
+          >
+            Upload
+          </button>
+
+          <button
+            type="button"
+            onClick={onSeedDemo}
+            disabled={loadingAction}
+            className="px-2.5 py-1.5 text-xs font-medium rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 transition-colors disabled:opacity-50"
+          >
+            Load Demo
+          </button>
+
+          <a
+            href={api.getExportCsvUrl()}
+            download="findings.csv"
+            className="hidden sm:inline-flex items-center px-2.5 py-1.5 text-xs font-medium rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 transition-colors"
+          >
+            Export CSV
+          </a>
+
+          <button
+            type="button"
+            onClick={onOpenMemoModal}
+            className="px-2.5 py-1.5 text-xs font-medium rounded-lg bg-[#111827] hover:bg-gray-800 text-white transition-colors"
+          >
+            CFO Memo
+          </button>
+        </div>
       </div>
     </header>
   );

@@ -45,14 +45,40 @@ flowchart LR
 
 > **Gemini extracts and explains. The rules engine decides. The workflow logs.**
 
-| Layer | Choice (MVP) | Production path |
-|-------|--------------|-----------------|
-| Backend | Python 3.11+ · FastAPI · Pydantic | Google Cloud Run |
+| Layer | Choice (MVP / Local) | Production GCP path |
+|-------|----------------------|---------------------|
+| Backend | Python 3.11+ · FastAPI · Pydantic | Google Cloud Run (`deploy/cloudrun.sh`) |
 | Detection engine | Pure deterministic Python rules (`R1`–`R5`) | Same (zero LLM calls inside `detect/`) |
-| AI | `GEMINI_PRIMARY_MODEL=gemini-4-carbon` (extract + explain) · `GEMINI_FLASH_MODEL=gemini-2.5-flash` (batch routing) · Agent Skills function calling | Vertex AI + Secret Manager |
-| Database | SQLite (`backend/schema.sql`) | Cloud SQL |
-| Frontend | React 19 + Vite 6 + Tailwind CSS 3.4 | Cloud Run (unified container) / Firebase Hosting |
-| Files | Local `uploads/` | Google Cloud Storage |
+| AI | `GEMINI_PRIMARY_MODEL=gemini-4-carbon` · `GEMINI_FLASH_MODEL=gemini-2.5-flash` · offline deterministic fallback | Vertex AI (`USE_VERTEX_AI=true`) + Secret Manager (`GEMINI_API_KEY`) |
+| Operational DB | SQLite (`backend/schema.sql`) | AlloyDB for PostgreSQL (`backend/schema_postgres.sql`, `DB_BACKEND=alloydb`) |
+| Analytics Warehouse | FX-normalized INR summary (`/api/analytics/executive`) | BigQuery (`infra/bigquery/schema.sql`, `POST /api/gcp/bigquery/sync`) |
+| Evidence Storage & Events | Local `uploads/` + SHA-256 hashing + in-process log | Cloud Storage (`GCS_UPLOAD_BUCKET`) + Cloud Pub/Sub (`PUBSUB_RECOVERY_TOPIC`) |
+| Frontend | Minimalist Finance Controller UI (React 19 + Vite 6 + Tailwind CSS 3.4) | Cloud Run (unified container) / Firebase Hosting |
+
+## Minimalist Finance UI
+
+The React frontend is organized as a high-trust controller workbench with three focused surfaces:
+
+- **Exceptions:** 4-metric executive INR strip, single-row filters, inline bulk triage (`POST /api/findings/bulk-decision`), and a Split-View **Proof Trail Inspector** with 3-way Invoice / Contract / PO comparison, one-click **Copy Dispute Email** (`GET /api/findings/{id}/dispute-packet`), and collapsible proof math.
+- **Activity:** Batch ingestion tracker and immutable decision/extraction audit log (`GET /api/audit-log`).
+- **Cloud & Policy:** Live GCP readiness cards (`GET /api/gcp/status`), BigQuery sync (`POST /api/gcp/bigquery/sync`), top vendors by INR exposure, RFC-4180 CSV export (`GET /api/export/findings.csv`), and deterministic rule policy thresholds (`GET/PUT /api/policy`).
+
+## GCP Configuration & Integration
+
+Set `backend/.env` (see [backend/.env.example](backend/.env.example)) or Cloud Run environment variables. All GCP services degrade cleanly to local SQLite/filesystem fallbacks when unset.
+
+| Env Variable | Default / Example | Purpose |
+|---|---|---|
+| `GCP_PROJECT_ID` | *(empty locally)* | Google Cloud project ID for Vertex AI, BigQuery, GCS, and Pub/Sub |
+| `GCP_LOCATION` | `asia-south1` (or `global` for Vertex preview) | Primary GCP region / Vertex AI endpoint location |
+| `DB_BACKEND` | `sqlite` \| `alloydb` | Database backend (`sqlite` locally, `alloydb` for AlloyDB for PostgreSQL) |
+| `ALLOYDB_INSTANCE_URI` | `projects/.../instances/ledgerlens-primary` | Target AlloyDB instance URI when `DB_BACKEND=alloydb` |
+| `BQ_DATASET` | `ledgerlens_analytics` | BigQuery dataset for `audited_invoices`, `audit_findings`, and `audit_log_events` |
+| `GCS_UPLOAD_BUCKET` | `${PROJECT_ID}-ledgerlens-uploads` | Cloud Storage bucket for SHA-256 verified evidence uploads |
+| `USE_VERTEX_AI` | `false` (locally) \| `true` (Cloud Run) | Route Gemini extraction & explanation through Vertex AI IAM |
+| `PUBSUB_RECOVERY_TOPIC` | `ledgerlens-recovery-events` | Pub/Sub topic for `recovery` / `rejected` finding decisions |
+
+See **[docs/GCP_INTEGRATION_GUIDE.md](docs/GCP_INTEGRATION_GUIDE.md)** for billing safety alerts, AlloyDB cost warnings, IAM setup, `deploy/setup_gcp.sh`, and `deploy/teardown_gcp.sh`.
 
 ## Repository layout
 
@@ -62,9 +88,13 @@ LedgerLens-project/
 ├── README.md               ← Project overview & setup
 ├── Dockerfile              ← Multi-stage Cloud Run container (frontend + FastAPI)
 ├── cloudbuild.yaml         ← Google Cloud Build + Cloud Run CI/CD pipeline
-├── deploy/cloudrun.sh      ← One-command Cloud Run / GCS / Cloud SQL deploy script
-├── docs/                   ← Team specs (01–07), DEMO_RUNBOOK.md & ai_studio_schemas/
-├── backend/                ← FastAPI app, extraction, normalization, R1–R5 rules, skills & tests
+├── deploy/
+│   ├── cloudrun.sh         ← One-command Cloud Run deploy script
+│   ├── setup_gcp.sh        ← Idempotent GCP APIs, BigQuery, GCS, Pub/Sub & optional AlloyDB setup
+│   └── teardown_gcp.sh     ← Cost-safe teardown script
+├── infra/bigquery/schema.sql ← BigQuery tables & executive ROI views
+├── docs/                   ← Specs (01–07), GCP_INTEGRATION_GUIDE.md, DEMO_RUNBOOK.md
+├── backend/                ← FastAPI app, extraction, normalization, R1–R5 rules, GCP & finance workflows
 │   ├── app/
 │   │   ├── main.py         (API routes + Cloud Run SPA static mount)
 │   │   ├── ingest/         (CSV/PDF upload validation & storage)
@@ -72,11 +102,14 @@ LedgerLens-project/
 │   │   ├── normalize/      (deterministic vendor, invoice #, date, currency cleanup)
 │   │   ├── detect/         (pure deterministic R1–R5 rules + proof_trail)
 │   │   ├── explain/        (Gemini CFO-ready narrative grounded in proof_trail)
+│   │   ├── gcp/            (Vertex AI, AlloyDB, BigQuery, GCS, Pub/Sub, Secret Manager helpers)
+│   │   ├── finance/        (dispute packets, policy thresholds, bulk triage, CSV export)
 │   │   └── skills/         (Google Agent Skills: fetch_payment_records, generate_audit_memo, route_recovery_task)
 │   ├── schema.sql
+│   ├── schema_postgres.sql
 │   ├── requirements.txt
 │   └── tests/
-├── frontend/               ← React 19 forensic dashboard + Split-View Proof Trail Inspector
+├── frontend/               ← Minimalist Finance UI (Exceptions, Activity, Cloud & Policy)
 └── sample_data/            ← Demo dataset with 6 planted anomalies (₹40,531.60) + 4 clean controls
 ```
 

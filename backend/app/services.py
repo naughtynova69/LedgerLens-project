@@ -15,6 +15,8 @@ from . import config
 from .detect import DetectionContext, run_all
 from .explain.gemini_explain import fallback_without_gemini
 from .extract import extract_document
+from .gcp.pubsub import publish_recovery_event
+from .gcp.vertex_ai import has_live_ai_credentials
 
 _ALLOWED_COLUMNS = {
     "vendors": {"vendor_id", "vendor_name", "tax_id", "default_currency", "status"},
@@ -85,8 +87,8 @@ def _insert_table_rows(conn: sqlite3.Connection, table_name: str, records: list[
 
 
 def generate_explanation_for_finding(finding_dict: dict) -> dict:
-    """Generate explanation via Gemini if key is configured, else use deterministic fallback."""
-    if config.GEMINI_API_KEY:
+    """Generate explanation via Gemini/Vertex AI if configured, else use deterministic fallback."""
+    if config.GEMINI_API_KEY or has_live_ai_credentials():
         try:
             from .explain.gemini_explain import explain_finding
             return explain_finding(finding_dict)
@@ -271,8 +273,9 @@ def record_decision(conn: sqlite3.Connection, finding_id: str, action: str,
     if row is None:
         raise LookupError(f"finding not found: {finding_id}")
 
+    target_status = status_by_action[action]
     conn.execute("UPDATE findings SET status = ? WHERE finding_id = ?",
-                 (status_by_action[action], finding_id))
+                 (target_status, finding_id))
     conn.execute(
         "INSERT INTO decisions (finding_id, action, reviewer, note) VALUES (?, ?, ?, ?)",
         (finding_id, action, reviewer, note),
@@ -283,7 +286,20 @@ def record_decision(conn: sqlite3.Connection, finding_id: str, action: str,
         (reviewer, action, finding_id, note),
     )
     conn.commit()
-    return {"finding_id": finding_id, "status": status_by_action[action]}
+    if target_status in ("recovery", "rejected"):
+        try:
+            publish_recovery_event(
+                "finding.decision",
+                {
+                    "finding_id": finding_id,
+                    "status": target_status,
+                    "reviewer": reviewer,
+                    "note": note,
+                },
+            )
+        except Exception:
+            pass
+    return {"finding_id": finding_id, "status": target_status}
 
 
 def get_finding_with_sources(conn: sqlite3.Connection, finding_id: str) -> dict | None:

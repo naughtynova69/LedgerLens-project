@@ -1,33 +1,31 @@
 import React, { useState } from "react";
-import {
-  Sparkles,
-  Scale,
-  FileText,
-  RotateCcw,
-  CheckCircle2,
-  XCircle,
-  AlertTriangle,
-  Link2,
-  Clock,
-  ShieldAlert,
-} from "lucide-react";
-import { SeverityBadge } from "./SeverityBadge";
-import { RuleBadge } from "./RuleBadge";
+import { api } from "../api";
 import { StatusBadge } from "./StatusBadge";
-import { formatCurrency, formatConfidence, formatDate } from "../utils/formatters";
+import { RuleBadge } from "./RuleBadge";
+import { SeverityBadge } from "./SeverityBadge";
+import { formatCurrency, formatConfidence } from "../utils/formatters";
 
-export function ProofTrailInspector({ finding, onMakeDecision, isSubmitting }) {
-  const [reviewer, setReviewer] = useState("Vijay (AP Lead)");
+const DEFAULT_NOTES = {
+  recovery: "Payment held and recovery initiated via AP workstation.",
+  reject: "Disputed with vendor pending credit note or revised invoice.",
+  approve: "Approved as valid exception / false positive.",
+};
+
+export function ProofTrailInspector({
+  finding,
+  onMakeDecision,
+  isSubmitting,
+  onToast,
+}) {
   const [note, setNote] = useState("");
-  const [noteError, setNoteError] = useState("");
+  const [copyingDispute, setCopyingDispute] = useState(false);
 
   if (!finding) {
     return (
-      <div className="bg-white border border-slate-200 rounded-xl p-8 text-center space-y-2 shadow-sm">
-        <ShieldAlert className="w-8 h-8 text-slate-400 mx-auto" />
-        <h3 className="text-sm font-semibold text-slate-900">Select a Finding to Inspect</h3>
-        <p className="text-xs text-slate-500">
-          Click any exception row to view its 3-way Invoice vs. Contract vs. PO proof trail and CFO explanation.
+      <div className="bg-white border border-gray-200 rounded-lg p-10 text-center">
+        <p className="text-sm font-medium text-[#111827]">Select an exception</p>
+        <p className="text-xs text-[#6B7280] mt-1">
+          Choose any row on the left to inspect its 3-way match and take action.
         </p>
       </div>
     );
@@ -40,317 +38,329 @@ export function ProofTrailInspector({ finding, onMakeDecision, isSubmitting }) {
   const invoices = sources.invoices || [];
   const contracts = sources.contracts || [];
   const pos = sources.purchase_orders || [];
-  const payments = sources.payments || [];
+  const vendors = sources.vendors || [];
+
+  const vendorLabel =
+    vendors[0]?.vendor_name ||
+    finding.entity_refs?.vendor_id ||
+    "Vendor";
 
   const handleAction = async (action) => {
-    const trimmed = note.trim();
-    if (!trimmed) {
-      setNoteError("Please enter a short audit note before submitting a decision.");
-      return;
-    }
-    setNoteError("");
-    await onMakeDecision(finding.finding_id, action, reviewer.trim() || "AP Lead", trimmed);
+    const finalNote = note.trim() || DEFAULT_NOTES[action] || "Reviewed in LedgerLens.";
+    await onMakeDecision(finding.finding_id, action, "Vijay (AP Lead)", finalNote);
     setNote("");
   };
 
+  const handleCopyDisputeEmail = async () => {
+    setCopyingDispute(true);
+    try {
+      const packet = await api.getDisputePacket(finding.finding_id);
+      const emailText = `Subject: ${packet.subject}\n\n${packet.body_text}`;
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(emailText);
+      }
+      if (onToast) {
+        onToast(
+          `Dispute email for ${finding.finding_id} copied to clipboard.`,
+          "success",
+          "Dispute Email Copied"
+        );
+      }
+    } catch (err) {
+      if (onToast) {
+        onToast(
+          err.message || "Could not generate dispute packet.",
+          "error",
+          "Dispute Copy Failed"
+        );
+      }
+    } finally {
+      setCopyingDispute(false);
+    }
+  };
+
+  const primaryInvoice = invoices[0];
+  const primaryContract = contracts[0];
+  const primaryPo = pos[0];
+
+  const invoiceRef =
+    invoices.length > 1
+      ? invoices.map((i) => i.invoice_number).filter(Boolean).join(", ")
+      : primaryInvoice?.invoice_number || "—";
+
+  const invoiceDetail = primaryInvoice
+    ? `${primaryInvoice.item || "Line item"} · ${primaryInvoice.quantity} × ${formatCurrency(
+        primaryInvoice.unit_price,
+        primaryInvoice.currency
+      )} (Tax ${primaryInvoice.tax_pct ?? 0}%)`
+    : "No linked invoice line";
+
+  const invoiceAmount = primaryInvoice
+    ? formatCurrency(primaryInvoice.line_total, primaryInvoice.currency)
+    : "—";
+
+  const contractRef = primaryContract?.contract_id || "—";
+  const contractDetail = primaryContract
+    ? `${primaryContract.item || "Term"} · Disc ${primaryContract.discount_pct ?? 0}% · Tax ${
+        primaryContract.tax_pct ?? 0
+      }% · ${primaryContract.status || "active"}`
+    : "No governing contract";
+  const contractAmount = primaryContract
+    ? formatCurrency(primaryContract.contracted_unit_price, primaryContract.currency)
+    : "—";
+
+  const poRef = primaryPo?.po_id || "—";
+  const poDetail = primaryPo
+    ? `${primaryPo.item || "PO item"} · Qty ${primaryPo.quantity} · ${primaryPo.status || "open"}`
+    : "No referenced PO";
+  const poAmount = primaryPo
+    ? formatCurrency(primaryPo.unit_price, primaryPo.currency)
+    : "—";
+
+  const plainEnglishSummary =
+    expl.explanation ||
+    finding.summary ||
+    expl.headline ||
+    "Deterministic rule discrepancy identified across source records.";
+
   return (
-    <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
-      {/* Inspector Header */}
-      <div className="p-5 border-b border-slate-200 bg-slate-50/70 space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-mono text-xs font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200">
-              {finding.finding_id}
-            </span>
-            <RuleBadge ruleId={finding.rule_id} full />
-            <SeverityBadge severity={finding.severity} />
-            <StatusBadge status={finding.status} />
+    <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-200">
+      {/* Header & Above-the-Fold Explanation */}
+      <div className="p-5 space-y-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="space-y-1.5 min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-mono text-xs font-medium text-[#6B7280]">
+                {finding.finding_id}
+              </span>
+              <span className="text-xs text-gray-300">·</span>
+              <span className="text-xs font-medium text-[#111827]">{vendorLabel}</span>
+              <RuleBadge ruleId={finding.rule_id} />
+              {finding.severity?.toLowerCase() === "critical" && (
+                <SeverityBadge severity={finding.severity} />
+              )}
+              <StatusBadge status={finding.status} />
+            </div>
+            <h2 className="text-base font-semibold text-[#111827] tracking-tight">
+              {finding.title}
+            </h2>
           </div>
-          <div className="text-right">
-            <div className="text-xl font-bold font-mono tabular-nums text-[#DC2626]">
+
+          <div className="text-right shrink-0">
+            <div className="text-xl font-semibold font-mono tabular-nums text-[#B91C1C]">
               {formatCurrency(finding.amount_at_risk, finding.currency)}
             </div>
-            <div className="text-[11px] font-mono tabular-nums text-slate-500">
-              Confidence: {formatConfidence(finding.confidence)} · Action:{" "}
-              <span className="font-semibold text-slate-700">
-                {finding.recommended_action || proofTrail.recommended_action || "HOLD_PAYMENT"}
-              </span>
+            <div className="text-[11px] font-mono tabular-nums text-[#6B7280] mt-0.5">
+              At risk · {formatConfidence(finding.confidence)} conf
             </div>
           </div>
         </div>
 
-        <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
-          {finding.title}
-        </h2>
+        <p className="text-xs sm:text-sm text-[#6B7280] leading-relaxed">
+          {expl.headline && expl.headline !== finding.title ? `${expl.headline}. ` : ""}
+          {plainEnglishSummary}
+        </p>
       </div>
 
-      <div className="p-5 space-y-5 overflow-y-auto">
-        {/* CFO-Ready Explanation Card */}
-        <div className="p-4 rounded-xl border border-slate-200 bg-[#F8FAFC] space-y-2.5">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-800">
-              <Sparkles className="w-3.5 h-3.5 text-[#4F46E5]" />
-              CFO-Ready Explanation
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#EEF2FF] text-[#4F46E5] border border-[#C7D2FE]">
-              <Scale className="w-3 h-3" />
+      {/* 3-Row Number Comparison Table */}
+      <div className="p-5">
+        <div className="border border-gray-200 rounded-lg overflow-hidden">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-[#FAFAFA] border-b border-gray-200 text-[#6B7280]">
+              <tr>
+                <th className="py-2 px-3 font-medium">Source</th>
+                <th className="py-2 px-3 font-medium">Ref</th>
+                <th className="py-2 px-3 font-medium">Line / Terms</th>
+                <th className="py-2 px-3 font-medium text-right">Amount</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              <tr>
+                <td className="py-2.5 px-3 font-medium text-[#111827] whitespace-nowrap">
+                  Invoice
+                </td>
+                <td className="py-2.5 px-3 font-mono text-[#111827] whitespace-nowrap">
+                  {invoiceRef}
+                </td>
+                <td className="py-2.5 px-3 text-[#6B7280] max-w-[220px] truncate" title={invoiceDetail}>
+                  {invoiceDetail}
+                </td>
+                <td className="py-2.5 px-3 font-mono tabular-nums text-right font-medium text-[#B91C1C] whitespace-nowrap">
+                  {invoiceAmount}
+                </td>
+              </tr>
+              <tr>
+                <td className="py-2.5 px-3 font-medium text-[#111827] whitespace-nowrap">
+                  Contract
+                </td>
+                <td className="py-2.5 px-3 font-mono text-[#111827] whitespace-nowrap">
+                  {contractRef}
+                </td>
+                <td className="py-2.5 px-3 text-[#6B7280] max-w-[220px] truncate" title={contractDetail}>
+                  {contractDetail}
+                </td>
+                <td className="py-2.5 px-3 font-mono tabular-nums text-right font-medium text-[#111827] whitespace-nowrap">
+                  {contractAmount}
+                </td>
+              </tr>
+              <tr>
+                <td className="py-2.5 px-3 font-medium text-[#111827] whitespace-nowrap">
+                  PO
+                </td>
+                <td className="py-2.5 px-3 font-mono text-[#111827] whitespace-nowrap">
+                  {poRef}
+                </td>
+                <td className="py-2.5 px-3 text-[#6B7280] max-w-[220px] truncate" title={poDetail}>
+                  {poDetail}
+                </td>
+                <td className="py-2.5 px-3 font-mono tabular-nums text-right font-medium text-[#111827] whitespace-nowrap">
+                  {poAmount}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* 1-Line Action Bar */}
+      <div className="p-5 space-y-3 bg-[#FAFAFA]/50">
+        <div className="flex flex-col sm:flex-row gap-2">
+          <input
+            type="text"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Add audit note (optional)..."
+            aria-label="Audit note"
+            className="flex-1 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs text-[#111827] placeholder-gray-400 focus:outline-none focus:border-gray-400"
+          />
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => handleAction("recovery")}
+            disabled={isSubmitting}
+            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-50/80 text-red-700 border border-red-200 hover:bg-red-100/70 transition-colors disabled:opacity-50"
+          >
+            Hold / Recover
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleAction("reject")}
+            disabled={isSubmitting}
+            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white text-[#111827] border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50"
+          >
+            Dispute
+          </button>
+
+          <button
+            type="button"
+            onClick={handleCopyDisputeEmail}
+            disabled={copyingDispute}
+            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50"
+          >
+            {copyingDispute ? "Copying..." : "Copy Dispute Email"}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleAction("approve")}
+            disabled={isSubmitting}
+            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-50/80 text-emerald-700 border border-emerald-200 hover:bg-emerald-100/70 transition-colors disabled:opacity-50 sm:ml-auto"
+          >
+            Approve
+          </button>
+        </div>
+      </div>
+
+      {/* Progressive Disclosure: Technical Proof & Audit Trail */}
+      <details className="p-5 group">
+        <summary className="cursor-pointer text-xs font-medium text-[#6B7280] hover:text-[#111827] select-none list-none flex items-center justify-between">
+          <span>Audit proof &amp; technical trail</span>
+          <span className="font-mono text-[11px] text-gray-400 group-open:hidden">
+            Expand
+          </span>
+          <span className="font-mono text-[11px] text-gray-400 hidden group-open:inline">
+            Collapse
+          </span>
+        </summary>
+
+        <div className="mt-4 space-y-4">
+          <div className="text-xs text-[#6B7280] flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-gray-200">
+            <span>
               Decision: Deterministic Rule {finding.rule_id} · Narrative: Gemini 4 Carbon
               {expl.generated_without_gemini ? " (Offline Proof Mode)" : ""}
             </span>
+            <span className="font-mono text-[11px]">
+              Action: {finding.recommended_action || proofTrail.recommended_action || "HOLD_PAYMENT"}
+            </span>
           </div>
 
-          <p className="text-sm font-semibold text-slate-900">
-            {expl.headline || finding.title}
-          </p>
-          <p className="text-xs sm:text-sm text-slate-700 leading-relaxed">
-            {expl.explanation || finding.summary}
-          </p>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-            <div className="p-3 rounded-lg bg-[#ECFDF5] border border-[#A7F3D0]">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-[#059669]">
-                Recommended Action
-              </div>
-              <p className="text-xs text-slate-700 mt-1">
-                {expl.recommended_action || "Hold disbursement and reconcile against source records."}
-              </p>
-            </div>
-            <div className="p-3 rounded-lg bg-[#FFFBEB] border border-[#FDE68A]">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-[#D97706] flex items-center gap-1">
-                <AlertTriangle className="w-3 h-3" />
-                Verification Scope
-              </div>
-              <p className="text-xs text-slate-700 mt-1">
-                {expl.limitations || "Confirm vendor credit memo or supporting PO documentation."}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* 3-Way Evidence Diff Card: Invoice Line vs Contract Clause vs PO Line */}
-        <div className="space-y-2.5">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-              <FileText className="w-3.5 h-3.5 text-slate-600" />
-              3-Way Evidence Diff Card (Invoice vs. Contract vs. PO)
-            </h3>
-            {payments.length > 0 && (
-              <span className="text-[11px] font-mono font-semibold text-[#DC2626] bg-[#FEF2F2] border border-[#FECACA] px-2 py-0.5 rounded">
-                {payments.length} Settled Payment(s) Linked
-              </span>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {/* Invoice Column */}
-            <div className="p-3.5 rounded-xl border border-slate-200 bg-white space-y-2">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-[#DC2626]">
-                Invoice Line(s)
-              </div>
-              {invoices.length === 0 ? (
-                <p className="text-xs text-slate-400">No invoice row joined</p>
-              ) : (
-                invoices.map((inv, idx) => (
-                  <div key={idx} className="text-xs space-y-1 border-t first:border-t-0 border-slate-100 pt-1.5 first:pt-0">
-                    <div className="font-mono font-bold text-slate-900">{inv.invoice_number}</div>
-                    <div className="text-slate-600 truncate" title={inv.item}>{inv.item}</div>
-                    <div className="font-mono tabular-nums text-slate-800">
-                      {inv.quantity} × {formatCurrency(inv.unit_price, inv.currency)} (Tax {inv.tax_pct}%)
-                    </div>
-                    <div className="font-mono tabular-nums font-bold text-[#DC2626]">
-                      Total: {formatCurrency(inv.line_total, inv.currency)}
-                    </div>
-                    <div className="text-[11px] text-slate-500">
-                      Date: {formatDate(inv.invoice_date)} · {inv.status}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* Contract Column */}
-            <div className="p-3.5 rounded-xl border border-slate-200 bg-white space-y-2">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-[#059669]">
-                Contract Clause
-              </div>
-              {contracts.length === 0 ? (
-                <p className="text-xs text-slate-400">No governing contract line</p>
-              ) : (
-                contracts.map((c, idx) => (
-                  <div key={idx} className="text-xs space-y-1">
-                    <div className="font-mono font-bold text-slate-900">{c.contract_id}</div>
-                    <div className="text-slate-600 truncate" title={c.item}>{c.item}</div>
-                    <div className="font-mono tabular-nums font-semibold text-[#059669]">
-                      Rate: {formatCurrency(c.contracted_unit_price, c.currency)}
-                    </div>
-                    <div className="font-mono tabular-nums text-slate-700">
-                      Tax: {c.tax_pct}% · Disc: {c.discount_pct}%
-                    </div>
-                    <div className="text-[11px] text-slate-500">
-                      End: {c.end_date || "—"} · <span className="uppercase font-semibold">{c.status}</span>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* PO Column */}
-            <div className="p-3.5 rounded-xl border border-slate-200 bg-white space-y-2">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-[#4F46E5]">
-                Authorized PO Line
-              </div>
-              {pos.length === 0 ? (
-                <p className="text-xs text-slate-400">No PO referenced</p>
-              ) : (
-                pos.map((po, idx) => (
-                  <div key={idx} className="text-xs space-y-1">
-                    <div className="font-mono font-bold text-slate-900">{po.po_id}</div>
-                    <div className="text-slate-600 truncate" title={po.item}>{po.item}</div>
-                    <div className="font-mono tabular-nums font-semibold text-slate-900">
-                      Qty: {po.quantity} @ {formatCurrency(po.unit_price, po.currency)}
-                    </div>
-                    <div className="text-[11px] text-slate-500">
-                      Exp. Delivery: {po.expected_delivery || "—"}
-                    </div>
-                    <div className="text-[11px] text-slate-500 uppercase font-semibold">
-                      Status: {po.status}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Deterministic Delta Math Bar */}
           {Object.keys(mathObj).length > 0 && (
-            <div className="p-3 rounded-lg bg-slate-900 text-slate-100 text-xs font-mono tabular-nums flex flex-wrap gap-x-4 gap-y-1">
-              <span className="text-emerald-400 font-bold">PROOF MATH:</span>
-              {Object.entries(mathObj).map(([k, v]) => (
-                <span key={k}>
-                  <span className="text-slate-400">{k}=</span>
-                  <span className="text-white">{String(v)}</span>
-                </span>
-              ))}
+            <div className="p-3 rounded-lg bg-[#FAFAFA] border border-gray-200 text-xs font-mono tabular-nums text-[#111827] space-y-1">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-[#6B7280]">
+                PROOF MATH
+              </div>
+              <div className="flex flex-wrap gap-x-4 gap-y-1">
+                {Object.entries(mathObj).map(([k, v]) => (
+                  <span key={k}>
+                    <span className="text-[#6B7280]">{k}=</span>
+                    <span>{String(v)}</span>
+                  </span>
+                ))}
+              </div>
             </div>
           )}
 
-          {/* EvidenceRef Chips */}
-          <div className="flex flex-wrap gap-2 pt-1">
-            {(finding.evidence || []).map((ev, i) => (
-              <span
-                key={i}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 border border-slate-200 text-[11px] font-mono text-slate-700"
-              >
-                <Link2 className="w-3 h-3 text-slate-500" />
-                <span className="font-semibold">{ev.source}</span>
-                <span>{ev.record_id}</span>
-                <span className="text-slate-400">/</span>
-                <span>{ev.field}:</span>
-                <span className="font-bold text-slate-900">{ev.value}</span>
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* Decision History for this Finding */}
-        {finding.decisions?.length > 0 && (
-          <div className="space-y-2">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5" />
-              Decision History ({finding.decisions.length})
-            </h4>
+          {(finding.evidence || []).length > 0 && (
             <div className="space-y-1.5">
-              {finding.decisions.map((d, idx) => (
-                <div
-                  key={idx}
-                  className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs"
-                >
-                  <div className="flex items-center gap-2">
-                    <StatusBadge status={d.action} />
-                    <span className="font-semibold text-slate-900">{d.reviewer}</span>
-                    {d.note && <span className="text-slate-600">"{d.note}"</span>}
-                  </div>
-                  <span className="font-mono text-[11px] text-slate-500">{d.created_at}</span>
-                </div>
-              ))}
+              <div className="text-[11px] font-medium uppercase tracking-wider text-[#6B7280]">
+                Evidence Citations
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {finding.evidence.map((ev, i) => (
+                  <span
+                    key={i}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-[#FAFAFA] border border-gray-200 text-[11px] font-mono text-gray-700"
+                  >
+                    <span className="font-medium text-[#111827]">{ev.source}</span>
+                    <span>{ev.record_id}</span>
+                    <span className="text-gray-400">/</span>
+                    <span>{ev.field}:</span>
+                    <span className="font-medium text-[#111827]">{ev.value}</span>
+                  </span>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
-
-        {/* Reviewer Action Bar */}
-        <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-800">
-              Reviewer Action Bar
-            </span>
-            <span className="text-[11px] text-slate-500">
-              Appends immutable record to audit log
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                Reviewer Name
-              </label>
-              <input
-                type="text"
-                value={reviewer}
-                onChange={(e) => setReviewer(e.target.value)}
-                className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:border-emerald-600"
-              />
-            </div>
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                Audit Note
-              </label>
-              <input
-                type="text"
-                value={note}
-                onChange={(e) => {
-                  setNote(e.target.value);
-                  if (noteError) setNoteError("");
-                }}
-                placeholder="E.g. Duplicate verified; initiate vendor credit recovery."
-                className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:border-emerald-600"
-              />
-            </div>
-          </div>
-
-          {noteError && (
-            <p className="text-xs font-medium text-[#DC2626]">{noteError}</p>
           )}
 
-          <div className="flex flex-wrap items-center gap-2.5 pt-1">
-            <button
-              onClick={() => handleAction("recovery")}
-              disabled={isSubmitting}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#DC2626] hover:bg-red-700 text-white text-xs font-semibold transition-colors disabled:opacity-50"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Hold / Recover</span>
-            </button>
-
-            <button
-              onClick={() => handleAction("approve")}
-              disabled={isSubmitting}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#059669] hover:bg-[#047857] text-white text-xs font-semibold transition-colors disabled:opacity-50"
-            >
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Approve (False Positive)</span>
-            </button>
-
-            <button
-              onClick={() => handleAction("reject")}
-              disabled={isSubmitting}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold transition-colors disabled:opacity-50"
-            >
-              <XCircle className="w-3.5 h-3.5" />
-              <span>Reject / Dispute</span>
-            </button>
-          </div>
+          {finding.decisions?.length > 0 && (
+            <div className="space-y-1.5">
+              <div className="text-[11px] font-medium uppercase tracking-wider text-[#6B7280]">
+                Decision History ({finding.decisions.length})
+              </div>
+              <div className="divide-y divide-gray-200 border border-gray-200 rounded-lg bg-white">
+                {finding.decisions.map((d, idx) => (
+                  <div
+                    key={idx}
+                    className="px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-xs"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <StatusBadge status={d.action} />
+                      <span className="font-medium text-[#111827]">{d.reviewer}</span>
+                      {d.note && <span className="text-[#6B7280] truncate">{d.note}</span>}
+                    </div>
+                    <span className="font-mono text-[11px] text-[#6B7280]">
+                      {d.created_at}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
-      </div>
+      </details>
     </div>
   );
 }

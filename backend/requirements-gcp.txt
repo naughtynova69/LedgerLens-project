@@ -1,0 +1,11 @@
+# Optional GCP SDKs for LedgerLens production Cloud Run and cloud integrations.
+# Base backend/requirements.txt stays lean for fast local development.
+# Install both in cloud/production environments:
+#   pip install -r requirements.txt -r requirements-gcp.txt
+
+google-cloud-bigquery>=3.25
+google-cloud-storage>=2.18
+google-cloud-secret-manager>=2.20
+google-cloud-pubsub>=2.23
+google-cloud-alloydb-connector[pg8000]>=1.4
+psycopg[binary]>=3.2

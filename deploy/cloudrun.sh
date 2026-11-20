@@ -6,9 +6,15 @@ set -euo pipefail
 
 PROJECT_ID="${PROJECT_ID:?Set PROJECT_ID}"
 REGION="${REGION:-asia-south1}"
+GCP_LOCATION="${GCP_LOCATION:-global}"
 SERVICE_NAME="${SERVICE_NAME:-ledgerlens-auditor}"
 AR_REPO="${AR_REPO:-ledgerlens}"
-GCS_BUCKET="${GCS_BUCKET:-${PROJECT_ID}-ledgerlens-uploads}"
+DB_BACKEND="${DB_BACKEND:-sqlite}"
+ALLOYDB_INSTANCE_URI="${ALLOYDB_INSTANCE_URI:-}"
+BQ_DATASET="${BQ_DATASET:-ledgerlens_analytics}"
+GCS_UPLOAD_BUCKET="${GCS_UPLOAD_BUCKET:-${GCS_BUCKET:-${PROJECT_ID}-ledgerlens-uploads}}"
+USE_VERTEX_AI="${USE_VERTEX_AI:-true}"
+PUBSUB_RECOVERY_TOPIC="${PUBSUB_RECOVERY_TOPIC:-ledgerlens-recovery-events}"
 CLOUD_SQL_INSTANCE="${CLOUD_SQL_INSTANCE:-}" # e.g. my-project:asia-south1:ledgerlens-sql
 IMAGE_URI="${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/ledgerlens:latest"
 
@@ -24,7 +30,7 @@ DEPLOY_ARGS=(
   --allow-unauthenticated
   --memory 1Gi
   --cpu 1
-  --set-env-vars "GEMINI_PRIMARY_MODEL=gemini-4-carbon,GEMINI_FLASH_MODEL=gemini-2.5-flash,GCS_UPLOAD_BUCKET=${GCS_BUCKET}"
+  --set-env-vars "GCP_PROJECT_ID=${PROJECT_ID},GCP_LOCATION=${GCP_LOCATION},DB_BACKEND=${DB_BACKEND},ALLOYDB_INSTANCE_URI=${ALLOYDB_INSTANCE_URI},BQ_DATASET=${BQ_DATASET},GCS_UPLOAD_BUCKET=${GCS_UPLOAD_BUCKET},USE_VERTEX_AI=${USE_VERTEX_AI},PUBSUB_RECOVERY_TOPIC=${PUBSUB_RECOVERY_TOPIC},GEMINI_PRIMARY_MODEL=gemini-4-carbon,GEMINI_FLASH_MODEL=gemini-2.5-flash"
   --set-secrets "GEMINI_API_KEY=GEMINI_API_KEY:latest"
 )
 
