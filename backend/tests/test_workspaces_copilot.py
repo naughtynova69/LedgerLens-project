@@ -99,7 +99,7 @@ def test_dispatch_webhook_alert_noop_and_success() -> None:
         captured_req["body"] = json.loads(req.data.decode("utf-8"))
         return _FakeResp()
 
-    with patch("app.copilot.urllib.request.urlopen", side_effect=_fake_urlopen):
+    with patch("app.copilot.guarded_urlopen", side_effect=_fake_urlopen):
         res = dispatch_webhook_alert(
             "https://hooks.example.com/alert",
             "finding.created",
@@ -120,7 +120,7 @@ def test_dispatch_webhook_alert_handles_http_error() -> None:
         hdrs=None,
         fp=None,
     )
-    with patch("app.copilot.urllib.request.urlopen", side_effect=err):
+    with patch("app.copilot.guarded_urlopen", side_effect=err):
         res = dispatch_webhook_alert("https://hooks.example.com/alert", "test", {})
     assert res["sent"] is False
     assert res["status_code"] == 500

@@ -10,6 +10,7 @@ import urllib.error
 import urllib.request
 
 from .gcp.vertex_ai import create_genai_client, has_live_ai_credentials
+from .http_guard import guarded_urlopen
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +54,9 @@ def dispatch_webhook_alert(
     )
 
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        # SSRF guard: https-only, hostname denylist, public-IP resolution,
+        # redirect targets re-validated (see app.http_guard).
+        with guarded_urlopen(req, timeout=timeout) as resp:
             status = getattr(resp, "status", None) or resp.getcode()
             return {
                 "sent": bool(status is not None and 200 <= int(status) < 300),
