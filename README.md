@@ -2,6 +2,7 @@
 
 <p align="left">
   <img src="https://img.shields.io/badge/Gemini-3.8_Vision_Flash-4285F4?style=for-the-badge&logo=googlegemini&logoColor=white" alt="Gemini 3.8 Vision Flash" />
+  <img src="https://img.shields.io/badge/Knowledge_Graph-LadybugDB_Embedded-4E33FF?style=for-the-badge" alt="LadybugDB Embedded Knowledge Graph" />
   <img src="https://img.shields.io/badge/Google_Cloud-Run_%7C_BigQuery_%7C_AlloyDB-4285F4?style=for-the-badge&logo=googlecloud&logoColor=white" alt="Google Cloud Platform" />
   <img src="https://img.shields.io/badge/Python-3.11%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.11+" />
   <img src="https://img.shields.io/badge/FastAPI-API-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" />
@@ -9,9 +10,9 @@
   <img src="https://img.shields.io/badge/Tailwind_CSS-3.4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white" alt="Tailwind CSS 3.4" />
 </p>
 <p align="left">
-  <img src="https://img.shields.io/badge/Architecture-Neuro--Symbolic-0F172A?style=flat-square" alt="Neuro-Symbolic Architecture" />
-  <img src="https://img.shields.io/badge/Rules-R1--R5_Pure_Python-059669?style=flat-square" alt="Deterministic Rules R1-R5" />
-  <img src="https://img.shields.io/badge/Pytest-51_Passed-16A34A?style=flat-square&logo=pytest&logoColor=white" alt="51 Backend Tests Passed" />
+  <img src="https://img.shields.io/badge/Architecture-Neuro--Symbolic_Graph-0F172A?style=flat-square" alt="Neuro-Symbolic Graph Architecture" />
+  <img src="https://img.shields.io/badge/Rules-R1--R5_Python_%7C_R6--R8_Cypher-059669?style=flat-square" alt="Deterministic Rules R1-R8" />
+  <img src="https://img.shields.io/badge/Pytest-78_Passed-16A34A?style=flat-square&logo=pytest&logoColor=white" alt="78 Backend Tests Passed" />
   <img src="https://img.shields.io/badge/Main_Branch-PR_Protected-D97706?style=flat-square&logo=github&logoColor=white" alt="Main Branch Protected" />
   <img src="https://img.shields.io/badge/Google_DeepMind_%26_Cloud-Buildathon_India_2026-EA4335?style=flat-square&logo=google&logoColor=white" alt="Google DeepMind & Cloud Buildathon India 2026" />
 </p>
@@ -20,7 +21,7 @@
 
 Mid-market finance teams lose 0.1%–0.35% of annual supplier spend to near-duplicate invoices, contract overcharges, and cancelled-service renewals before every pay run—because manual AP checks can't scale, exact-match ERPs miss fuzzy errors, and CFOs won't act on black-box AI alerts without an audit-ready proof trail.
 
-**Core principle:** Gemini extracts and explains; deterministic Python rules decide; every finding carries a verifiable line-level proof trail. **The LLM is never the judge.**
+**Core principle:** Gemini extracts and explains; deterministic Python rules **and deterministic Cypher over the embedded LadybugDB knowledge graph** decide; every finding carries a verifiable line-level proof trail (plus a serialized multi-hop `proof_subgraph` for the graph rules R6–R8). **The LLM is never the judge.**
 
 ---
 
@@ -37,7 +38,7 @@ Mid-market finance teams lose 0.1%–0.35% of annual supplier spend to near-dupl
 
 ## What we are building
 
-Exactly **five** deterministic checks (`R1`–`R5`) backed by structured `proof_trail` math and immutable workflow logging:
+Exactly **eight** deterministic checks (`R1`–`R8`) backed by structured `proof_trail` math, serialized `proof_subgraph` evidence, and immutable workflow logging:
 
 | # | Check | What it catches | Rule ID |
 |---|-------|-----------------|---------|
@@ -46,6 +47,11 @@ Exactly **five** deterministic checks (`R1`–`R5`) backed by structured `proof_
 | 3 | PO mismatch & overbilling | Cumulative billed quantities above PO limits, premature billing before delivery, or uncontracted PO items | `R3` |
 | 4 | Currency & tax errors | Currency mismatches vs PO/contract/vendor, FX rate deviations, invalid tax vs contract exemptions, duplicate tax lines | `R4` |
 | 5 | Cancelled-service leakage | Recurring charges against cancelled/terminated/expired contracts, inactive vendors, or cancelled POs | `R5` |
+| 6 | Cross-entity duplicate & threshold-splitting *(graph)* | Two **distinct vendors** sharing a bank account / tax identifier billing near-identical or split invoices — invisible to vendor-grouped tabular checks | `R6` |
+| 7 | Approver–vendor collusion *(graph)* | An approver linked to their vendor via shared bank account, registered address, or phone — conflict of interest | `R7` |
+| 8 | Contract lineage & unapplied credits *(graph)* | Invoices billed at superseded amendment rates (ERP master-data lag) + OPEN supplier credit notes left on the table | `R8` |
+
+`R1`–`R5` are pure tabular Python. `R6`–`R8` match multi-hop structural patterns with **100% deterministic Cypher** in the embedded LadybugDB graph, then re-verify every amount in pure Python. No LLM ever produces a number.
 
 ### The pipeline
 
@@ -53,8 +59,10 @@ Exactly **five** deterministic checks (`R1`–`R5`) backed by structured `proof_
 flowchart LR
     A["Ingest<br/>CSV / PDF upload"] --> B["Extract<br/>Gemini 3.8 Vision Flash → Pydantic JSON"]
     B --> C["Normalize<br/>deterministic cleanup"]
-    C --> D["Detect<br/>5 deterministic Python rules R1–R5"]
-    D --> E["Explain<br/>Gemini writes CFO-ready narrative"]
+    C --> S["Relational Store<br/>SQLite / AlloyDB (system of record)"]
+    S --> G["Graph Projection<br/>LadybugDB typed NODE/REL tables"]
+    G --> D["Detect<br/>R1–R5 tabular Python + R6–R8 deterministic Cypher"]
+    D --> E["Explain<br/>Gemini narrates strictly from proof_trail + proof_subgraph"]
     E --> F["Act & Report<br/>Hold / Recover / Approve + Immutable Audit Log & Memo"]
 ```
 
@@ -73,7 +81,8 @@ LedgerLens targets the global AP automation market (**$6.94B in 2026 → $12.46B
 | Layer | Choice (MVP / Local) | Production GCP path |
 |-------|----------------------|---------------------|
 | Backend | Python 3.11+ · FastAPI · Pydantic | Google Cloud Run (`deploy/cloudrun.sh`) |
-| Detection engine | Pure deterministic Python rules (`R1`–`R5`) | Same (zero LLM calls inside `detect/`) |
+| Detection engine | Pure deterministic Python rules (`R1`–`R5`) + deterministic Cypher rules (`R6`–`R8`) | Same (zero LLM calls inside `detect/`) |
+| Knowledge Graph | **LadybugDB** embedded in-process (`.lbdb` file / `:memory:`), 11 node + 15 relationship tables, deterministic rebuild projection | Same single container — no external graph server, Cloud Run compatible |
 | AI | `GEMINI_PRIMARY_MODEL=gemini-3.8-vision-flash` · `GEMINI_FLASH_MODEL=gemini-3.8-vision-flash` (Gemini 3.8 Vision Flash) · offline deterministic fallback | Vertex AI (`USE_VERTEX_AI=true`) + Secret Manager (`GEMINI_API_KEY`) |
 | Operational DB | SQLite (`backend/schema.sql`) | AlloyDB for PostgreSQL (`backend/schema_postgres.sql`, `DB_BACKEND=alloydb`) |
 | Analytics Warehouse | FX-normalized INR summary (`/api/analytics/executive`) | BigQuery (`infra/bigquery/schema.sql`, `POST /api/gcp/bigquery/sync`) |
@@ -82,11 +91,22 @@ LedgerLens targets the global AP automation market (**$6.94B in 2026 → $12.46B
 
 ## Minimalist Finance UI
 
-The React frontend is organized as a high-trust controller workbench with three focused surfaces:
+The React frontend is organized as a high-trust controller workbench with four focused surfaces:
 
-- **Exceptions:** 4-metric executive INR strip, single-row filters, inline bulk triage (`POST /api/findings/bulk-decision`), and a Split-View **Proof Trail Inspector** with 3-way Invoice / Contract / PO comparison, one-click **Copy Dispute Email** (`GET /api/findings/{id}/dispute-packet`), and collapsible proof math.
+- **Exceptions:** 4-metric executive INR strip + **Knowledge Graph KPI strip** (entities / links / multi-hop risks with one-click deterministic rebuild), single-row filters, inline bulk triage (`POST /api/findings/bulk-decision`), and a Split-View **Proof Trail Inspector** with 3-way Invoice / Contract / PO comparison, an interactive **Proof Graph** canvas (layered SVG evidence subgraph — pan/zoom, click-to-inspect, amber risk edges), one-click **Copy Dispute Email** (`GET /api/findings/{id}/dispute-packet`), and collapsible proof math.
 - **Activity:** Batch ingestion tracker and immutable decision/extraction audit log (`GET /api/audit-log`).
+- **Rules & Graph:** Full documentation of the deterministic engine — R1–R5 tabular logic and R6–R8 Cypher logic with their planted-anomaly verification amounts.
 - **Cloud & Policy:** Live GCP readiness cards (`GET /api/gcp/status`), BigQuery sync (`POST /api/gcp/bigquery/sync`), top vendors by INR exposure, RFC-4180 CSV export (`GET /api/export/findings.csv`), and deterministic rule policy thresholds (`GET/PUT /api/policy`).
+
+## Embedded Knowledge Graph (LadybugDB)
+
+An in-process, rebuildable **Financial Entity Knowledge Graph** synced from the relational system of record — bank accounts, tax identifiers, addresses, approvers, contracts (with `AMENDS` lineage), invoices, payments, and credit notes as typed nodes/edges (11 node tables, 15 relationship tables).
+
+- **Why a graph:** cross-entity fraud patterns (sister vendors sharing a bank account, approvers sharing an address with their vendor, superseded contract-amendment chains) are single shared nodes / short traversals in a graph — and invisible to tabular per-table rules.
+- **Deterministic:** projection is a full rebuild (`DETACH DELETE` → re-insert) so double projection produces identical counts; graph rules R6–R8 run **100% deterministic Cypher** + pure-Python math. `detect/` still imports zero graph/LLM/network modules — the Cypher evidence is pre-fetched in `services.py` and handed to the rules as plain dicts.
+- **API:** `POST /api/graph/rebuild`, `GET /api/graph/stats`, `GET /api/graph/findings/{id}/subgraph` (stored subgraphs for R6–R8, derived neighborhoods for R1–R5), `GET /api/graph/entity/{type}/{id}?hops=1..3`, plus the read-only `inspect_entity_graph` Agent Skill.
+- **Config:** `LEDGERLENS_GRAPH_ENABLED` (default off in code so every pre-existing suite is untouched; `true` in `.env.example` / production), `LEDGERLENS_GRAPH_PATH` (`:memory:` under pytest), `LEDGERLENS_GRAPH_BUFFER_POOL_MB=256`.
+- **Native library:** `python backend/scripts/setup_lbug_native.py` downloads the pinned release binary into the gitignored `.cache/lbug-prebuilt/lib` (HTTPS + host-allowlist + zip-slip guarded). The Dockerfile fetches the Linux build directly.
 
 ## GCP Configuration & Integration
 
@@ -129,13 +149,15 @@ LedgerLens-project/
 │   │   ├── explain/        (Gemini CFO-ready narrative grounded in proof_trail)
 │   │   ├── gcp/            (Vertex AI, AlloyDB, BigQuery, GCS, Pub/Sub, Secret Manager helpers)
 │   │   ├── finance/        (dispute packets, policy thresholds, bulk triage, CSV export)
-│   │   └── skills/         (Google Agent Skills: fetch_payment_records, generate_audit_memo, route_recovery_task)
+│   │   ├── graph/          (LadybugDB client, typed schema, projector, Cypher queries, subgraph serializer)
+│   │   └── skills/         (Google Agent Skills: fetch_payment_records, generate_audit_memo, route_recovery_task, inspect_entity_graph)
+│   ├── scripts/            (setup_lbug_native.py — downloads the pinned native graph library)
 │   ├── schema.sql
 │   ├── schema_postgres.sql
 │   ├── requirements.txt
 │   └── tests/
-├── frontend/               ← Minimalist Finance UI (Exceptions, Activity, Cloud & Policy)
-└── sample_data/            ← Demo dataset with 6 planted anomalies (₹40,531.60) + 4 clean controls
+├── frontend/               ← Minimalist Finance UI (Exceptions + Proof Graph, Activity, Rules & Graph, Cloud & Policy)
+└── sample_data/            ← Demo dataset: 6 tabular anomalies (₹40,531.60) + 3 graph anomalies (R6–R8) + 4 clean controls
 ```
 
 ## Quickstart
@@ -147,10 +169,13 @@ cd backend
 python -m venv .venv
 .venv\Scripts\activate            # Windows  (macOS/Linux: source .venv/bin/activate)
 pip install -r requirements.txt
-copy .env.example .env            # optionally set GEMINI_API_KEY; offline fallback works without a key
+python scripts\setup_lbug_native.py   # one-time: download the pinned native LadybugDB library (gitignored)
+copy .env.example .env            # set GEMINI_API_KEY (optional); LEDGERLENS_GRAPH_ENABLED=true activates R6–R8
 uvicorn app.main:app --reload
 # -> http://127.0.0.1:8000/docs
 ```
+
+> The embedded knowledge graph runs in-process — **no Neo4j, no Docker sidecar, no external graph server**. Cloud Run stays a single container; the Dockerfile downloads the Linux native library at build time and `app/graph/projector.py` deterministically rebuilds the projection from the relational DB on cold start.
 
 **Frontend** (Node 20+):
 
@@ -163,7 +188,7 @@ npm run dev
 
 ## Sample data
 
-`sample_data/` contains a coherent demo dataset with **six planted anomalies** (`₹40,531.60` nominal total exposure across R1–R5) plus **four clean control invoices** that produce **zero** findings. Load it in one click (`Load Demo Dataset`) or run `pytest` in `backend/`.
+`sample_data/` contains a coherent demo dataset with **six planted tabular anomalies** (`₹40,531.60` across R1–R5), **three planted graph anomalies** (R6–R8: ₹22,444.00) and **four clean control invoices** that produce **zero** findings in both modes. Tabular-only detection yields the original 6 findings / ₹40,531.60; enabling the graph layer yields **10 findings / ₹62,975.60** — the tabular results never change. Load it in one click (`Load Demo Dataset`) or run `pytest` in `backend/`.
 
 ## Documentation Index
 
@@ -181,7 +206,8 @@ npm run dev
 - [x] Upload invoices, POs, contracts, payment ledger (CSV/PDF) + `POST /api/run/{batch_id}/extract`
 - [x] Gemini structured-output extraction (`gemini-3.8-vision-flash`) + offline fallback & math verification
 - [x] Deterministic checks (`R1`–`R5`) with zero LLM calls and line-level `proof_trail`
-- [x] Exception dashboard with Split-View Proof Trail Inspector & 3-way evidence diff
+- [x] **Embedded LadybugDB financial knowledge graph** — typed schema, deterministic projector, `/api/graph/*`, and deterministic multi-hop rules `R6`–`R8` with serialized `proof_subgraph` evidence
+- [x] Exception dashboard with Split-View Proof Trail Inspector & 3-way evidence diff + interactive **Proof Graph** canvas
 - [x] Reviewer approve / reject / recovery workflow with immutable audit log
 - [x] One-click **CFO Audit Memo** (Markdown download + JSON summary)
 - [x] Cloud Run deployment readiness (`Dockerfile`, `cloudbuild.yaml`, `deploy/cloudrun.sh`) & 3-minute demo runbook
