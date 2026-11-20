@@ -26,6 +26,7 @@ from ..normalize import (
     normalize_date,
     normalize_invoice_row,
 )
+from .pdf_preprocess import prepare_document_parts
 from .schemas import (
     CONTRACT_SCHEMA,
     INVOICE_SCHEMA,
@@ -166,13 +167,17 @@ def _extract_invoice_payload_live(
     file_bytes: bytes,
     mime_type: str,
     model_name: str,
+    parts: list[tuple[bytes, str]] | None = None,
 ) -> tuple[ExtractedInvoicePayload, list[dict]]:
     """Live invoice extraction with at most 1 arithmetic self-correction retry.
 
     Fail-closed: mismatches that survive the retry are returned as warnings so
     the batch transitions to needs_review instead of trusting bad math.
     """
-    raw = _generate_with_model(file_bytes, mime_type, ExtractedInvoicePayload, model_name)
+    extra_kwargs = {"parts": parts} if parts is not None and len(parts) > 1 else {}
+    raw = _generate_with_model(
+        file_bytes, mime_type, ExtractedInvoicePayload, model_name, **extra_kwargs
+    )
     payload = ExtractedInvoicePayload.model_validate(raw)
     warnings = verify_extracted_line_totals(_invoice_lines_for_verification(payload))
 
@@ -186,6 +191,7 @@ def _extract_invoice_payload_live(
             ExtractedInvoicePayload,
             model_name,
             retry_feedback=feedback,
+            **extra_kwargs,
         )
         retry_payload = ExtractedInvoicePayload.model_validate(retry_raw)
         warnings = verify_extracted_line_totals(_invoice_lines_for_verification(retry_payload))
@@ -223,20 +229,26 @@ def _generate_with_model(
     model_name: str,
     retry_feedback: str | None = None,
     temperature: float = 0.0,
+    parts: list[tuple[bytes, str]] | None = None,
 ) -> dict:
     from google.genai import types  # lazy import
 
-    contents = [types.Part.from_bytes(data=file_bytes, mime_type=mime_type)]
+    doc_parts = parts if parts is not None else [(file_bytes, mime_type)]
+    contents = [
+        types.Part.from_bytes(data=part_bytes, mime_type=part_mime)
+        for part_bytes, part_mime in doc_parts
+    ]
     if retry_feedback:
         contents.append(types.Part(text=retry_feedback))
 
+    effective_mime = doc_parts[0][1] if doc_parts else mime_type
     config_kwargs = {
         "system_instruction": EXTRACTION_SYSTEM_PROMPT,
         "temperature": temperature,
         "response_mime_type": "application/json",
         "response_schema": schema,
     }
-    config_kwargs.update(_media_resolution_kwargs(types, mime_type))
+    config_kwargs.update(_media_resolution_kwargs(types, effective_mime))
 
     response = _client().models.generate_content(
         model=model_name,
@@ -650,7 +662,11 @@ def extract_document(file_path: Path, kind: str, is_batch: bool = False) -> dict
     source_name = file_path.name
     if kind == "contracts":
         if has_live_ai_credentials():
-            raw = _generate_with_model(file_bytes, mime_type, ExtractedContractPayload, model_name)
+            parts = prepare_document_parts(file_path, mime_type)
+            extra_kwargs = {"parts": parts} if len(parts) > 1 else {}
+            raw = _generate_with_model(
+                parts[0][0], parts[0][1], ExtractedContractPayload, model_name, **extra_kwargs
+            )
             payload = ExtractedContractPayload.model_validate(raw)
             mode = "gemini_live"
         else:
@@ -669,7 +685,11 @@ def extract_document(file_path: Path, kind: str, is_batch: bool = False) -> dict
 
     if kind == "purchase_orders":
         if has_live_ai_credentials():
-            raw = _generate_with_model(file_bytes, mime_type, ExtractedPOPayload, model_name)
+            parts = prepare_document_parts(file_path, mime_type)
+            extra_kwargs = {"parts": parts} if len(parts) > 1 else {}
+            raw = _generate_with_model(
+                parts[0][0], parts[0][1], ExtractedPOPayload, model_name, **extra_kwargs
+            )
             payload = ExtractedPOPayload.model_validate(raw)
             mode = "gemini_live"
         else:
@@ -688,7 +708,10 @@ def extract_document(file_path: Path, kind: str, is_batch: bool = False) -> dict
 
     # Default: invoices PDF / scan (live path runs the 1-retry math repair loop)
     if has_live_ai_credentials():
-        payload, _repair_warnings = _extract_invoice_payload_live(file_bytes, mime_type, model_name)
+        parts = prepare_document_parts(file_path, mime_type)
+        payload, _repair_warnings = _extract_invoice_payload_live(
+            parts[0][0], parts[0][1], model_name, parts=parts
+        )
         mode = "gemini_live"
     else:
         payload = _mock_extract_invoice_payload(file_bytes, source_name)
