@@ -1,5 +1,15 @@
 """Stage 1 gate: LadybugDB client, typed schema DDL, and subgraph serializer."""
+
 from __future__ import annotations
+import pytest
+
+from graph_support import NATIVE_GRAPH_AVAILABLE, SKIP_REASON
+
+pytestmark = pytest.mark.skipif(
+    not NATIVE_GRAPH_AVAILABLE,
+    reason=SKIP_REASON,
+)
+
 
 import threading
 

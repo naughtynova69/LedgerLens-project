@@ -30,6 +30,18 @@ def _norm_item(s: str) -> str:
 @register("R4")
 def detect_currency_tax_errors(ctx: DetectionContext) -> list[Finding]:
     findings: list[Finding] = []
+    policy = ctx.get("policy", {}) if isinstance(ctx, dict) else (getattr(ctx, "policy", None) or {})
+    raw_fx_drift_pct = policy.get("r4_max_fx_drift_pct")
+    max_fx_drift = float(raw_fx_drift_pct) / 100.0 if raw_fx_drift_pct is not None else MAX_FX_DRIFT
+    fx_rates = dict(REFERENCE_FX_RATES)
+    if isinstance(policy.get("fx_rates"), dict):
+        for curr, rate in policy["fx_rates"].items():
+            try:
+                val = float(rate)
+            except (TypeError, ValueError):
+                continue
+            if val > 0:
+                fx_rates[str(curr).strip().upper()] = val
 
     po_by_id: dict[str, dict] = {
         str(po.get("po_id", "")): po for po in ctx.purchase_orders if po.get("po_id")
@@ -213,17 +225,17 @@ def detect_currency_tax_errors(ctx: DetectionContext) -> list[Finding]:
                     )
                 )
 
-    # Check 4: FX rate anomaly on payments against REFERENCE_FX_RATES
+    # Check 4: FX rate anomaly on payments against effective fx_rates
     for pay in ctx.payments:
         pay_curr = str(pay.get("currency") or "").strip().upper()
-        ref_rate = REFERENCE_FX_RATES.get(pay_curr)
+        ref_rate = fx_rates.get(pay_curr)
         if not ref_rate:
             continue
         actual_fx = float(pay.get("fx_rate_to_inr") or 0.0)
         if actual_fx <= 0:
             continue
         drift = abs(actual_fx - ref_rate) / ref_rate
-        if drift > MAX_FX_DRIFT:
+        if drift > max_fx_drift:
             pay_amt = float(pay.get("amount") or 0.0)
             inr_delta = round(abs(actual_fx - ref_rate) * pay_amt, 2)
             pay_id = str(pay.get("payment_id", ""))

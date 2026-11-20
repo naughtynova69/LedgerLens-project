@@ -1,6 +1,6 @@
-"""R8 — Contract amendment lineage & unapplied credit notes (deterministic core).
+"""R10 — Contract amendment lineage & unapplied credit notes (deterministic core).
 
-Spec: master-prompt §4 R8. The Cypher layer traverses AMENDS*1..5 lineage and
+Spec: master-prompt §4 R10 (renumbered from R8 after main added tabular R6/R7). The Cypher layer traverses AMENDS*1..5 lineage and
 OPEN credit notes; this module re-verifies the deterministic math (billed rate
 matches the superseded contract, invoice post-dates the amendment) and emits
 the Finding with the serialized proof_subgraph.
@@ -28,7 +28,7 @@ def _iso(value: str) -> date | None:
         return None
 
 
-@register("R8")
+@register("R10")
 def detect_contract_lineage_and_credits(ctx: DetectionContext) -> list[Finding]:
     findings: list[Finding] = []
     evidence_map = getattr(ctx, "graph_evidence", None) or {}
@@ -53,7 +53,7 @@ def detect_contract_lineage_and_credits(ctx: DetectionContext) -> list[Finding]:
         invoice_number = str(row.get("invoice_number") or "")
 
         findings.append(Finding(
-            rule_id="R8",
+            rule_id="R10",
             title="Invoices billed under superseded contract rate after amendment",
             severity="critical" if invoice_status == "paid" else "high",
             amount_at_risk=amount_at_risk,
@@ -108,7 +108,7 @@ def detect_contract_lineage_and_credits(ctx: DetectionContext) -> list[Finding]:
         invoice_numbers = list(row.get("invoice_numbers") or [])
 
         findings.append(Finding(
-            rule_id="R8",
+            rule_id="R10",
             title="Open supplier credit note unapplied while vendor continues billing",
             severity="medium",
             amount_at_risk=round(credit_amount, 2),

@@ -12,11 +12,15 @@ from pathlib import Path
 import sqlite3
 
 from . import config
-from .detect import DetectionContext, run_all
+from .audit_chain import append_chained_audit_event
+from .detect import DetectionContext
+from .detect.registry import run_all_rules
 from .explain.gemini_explain import fallback_without_gemini
 from .extract import extract_document
+from .finance.policy import get_policy
 from .gcp.pubsub import publish_recovery_event
 from .gcp.vertex_ai import has_live_ai_credentials
+from .normalize.fx_service import get_fx_rates
 
 _ALLOWED_COLUMNS = {
     "vendors": {
@@ -115,6 +119,30 @@ def _insert_table_rows(conn: sqlite3.Connection, table_name: str, records: list[
     return inserted
 
 
+def _log_audit_event(
+    conn: sqlite3.Connection,
+    actor: str,
+    action: str,
+    object_type: str,
+    object_id: str,
+    detail: str = "",
+) -> None:
+    """Insert an audit_log row and append the corresponding hash-chained entry."""
+    conn.execute(
+        """INSERT INTO audit_log (actor, action, object_type, object_id, detail)
+           VALUES (?, ?, ?, ?, ?)""",
+        (actor, action, object_type, object_id, detail),
+    )
+    append_chained_audit_event(
+        conn,
+        actor=actor,
+        action=action,
+        object_type=object_type,
+        object_id=object_id,
+        detail=detail,
+    )
+
+
 def generate_explanation_for_finding(finding_dict: dict) -> dict:
     """Generate explanation via Gemini/Vertex AI if configured, else use deterministic fallback."""
     if config.GEMINI_API_KEY or has_live_ai_credentials():
@@ -152,21 +180,20 @@ def run_extraction_for_batch(conn: sqlite3.Connection, batch_id: str) -> dict:
         "UPDATE batches SET state = ?, rows_detected = ? WHERE batch_id = ?",
         (new_state, rows_persisted, batch_id),
     )
-    conn.execute(
-        """INSERT INTO audit_log (actor, action, object_type, object_id, detail)
-           VALUES ('extract_pipeline', 'extract', 'batch', ?, ?)""",
-        (
-            batch_id,
-            json.dumps({
-                "kind": kind,
-                "mode": result.get("mode"),
-                "model": result.get("model"),
-                "rows_extracted": rows_persisted,
-                "warnings": len(result.get("verification_warnings") or []),
-            }),
-        ),
+    _log_audit_event(
+        conn,
+        actor="extract_pipeline",
+        action="extract",
+        object_type="batch",
+        object_id=batch_id,
+        detail=json.dumps({
+            "kind": kind,
+            "mode": result.get("mode"),
+            "model": result.get("model"),
+            "rows_extracted": rows_persisted,
+            "warnings": len(result.get("verification_warnings") or []),
+        }),
     )
-    conn.commit()
 
     return {
         "batch_id": batch_id,
@@ -220,19 +247,22 @@ def run_detection(conn: sqlite3.Connection, batch_id: str | None = None,
 
     When the graph layer is enabled (or a graph client is injected), the batch
     is first projected into LadybugDB and deterministic Cypher evidence for
-    rules R6-R8 is attached to the detection context.
+    rules R8-R10 is attached to the detection context.
 
     Returns {"findings_created": int, "finding_ids": [...]}.
     """
+    policy = dict(get_policy(conn))
+    policy["fx_rates"] = get_fx_rates(conn, fetch_live=False)
     ctx = DetectionContext(
         invoices=_rows(conn, "invoices"),
         payments=_rows(conn, "payments"),
         purchase_orders=_rows(conn, "purchase_orders"),
         contracts=_rows(conn, "contracts"),
         vendors=_rows(conn, "vendors"),
+        policy=policy,
         graph_evidence=_collect_graph_evidence(conn, graph_client, batch_id),
     )
-    findings = run_all(ctx)
+    findings = run_all_rules(ctx, policy=policy)
 
     existing_rows = conn.execute(
         "SELECT finding_id, rule_id, entity_refs, status FROM findings"
@@ -311,16 +341,17 @@ def run_detection(conn: sqlite3.Connection, batch_id: str | None = None,
             )
         created.append(finding_id)
 
-    conn.execute(
-        """INSERT INTO audit_log (actor, action, object_type, object_id, detail)
-           VALUES ('rules_engine', 'detect', 'batch', ?, ?)""",
-        (
-            batch_id or "global",
-            f"Evaluated {'R1-R8 with graph evidence' if ctx.graph_evidence else 'R1-R5'} "
-            f"across {len(ctx.invoices)} invoice line(s); emitted {len(created)} finding(s).",
+    _log_audit_event(
+        conn,
+        actor="rules_engine",
+        action="detect",
+        object_type="batch",
+        object_id=batch_id or "global",
+        detail=(
+            f"Evaluated {'R1-R10 with graph evidence' if ctx.graph_evidence else 'R1-R7'} "
+            f"across {len(ctx.invoices)} invoice line(s); emitted {len(created)} finding(s)."
         ),
     )
-    conn.commit()
     return {"findings_created": len(created), "finding_ids": created}
 
 
@@ -349,12 +380,14 @@ def record_decision(conn: sqlite3.Connection, finding_id: str, action: str,
         "INSERT INTO decisions (finding_id, action, reviewer, note) VALUES (?, ?, ?, ?)",
         (finding_id, action, reviewer, note),
     )
-    conn.execute(
-        """INSERT INTO audit_log (actor, action, object_type, object_id, detail)
-           VALUES (?, ?, 'finding', ?, ?)""",
-        (reviewer, action, finding_id, note),
+    _log_audit_event(
+        conn,
+        actor=reviewer,
+        action=action,
+        object_type="finding",
+        object_id=finding_id,
+        detail=note,
     )
-    conn.commit()
     if target_status in ("recovery", "rejected"):
         try:
             publish_recovery_event(
@@ -539,6 +572,10 @@ def seed_sample_dataset(conn: sqlite3.Connection, sample_dir: Path) -> dict:
     conn.execute("DELETE FROM decisions")
     conn.execute("DELETE FROM findings")
     conn.execute("DELETE FROM audit_log")
+    if conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='audit_chain'"
+    ).fetchone():
+        conn.execute("DELETE FROM audit_chain")
     conn.execute("DELETE FROM batches WHERE kind = 'sample_data_demo'")
     conn.commit()
 
@@ -556,12 +593,14 @@ def seed_sample_dataset(conn: sqlite3.Connection, sample_dir: Path) -> dict:
         "VALUES (?, 'sample_data_demo', 'sample_data/', ?, 'detected')",
         (batch_id, sum(counts.values())),
     )
-    conn.execute(
-        """INSERT INTO audit_log (actor, action, object_type, object_id, detail)
-           VALUES ('demo_seed', 'ingest', 'batch', ?, ?)""",
-        (batch_id, f"Seeded sample_data CSVs ({sum(counts.values())} rows)"),
+    _log_audit_event(
+        conn,
+        actor="demo_seed",
+        action="ingest",
+        object_type="batch",
+        object_id=batch_id,
+        detail=f"Seeded sample_data CSVs ({sum(counts.values())} rows)",
     )
-    conn.commit()
 
     detection_res = run_detection(conn, batch_id=batch_id)
     stats = get_stats(conn)

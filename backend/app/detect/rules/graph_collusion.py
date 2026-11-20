@@ -1,6 +1,6 @@
-"""R7 — Approver-vendor collusion & conflict-of-interest detector (deterministic core).
+"""R9 — Approver-vendor collusion & conflict-of-interest detector (deterministic core).
 
-Spec: master-prompt §4 R7. The Cypher layer matches the multi-hop pattern —
+Spec: master-prompt §4 R9 (renumbered from R7 after main added tabular R6/R7). The Cypher layer matches the multi-hop pattern —
 an approver whose APPROVED_INVOICE edge leads to a vendor sharing the approver's
 BankAccount, Address, or normalized phone — then this module re-verifies the
 deterministic amounts and emits CRITICAL findings with the proof subgraph.
@@ -17,7 +17,7 @@ def _mask(value: str) -> str:
     return f"••••{value[-4:]}" if len(value) >= 4 else value
 
 
-@register("R7")
+@register("R9")
 def detect_approver_vendor_collusion(ctx: DetectionContext) -> list[Finding]:
     findings: list[Finding] = []
     evidence_map = getattr(ctx, "graph_evidence", None) or {}
@@ -34,7 +34,7 @@ def detect_approver_vendor_collusion(ctx: DetectionContext) -> list[Finding]:
         invoice_number = str(row.get("invoice_number") or "")
 
         findings.append(Finding(
-            rule_id="R7",
+            rule_id="R9",
             title="Approver-vendor conflict of interest via shared personal infrastructure",
             severity="critical",
             amount_at_risk=round(invoice_total, 2),

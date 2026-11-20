@@ -15,18 +15,18 @@ from .client import GraphClient
 from .subgraph import build_subgraph, make_edge, make_node
 from .types import GraphEvidence
 
-R6_DRIFT_LIMIT = 0.005          # grand totals may differ by at most 0.5% (mirrors R1)
-R6_MAX_DATE_GAP_DAYS = 30
-R6_SPLIT_WINDOW_DAYS = 7
-R6_SPLIT_BAND_LOW = 0.80        # invoice sits just below the approver limit
-R6_SPLIT_BAND_HIGH = 0.999
-R8_RATE_MATCH_TOLERANCE = 0.005
+R8_DRIFT_LIMIT = 0.005          # grand totals may differ by at most 0.5% (mirrors R1)
+R8_MAX_DATE_GAP_DAYS = 30
+R8_SPLIT_WINDOW_DAYS = 7
+R8_SPLIT_BAND_LOW = 0.80        # invoice sits just below the approver limit
+R8_SPLIT_BAND_HIGH = 0.999
+R10_RATE_MATCH_TOLERANCE = 0.005
 
 # ---------------------------------------------------------------------------
-# R6 — cross-entity duplicate & threshold-splitting (master-prompt §4 R6)
+# R8 — cross-entity duplicate & threshold-splitting (master-prompt §4 R8; renumbered from R6 after main added tabular R6/R7)
 # ---------------------------------------------------------------------------
 
-R6_CROSS_ENTITY_DUPLICATE_QUERY = """
+R8_CROSS_ENTITY_DUPLICATE_QUERY = """
 MATCH (i1:Invoice)-[:ISSUED_BY]->(v1:Vendor)-[:USES_BANK]->(b:BankAccount)
       <-[:USES_BANK]-(v2:Vendor)<-[:ISSUED_BY]-(i2:Invoice)
 WHERE v1.vendor_id < v2.vendor_id
@@ -48,7 +48,7 @@ RETURN
   b.account_key     AS shared_account_key, b.masked_account AS masked_account
 """
 
-R6_CROSS_ENTITY_DUPLICATE_TAX_QUERY = """
+R8_CROSS_ENTITY_DUPLICATE_TAX_QUERY = """
 MATCH (i1:Invoice)-[:ISSUED_BY]->(v1:Vendor)-[:HAS_TAX_ID]->(t:TaxIdentifier)
       <-[:HAS_TAX_ID]-(v2:Vendor)<-[:ISSUED_BY]-(i2:Invoice)
 WHERE v1.vendor_id < v2.vendor_id
@@ -70,7 +70,7 @@ RETURN
   t.tax_id          AS shared_tax_id, t.id_type AS shared_tax_type
 """
 
-R6_SPLIT_INVOICES_QUERY = """
+R8_SPLIT_INVOICES_QUERY = """
 MATCH (a:Approver)-[:APPROVED_INVOICE]->(i1:Invoice)
       -[:ISSUED_BY]->(v1:Vendor)-[:USES_BANK]->(b:BankAccount)
       <-[:USES_BANK]-(v2:Vendor)<-[:ISSUED_BY]-(i2:Invoice)
@@ -91,7 +91,7 @@ RETURN
   b.account_key AS shared_account_key, b.masked_account AS masked_account
 """
 
-R6_SPLIT_INVOICES_TAX_QUERY = """
+R8_SPLIT_INVOICES_TAX_QUERY = """
 MATCH (a:Approver)-[:APPROVED_INVOICE]->(i1:Invoice)
       -[:ISSUED_BY]->(v1:Vendor)-[:HAS_TAX_ID]->(t:TaxIdentifier)
       <-[:HAS_TAX_ID]-(v2:Vendor)<-[:ISSUED_BY]-(i2:Invoice)
@@ -113,10 +113,10 @@ RETURN
 """
 
 # ---------------------------------------------------------------------------
-# R7 — approver-vendor collusion (master-prompt §4 R7)
+# R9 — approver-vendor collusion (master-prompt §4 R9; renumbered from R7 after main added tabular R6/R7)
 # ---------------------------------------------------------------------------
 
-R7_COLLUSION_SHARED_BANK_QUERY = """
+R9_COLLUSION_SHARED_BANK_QUERY = """
 MATCH (a:Approver)-[:APPROVED_INVOICE]->(i:Invoice)
       -[:ISSUED_BY]->(v:Vendor)-[:USES_BANK]->(b:BankAccount)
       <-[:APPROVER_USES_BANK]-(a)
@@ -129,7 +129,7 @@ RETURN
   b.account_key AS shared_account_key, b.masked_account AS masked_account
 """
 
-R7_COLLUSION_SHARED_ADDRESS_QUERY = """
+R9_COLLUSION_SHARED_ADDRESS_QUERY = """
 MATCH (a:Approver)-[:APPROVED_INVOICE]->(i:Invoice)
       -[:ISSUED_BY]->(v:Vendor)-[:LOCATED_AT]->(addr:Address)
       <-[:APPROVER_LOCATED_AT]-(a)
@@ -142,7 +142,7 @@ RETURN
   addr.address_hash AS shared_address_hash, addr.normalized_address AS shared_address
 """
 
-R7_COLLUSION_SHARED_PHONE_QUERY = """
+R9_COLLUSION_SHARED_PHONE_QUERY = """
 MATCH (a:Approver)-[:APPROVED_INVOICE]->(i:Invoice)
       -[:ISSUED_BY]->(v:Vendor)
 WHERE a.phone_normalized <> ''
@@ -158,10 +158,10 @@ RETURN
 """
 
 # ---------------------------------------------------------------------------
-# R8 — contract lineage & unapplied credits (master-prompt §4 R8)
+# R10 — contract lineage & unapplied credits (master-prompt §4 R10; renumbered from R8 after main added tabular R6/R7)
 # ---------------------------------------------------------------------------
 
-R8_SUPERSEDED_RATE_QUERY = """
+R10_SUPERSEDED_RATE_QUERY = """
 MATCH (c_new:Contract)-[:AMENDS*1..5]->(c_old:Contract)
       <-[:GOVERNED_BY]-(i:Invoice)-[:HAS_LINE]->(l:InvoiceLine)
 WHERE c_new.unit_rate < c_old.unit_rate
@@ -177,7 +177,7 @@ RETURN
   l.line_total AS line_total
 """
 
-R8_UNAPPLIED_CREDITS_QUERY = """
+R10_UNAPPLIED_CREDITS_QUERY = """
 MATCH (v:Vendor)-[:ISSUED_CREDIT]->(cn:CreditNote)
 WHERE cn.applied_status = 'OPEN'
 MATCH (i:Invoice)-[:ISSUED_BY]->(v)
@@ -328,7 +328,7 @@ def _r6_duplicate_row_to_evidence(row: dict, shared_via: str) -> dict:
         "batch_ids": [row["batch_id_a"], row["batch_id_b"]],
         "proof_subgraph": build_subgraph(
             nodes, edges,
-            cypher_rule="R6_CROSS_ENTITY_DUPLICATE",
+            cypher_rule="R8_CROSS_ENTITY_DUPLICATE",
             summary=(
                 f"Invoices {row['invoice_number_a']} ({row['vendor_id_a']}) and "
                 f"{row['invoice_number_b']} ({row['vendor_id_b']}) route to shared "
@@ -385,7 +385,7 @@ def _split_row_to_evidence(row: dict, shared_via: str) -> dict:
         "grand_totals": [float(row["grand_total_a"]), float(row["grand_total_b"])],
         "currency": row["currency_a"] or row["currency_b"],
         "batch_ids": [],
-        "proof_subgraph": build_subgraph(nodes, edges, cypher_rule="R6_SPLIT_INVOICES",
+        "proof_subgraph": build_subgraph(nodes, edges, cypher_rule="R8_SPLIT_INVOICES",
                                          summary="Split invoices around an approval limit."),
     }
 
@@ -445,7 +445,7 @@ def _collusion_row_to_evidence(row: dict) -> dict:
         "invoice_status": row["invoice_status"],
         "batch_ids": [row["batch_id"]],
         "proof_subgraph": build_subgraph(
-            nodes, edges, cypher_rule="R7_COLLUSION",
+            nodes, edges, cypher_rule="R9_COLLUSION",
             summary=(
                 f"Approver {approver_id} approved invoice {row['invoice_number']} from "
                 f"vendor {vendor_id}; both share {vector} {shared_ref}."
@@ -491,7 +491,7 @@ def _superseded_row_to_evidence(row: dict) -> dict:
         "line_total": float(row["line_total"] or 0.0),
         "batch_ids": [row["batch_id"]],
         "proof_subgraph": build_subgraph(
-            nodes, edges, cypher_rule="R8_SUPERSEDED_RATE",
+            nodes, edges, cypher_rule="R10_SUPERSEDED_RATE",
             summary=(
                 f"Invoice {row['invoice_number']} is still billed at the superseded rate "
                 f"{row['old_rate']:,.2f} while amendment {row['new_contract_id']} set "
@@ -528,7 +528,7 @@ def _credits_row_to_evidence(row: dict) -> dict:
         "invoice_dates": [row["invoice_date"]],
         "batch_ids": [row["batch_id"]],
         "proof_subgraph": build_subgraph(
-            nodes, edges, cypher_rule="R8_UNAPPLIED_CREDITS",
+            nodes, edges, cypher_rule="R10_UNAPPLIED_CREDITS",
             summary=(
                 f"Credit note {row['credit_note_id']} ({row['credit_note_amount']:,.2f} "
                 f"{row['credit_note_currency']}) is still OPEN while vendor "
@@ -539,34 +539,34 @@ def _credits_row_to_evidence(row: dict) -> dict:
 
 
 def fetch_graph_evidence(client: GraphClient) -> GraphEvidence:
-    """Run every deterministic rule query and shape results for R6-R8.
+    """Run every deterministic rule query and shape results for R8-R10.
 
     Structural multi-hop patterns are matched in Cypher; final date windows and
     amount math are re-verified in pure Python by the rules themselves.
     """
     evidence = GraphEvidence()
 
-    dup_rows = client.execute_read(R6_CROSS_ENTITY_DUPLICATE_QUERY, {"drift": R6_DRIFT_LIMIT})
-    dup_rows += client.execute_read(R6_CROSS_ENTITY_DUPLICATE_TAX_QUERY, {"drift": R6_DRIFT_LIMIT})
+    dup_rows = client.execute_read(R8_CROSS_ENTITY_DUPLICATE_QUERY, {"drift": R8_DRIFT_LIMIT})
+    dup_rows += client.execute_read(R8_CROSS_ENTITY_DUPLICATE_TAX_QUERY, {"drift": R8_DRIFT_LIMIT})
     for row in dup_rows:
         shared_via = "bank" if row.get("shared_account_key") else "tax"
         gap = _date_gap(row["invoice_date_a"], row["invoice_date_b"])
-        if gap is None or gap > R6_MAX_DATE_GAP_DAYS:
+        if gap is None or gap > R8_MAX_DATE_GAP_DAYS:
             continue
         row["date_gap_days"] = gap
         evidence.cross_entity_duplicates.append(_r6_duplicate_row_to_evidence(row, shared_via))
 
     split_rows = client.execute_read(
-        R6_SPLIT_INVOICES_QUERY,
-        {"band_low": R6_SPLIT_BAND_LOW, "band_high": R6_SPLIT_BAND_HIGH},
+        R8_SPLIT_INVOICES_QUERY,
+        {"band_low": R8_SPLIT_BAND_LOW, "band_high": R8_SPLIT_BAND_HIGH},
     )
     split_rows += client.execute_read(
-        R6_SPLIT_INVOICES_TAX_QUERY,
-        {"band_low": R6_SPLIT_BAND_LOW, "band_high": R6_SPLIT_BAND_HIGH},
+        R8_SPLIT_INVOICES_TAX_QUERY,
+        {"band_low": R8_SPLIT_BAND_LOW, "band_high": R8_SPLIT_BAND_HIGH},
     )
     for row in split_rows:
         gap = _date_gap(row["invoice_date_a"], row["invoice_date_b"])
-        if gap is None or gap > R6_SPLIT_WINDOW_DAYS:
+        if gap is None or gap > R8_SPLIT_WINDOW_DAYS:
             continue
         combined = float(row["grand_total_a"]) + float(row["grand_total_b"])
         if combined <= float(row["approval_limit"]):
@@ -575,18 +575,18 @@ def fetch_graph_evidence(client: GraphClient) -> GraphEvidence:
         shared_via = "bank" if row.get("shared_account_key") else "tax"
         evidence.split_invoices.append(_split_row_to_evidence(row, shared_via))
 
-    for row in client.execute_read(R7_COLLUSION_SHARED_BANK_QUERY):
+    for row in client.execute_read(R9_COLLUSION_SHARED_BANK_QUERY):
         evidence.collusion.append(_collusion_row_to_evidence(row))
-    for row in client.execute_read(R7_COLLUSION_SHARED_ADDRESS_QUERY):
+    for row in client.execute_read(R9_COLLUSION_SHARED_ADDRESS_QUERY):
         evidence.collusion.append(_collusion_row_to_evidence(row))
-    for row in client.execute_read(R7_COLLUSION_SHARED_PHONE_QUERY):
+    for row in client.execute_read(R9_COLLUSION_SHARED_PHONE_QUERY):
         evidence.collusion.append(_collusion_row_to_evidence(row))
 
-    for row in client.execute_read(R8_SUPERSEDED_RATE_QUERY):
+    for row in client.execute_read(R10_SUPERSEDED_RATE_QUERY):
         evidence.superseded_rates.append(_superseded_row_to_evidence(row))
 
     credits: dict[tuple[str, str], dict] = {}
-    for row in client.execute_read(R8_UNAPPLIED_CREDITS_QUERY):
+    for row in client.execute_read(R10_UNAPPLIED_CREDITS_QUERY):
         key = (row["vendor_id"], row["credit_note_id"])
         entry = credits.get(key)
         if entry is None:

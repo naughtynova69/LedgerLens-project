@@ -1,6 +1,6 @@
-"""R6 — Cross-entity duplicate & threshold-splitting detector (deterministic core).
+"""R8 — Cross-entity duplicate & threshold-splitting detector (deterministic core).
 
-Spec: master-prompt §4 R6. The Cypher layer (app.graph.queries) matches the
+Spec: master-prompt §4 R8 (renumbered from R6 after main added tabular R6/R7). The Cypher layer (app.graph.queries) matches the
 multi-hop structural pattern — two DIFFERENT vendor entities converging on the
 same BankAccount or TaxIdentifier node with near-identical invoices — which
 tabular R1 cannot see because it groups strictly by vendor_id. This module
@@ -33,7 +33,7 @@ def _mask(value: str) -> str:
     return f"••••{value[-4:]}" if len(value) >= 4 else value
 
 
-@register("R6")
+@register("R8")
 def detect_cross_entity_duplicates(ctx: DetectionContext) -> list[Finding]:
     findings: list[Finding] = []
     evidence_map = getattr(ctx, "graph_evidence", None) or {}
@@ -57,7 +57,7 @@ def detect_cross_entity_duplicates(ctx: DetectionContext) -> list[Finding]:
         batch_ids = [str(b) for b in row.get("batch_ids", []) if b]
 
         findings.append(Finding(
-            rule_id="R6",
+            rule_id="R8",
             title="Cross-entity duplicate billing via shared bank/tax identifier",
             severity="critical" if str(row.get("status_a")) == "paid" else "high",
             amount_at_risk=amount_at_risk,
@@ -116,7 +116,7 @@ def detect_cross_entity_duplicates(ctx: DetectionContext) -> list[Finding]:
         approver_id = str(row.get("approver_id") or "")
 
         findings.append(Finding(
-            rule_id="R6",
+            rule_id="R8",
             title="Approval-threshold splitting across shared bank/tax identifier",
             severity="high",
             amount_at_risk=amount_at_risk,

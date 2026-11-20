@@ -131,4 +131,30 @@ export const api = {
     request(
       `/api/graph/entity/${encodeURIComponent(entityType)}/${encodeURIComponent(entityId)}?hops=${hops}`,
     ),
+
+  // ---- Batch records, workspaces & copilot ----
+
+  updateBatchRecords: (batchId, payload) =>
+    request(`/api/batches/${batchId}/records`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+
+  getBatchFileUrl: (batchId) => `${API_BASE}/api/batches/${batchId}/file`,
+
+  getWorkspaces: () => request("/api/workspaces"),
+
+  createWorkspace: (payload) =>
+    request("/api/workspaces", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  askCopilot: (question, workspaceId = "default") =>
+    request("/api/copilot/ask", {
+      method: "POST",
+      body: JSON.stringify({ question, workspace_id: workspaceId }),
+    }),
+
+  verifyAuditChain: () => request("/api/audit-log/verify"),
 };

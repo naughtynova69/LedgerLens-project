@@ -132,13 +132,15 @@ def detect_duplicates(ctx: DetectionContext) -> list[Finding]: ...
 
 ---
 
-## Graph rules R6–R8 — deterministic Cypher over the embedded knowledge graph
+## Graph rules R8–R10 — deterministic Cypher over the embedded knowledge graph
 
-R6–R8 run on **LadybugDB** (`backend/app/graph/`, embedded in-process `.lbdb` file, `:memory:` under pytest). The Cypher layer (`app/graph/queries.py`) matches the multi-hop **structural** pattern; the rules (`app/detect/rules/graph_*.py`) re-verify every amount and date window in pure Python and attach a serialized `proof_subgraph` (`{nodes, edges, cypher_rule, summary}`) inside `proof_trail`. Confidence values are rule constants. The LLM is never the judge — Cypher finds, Python measures, Gemini narrates.
+> Renumbered: `R6` (Split-PO) and `R7` (GRN mismatch) are the pure-tabular detectors added on `main`; the graph rules run as `R8`–`R10`.
 
-### R6 — Cross-entity duplicate & threshold-splitting detection
+R8–R10 run on **LadybugDB** (`backend/app/graph/`, embedded in-process `.lbdb` file, `:memory:` under pytest). The Cypher layer (`app/graph/queries.py`) matches the multi-hop **structural** pattern; the rules (`app/detect/rules/graph_*.py`) re-verify every amount and date window in pure Python and attach a serialized `proof_subgraph` (`{nodes, edges, cypher_rule, summary}`) inside `proof_trail`. Confidence values are rule constants. The LLM is never the judge — Cypher finds, Python measures, Gemini narrates.
 
-- **File:** `backend/app/detect/rules/graph_cross_entity_duplicate.py` (`@register("R6")`)
+### R8 — Cross-entity duplicate & threshold-splitting detection
+
+- **File:** `backend/app/detect/rules/graph_cross_entity_duplicate.py` (`@register("R8")`)
 - **What tabular R1 misses:** two **different** `vendor_id`s (sister entities, shell aliases) billing the same or split amount into the same **BankAccount** or **TaxIdentifier** node within a 30-day window — R1 groups strictly by vendor.
 - **Deterministic Cypher pattern:**
   ```
@@ -152,15 +154,15 @@ R6–R8 run on **LadybugDB** (`backend/app/graph/`, embedded in-process `.lbdb` 
 - **Evidence:** exact invoice pair, both vendor ids, shared account/tax ref, date delta, amount at risk (`min(total_a, total_b)` for duplicates; `combined - approval_limit` for splits).
 - **Sample anomaly:** `INV-9701` (V007) vs `INV-9702` (V008), shared HDFC account, 3-day gap → **₹12,000.00**.
 
-### R7 — Approver–vendor collusion & conflict of interest
+### R9 — Approver–vendor collusion & conflict of interest
 
-- **File:** `backend/app/detect/rules/graph_collusion.py` (`@register("R7")`)
+- **File:** `backend/app/detect/rules/graph_collusion.py` (`@register("R9")`)
 - **What tabular rules miss:** an employee approving invoices for a vendor linked to them via **shared personal infrastructure** — no tabular key joins approver identity to vendor infrastructure.
 - **Deterministic Cypher patterns (three vectors):** shared `BankAccount` (`USES_BANK` / `APPROVER_USES_BANK`), shared `Address` (`LOCATED_AT` / `APPROVER_LOCATED_AT`), matching non-empty normalized phone.
 - **Severity:** `critical`; **action:** `HOLD_PAYMENT_AND_ESCALATE_INTERNAL_AUDIT`; amount at risk = invoice grand total.
 - **Sample anomaly:** approver `A-001` shares the "12 MG Road, Bengaluru" address node with vendor `V009` and approved `INV-9801` → **₹8,500.00**.
 
-### R8 — Contract amendment lineage & unapplied credit notes
+### R10 — Contract amendment lineage & unapplied credit notes
 
 - **File:** `backend/app/detect/rules/graph_lineage_credits.py` (`@register("R8")`)
 - **What tabular R2 misses:** R2 compares only against contracts whose status is `active` in the ERP master data. A **signed amendment that has not been flipped to active** (ERP master-data lag) is invisible to R2 — exactly where the graph lineage catches leakage.

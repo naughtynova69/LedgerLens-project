@@ -1,5 +1,15 @@
 """Stage 4 gate: graph API endpoints & the read-only inspect_entity_graph skill."""
+
 from __future__ import annotations
+import pytest
+
+from graph_support import NATIVE_GRAPH_AVAILABLE, SKIP_REASON
+
+pytestmark = pytest.mark.skipif(
+    not NATIVE_GRAPH_AVAILABLE,
+    reason=SKIP_REASON,
+)
+
 
 import pytest
 from fastapi.testclient import TestClient
@@ -61,15 +71,15 @@ def test_stored_subgraph_for_graph_rule_finding(seeded_client, monkeypatch: pyte
     assert reseed.status_code == 200
     assert reseed.json()["findings_created"] == 10  # 6 tabular + 4 graph findings
 
-    r6_findings = seeded_client.get("/api/findings?rule_id=R6").json()
-    assert r6_findings, "R6 finding must exist after graph-enabled detection"
+    r6_findings = seeded_client.get("/api/findings?rule_id=R8").json()
+    assert r6_findings, "R8 finding must exist after graph-enabled detection"
     finding_id = r6_findings[0]["finding_id"]
 
     resp = seeded_client.get(f"/api/graph/findings/{finding_id}/subgraph")
     assert resp.status_code == 200
     data = resp.json()
     assert data["source"] == "stored"
-    assert data["cypher_rule"] == "R6_CROSS_ENTITY_DUPLICATE"
+    assert data["cypher_rule"] == "R8_CROSS_ENTITY_DUPLICATE"
     assert data["nodes"], "stored subgraph must contain nodes"
     node_types = {node["type"] for node in data["nodes"]}
     assert {"Invoice", "Vendor", "BankAccount"} <= node_types

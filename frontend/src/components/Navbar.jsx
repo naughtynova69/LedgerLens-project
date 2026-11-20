@@ -1,5 +1,6 @@
 import React from "react";
 import { api } from "../api";
+import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 
 export function Navbar({
   activeTab,
@@ -10,6 +11,9 @@ export function Navbar({
   onOpenUploadModal,
   onOpenMemoModal,
   loadingAction,
+  workspaces,
+  activeWorkspaceId,
+  onChangeWorkspace,
 }) {
   const openCount = stats?.by_status?.open ?? 0;
 
@@ -74,6 +78,14 @@ export function Navbar({
 
         {/* Right: Quiet Action Controls */}
         <div className="flex items-center gap-2 shrink-0">
+          {workspaces && workspaces.length > 0 && (
+            <WorkspaceSwitcher
+              workspaces={workspaces}
+              activeWorkspaceId={activeWorkspaceId}
+              onChangeWorkspace={onChangeWorkspace}
+            />
+          )}
+
           <button
             type="button"
             onClick={onOpenUploadModal}

@@ -21,17 +21,25 @@ const RULE_METADATA = {
     label: "Cancelled Service",
     short: "R5 Cancelled",
   },
+  R8: {
+    label: "Cross-Entity Duplicate / Split-Invoice (Graph)",
+    short: "R8 Graph-Dup",
+  },
+  R9: {
+    label: "Approver-Vendor Collusion (Graph)",
+    short: "R9 Collusion",
+  },
+  R10: {
+    label: "Contract Lineage & Unapplied Credits (Graph)",
+    short: "R10 Lineage",
+  },
   R6: {
-    label: "Cross-Entity Duplicate / Split-Invoice",
-    short: "R6 Graph-Dup",
+    label: "Split-Invoice / PO Split Billing",
+    short: "R6 Split-PO",
   },
   R7: {
-    label: "Approver-Vendor Collusion",
-    short: "R7 Collusion",
-  },
-  R8: {
-    label: "Contract Lineage & Unapplied Credits",
-    short: "R8 Lineage",
+    label: "GRN Mismatch",
+    short: "R7 GRN",
   },
 };
 

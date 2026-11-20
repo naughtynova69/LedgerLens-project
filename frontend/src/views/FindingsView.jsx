@@ -31,6 +31,11 @@ export function FindingsView({
     { id: "R3", label: "R3 PO" },
     { id: "R4", label: "R4 FX/Tax" },
     { id: "R5", label: "R5 Cancelled" },
+    { id: "R6", label: "R6 Split-PO" },
+    { id: "R7", label: "R7 GRN" },
+    { id: "R8", label: "R8 Graph-Dup" },
+    { id: "R9", label: "R9 Collusion" },
+    { id: "R10", label: "R10 Lineage" },
   ];
 
   const statusTabs = [

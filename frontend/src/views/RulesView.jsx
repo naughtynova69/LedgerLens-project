@@ -70,6 +70,26 @@ if vendor.status in ('cancelled', 'terminated', 'inactive') or po.status in ('ca
     },
     {
       id: "R6",
+      name: "Split-PO / Approval-Limit Bypass",
+      intent: "Catches the same PO billed across consecutive invoices whose combined quantity/value bypasses per-invoice duplicate and approval-limit checks.",
+      logic: `group invoice lines by (po_id, normalized_item), order by invoice_date
+if combined_billed_qty > po.quantity across 2+ invoices:
+  emit Finding (amount_at_risk = excess portion of the later invoices)`,
+      severity: "High",
+      sampleAnomaly: "Split-PO detector over the seeded PO lines (tabular, no graph required)",
+    },
+    {
+      id: "R7",
+      name: "3-Way GRN Mismatch",
+      intent: "Detects invoices billing more quantity than was received/accepted on the matching goods-receipt note.",
+      logic: `join invoice line -> GRN line on (po_id, normalized_item)
+if invoice.quantity > grn.received_qty:
+  emit Finding (amount_at_risk = (qty - received_qty) * unit_price)`,
+      severity: "High",
+      sampleAnomaly: "GRN-mismatch detector over the seeded receipt records (tabular, no graph required)",
+    },
+    {
+      id: "R8",
       name: "Cross-Entity Duplicate & Threshold-Splitting (Graph)",
       intent: "Catches what tabular R1 cannot: two DIFFERENT vendor entities (sister firms, shell aliases) converging on the same bank account or tax identifier while billing near-identical invoices, plus approval-threshold splitting.",
       logic: `Cypher (LadybugDB, deterministic):
@@ -85,7 +105,7 @@ each at 80-99.9% of the approver limit, combined sum > limit`,
       sampleAnomaly: "INV-9701 (V007) vs INV-9702 (V008) · shared HDFC ••••8841 · ₹12,000.00 at risk",
     },
     {
-      id: "R7",
+      id: "R9",
       name: "Approver-Vendor Collusion & Conflict of Interest (Graph)",
       intent: "Flags internal procurement fraud: an employee approves invoices for a vendor linked to them via shared personal infrastructure — bank account, registered address, or normalized phone.",
       logic: `Cypher (LadybugDB, deterministic):
@@ -98,7 +118,7 @@ emit Finding (severity: critical,
       sampleAnomaly: "A-001 (Ravi Menon) approves INV-9801 (V009) · shared 12 MG Road address · ₹8,500.00",
     },
     {
-      id: "R8",
+      id: "R10",
       name: "Contract Lineage & Unapplied Credit Notes (Graph)",
       intent: "Traverses AMENDS contract lineage to catch invoices billed at a superseded rate after a signed amendment lowered it (ERP master-data lag), plus OPEN supplier credit notes while the vendor keeps billing.",
       logic: `Cypher (LadybugDB, deterministic):
@@ -117,10 +137,10 @@ Credits: OPEN credit note with vendor invoices dated >= issue_date`,
       <div>
         <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
           <BookOpen className="w-5 h-5 text-[#059669]" />
-          <span>Deterministic Detection Engine (R1–R8)</span>
+          <span>Deterministic Detection Engine (R1–R10)</span>
         </h1>
         <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-          Zero LLM SDK calls inside `backend/app/detect/` — R1–R5 run pure tabular Python, R6–R8 run deterministic
+          Zero LLM SDK calls inside `backend/app/detect/` — R1–R7 run pure tabular Python, R8–R10 run deterministic
           LadybugDB Cypher over the embedded knowledge graph. Every finding carries verifiable proof math.
         </p>
       </div>
@@ -133,7 +153,7 @@ Credits: OPEN credit note with vendor invoices dated >= issue_date`,
         <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
           Finance controllers cannot freeze vendor payouts on an opaque score. Every finding below emits a
           deterministic <code className="font-mono text-slate-900 bg-slate-100 px-1 rounded">proof_trail</code> JSON
-          payload linking the exact invoice line, contract clause, PO line, and payment record — and for R6–R8, the
+          payload linking the exact invoice line, contract clause, PO line, and payment record — and for the graph rules R8–R10, the
           serialized multi-hop <code className="font-mono text-slate-900 bg-slate-100 px-1 rounded">proof_subgraph</code>{" "}
           from the embedded LadybugDB knowledge graph.
         </p>

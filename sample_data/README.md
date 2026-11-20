@@ -3,7 +3,7 @@
 Small, coherent, fictional dataset for a hardware/office-supplies buyer. Every number is consistent (line totals = qty × price × (1 + tax)). Load these CSVs through the app (or straight into SQLite):
 
 - With only the tabular rules (R1–R5) the detectors produce **exactly** the six findings below — and **zero** findings on the clean controls.
-- With the graph layer enabled (`LEDGERLENS_GRAPH_ENABLED=true`) the same rows additionally fire the three planted graph anomalies **R6–R8** (four findings), and the 4 clean controls still produce nothing.
+- With the graph layer enabled (`LEDGERLENS_GRAPH_ENABLED=true`) the same rows additionally fire the three planted graph anomalies **R8–R10** (four findings), and the 4 clean controls still produce nothing.
 
 ## The files
 
@@ -48,14 +48,14 @@ Small, coherent, fictional dataset for a hardware/office-supplies buyer. Every n
 - **Vertex (V005)** charged GST on exempt export freight → tax recovery.
 - The PO carrying a wrong price (PO-1006 @ 465) exists deliberately: it shows judges that the **contract governs even when the PO is wrong**.
 
-## Graph anomalies — planted for rules R6–R8 (graph layer enabled)
+## Graph anomalies — planted for rules R8–R10 (graph layer enabled)
 
 | Rule | Anomaly | Amount at risk |
 |------|---------|----------------|
-| R6 | `INV-9701` (V007 Sunbeam Power Systems) vs `INV-9702` (V008 Sunbeam Energy Solutions) — **distinct sister vendors sharing bank account `HDFC50100234567841`**, near-identical ₹12,000.00 invoices 3 days apart | ₹12,000.00 |
-| R7 | Approver `A-001` (Ravi Menon, "12 MG Road, Bengaluru, IN") **shares the registered address node with vendor V009** (Menon Facility Care LLP) and approved their invoice `INV-9801` | ₹8,500.00 |
-| R8a | `INV-9601` billed 2 × ₹5,000.00 under `C-006` **after signed amendment `C-007` lowered the rate to ₹4,500.00** (ERP master-data lag — the tabular R2 cannot see the amended rate) | ₹1,000.00 |
-| R8b | Supplier credit note `CN-9001` (₹944.00, `OPEN`) issued by V006 on 2026-11-07 **while V006 keeps billing** (`INV-9602`, 2026-11-15) | ₹944.00 |
+| R8 | `INV-9701` (V007 Sunbeam Power Systems) vs `INV-9702` (V008 Sunbeam Energy Solutions) — **distinct sister vendors sharing bank account `HDFC50100234567841`**, near-identical ₹12,000.00 invoices 3 days apart | ₹12,000.00 |
+| R9 | Approver `A-001` (Ravi Menon, "12 MG Road, Bengaluru, IN") **shares the registered address node with vendor V009** (Menon Facility Care LLP) and approved their invoice `INV-9801` | ₹8,500.00 |
+| R10a | `INV-9601` billed 2 × ₹5,000.00 under `C-006` **after signed amendment `C-007` lowered the rate to ₹4,500.00** (ERP master-data lag — the tabular R2 cannot see the amended rate) | ₹1,000.00 |
+| R10b | Supplier credit note `CN-9001` (₹944.00, `OPEN`) issued by V006 on 2026-11-07 **while V006 keeps billing** (`INV-9602`, 2026-11-15) | ₹944.00 |
 
 **Graph-layer total at risk: ₹22,444.00** → with the graph enabled the demo shows **10 findings / ₹62,975.60**.
 

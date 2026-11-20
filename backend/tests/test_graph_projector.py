@@ -1,5 +1,15 @@
 """Stage 2 gate: relational-to-graph projector & sample data enrichment."""
+
 from __future__ import annotations
+import pytest
+
+from graph_support import NATIVE_GRAPH_AVAILABLE, SKIP_REASON
+
+pytestmark = pytest.mark.skipif(
+    not NATIVE_GRAPH_AVAILABLE,
+    reason=SKIP_REASON,
+)
+
 
 from pathlib import Path
 

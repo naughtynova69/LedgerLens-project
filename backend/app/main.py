@@ -32,6 +32,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import config
+from .audit_chain import ensure_audit_chain_table, verify_audit_chain
+from .copilot import ask_copilot
 from .db import get_connection, init_schema
 from .finance.dispute_packets import generate_dispute_packet
 from .finance.exports import export_findings_csv
@@ -51,6 +53,7 @@ from .graph.client import GraphClient
 from .graph.subgraph import build_subgraph
 from .ingest.router import VALID_KINDS, save_stream_to_upload, validate_csv
 from .models import DecisionIn
+from .normalize.fx_service import get_fx_rates
 from .services import (
     build_memo_structured,
     get_finding_with_sources,
@@ -62,6 +65,7 @@ from .services import (
     seed_sample_dataset,
 )
 from .skills import GEMINI_TOOL_DECLARATIONS, execute_skill
+from .workspaces import create_workspace, list_workspaces
 
 
 class BulkDecisionIn(BaseModel):
@@ -76,6 +80,20 @@ class PolicyUpdateIn(BaseModel):
     r1_max_date_gap_days: int | None = None
     r4_max_fx_drift_pct: float | None = None
     auto_hold_threshold_inr: float | None = None
+
+
+class BatchRecordsUpdateIn(BaseModel):
+    records: list[dict[str, Any]]
+
+
+class WorkspaceCreateIn(BaseModel):
+    name: str
+    client_code: str = ""
+
+
+class CopilotAskIn(BaseModel):
+    question: str
+    workspace_id: str = "default"
 
 
 def _get_ready_conn() -> sqlite3.Connection:
@@ -194,7 +212,7 @@ def graph_stats() -> dict:
     conn = _get_ready_conn()
     try:
         row = conn.execute(
-            "SELECT COUNT(*) AS n FROM findings WHERE rule_id IN ('R6', 'R7', 'R8')"
+            "SELECT COUNT(*) AS n FROM findings WHERE rule_id IN ('R8', 'R9', 'R10')"
         ).fetchone()
         stats["multi_hop_risks"] = int(row["n"]) if row else 0
     finally:
@@ -204,7 +222,7 @@ def graph_stats() -> dict:
 
 @app.get("/api/graph/findings/{finding_id}/subgraph")
 def finding_subgraph(finding_id: str) -> dict:
-    """Evidence subgraph for any finding (stored R6-R8 subgraphs, or a derived
+    """Evidence subgraph for any finding (stored R8-R10 subgraphs, or a derived
     deterministic neighborhood for tabular R1-R5 findings)."""
     conn = _get_ready_conn()
     try:
@@ -586,6 +604,129 @@ def write_policy(body: PolicyUpdateIn) -> dict:
         return update_policy(conn, body.model_dump(exclude_none=True))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        conn.close()
+
+
+_EDITABLE_INVOICE_FIELDS = (
+    "item",
+    "quantity",
+    "unit_price",
+    "tax_pct",
+    "line_total",
+    "currency",
+    "status",
+)
+
+
+@app.patch("/api/batches/{batch_id}/records")
+def update_batch_records(batch_id: str, body: BatchRecordsUpdateIn) -> dict:
+    """Update quarantined needs_review invoice lines and mark batch ready for re-detection."""
+    conn = _get_ready_conn()
+    try:
+        batch = conn.execute(
+            "SELECT batch_id FROM batches WHERE batch_id = ?", (batch_id,)
+        ).fetchone()
+        if not batch:
+            raise HTTPException(status_code=404, detail="Batch not found")
+
+        updated = 0
+        for rec in body.records:
+            inv_num = rec.get("invoice_number")
+            line_no = rec.get("line_no", 1)
+            if not inv_num:
+                continue
+            updates = {k: rec[k] for k in _EDITABLE_INVOICE_FIELDS if k in rec}
+            if not updates:
+                continue
+            set_clause = ", ".join(f"{col} = ?" for col in updates)
+            params = [*updates.values(), inv_num, line_no]
+            cur = conn.execute(
+                f"UPDATE invoices SET {set_clause} WHERE invoice_number = ? AND line_no = ?",
+                params,
+            )
+            updated += cur.rowcount
+
+        conn.execute(
+            "UPDATE batches SET state = 'extracted' WHERE batch_id = ?",
+            (batch_id,),
+        )
+        conn.commit()
+        return {"batch_id": batch_id, "updated": updated, "state": "extracted"}
+    finally:
+        conn.close()
+
+
+@app.get("/api/batches/{batch_id}/file")
+def get_batch_file(batch_id: str):
+    """Serve an uploaded batch PDF or image file safely from inside UPLOAD_DIR."""
+    conn = _get_ready_conn()
+    try:
+        row = conn.execute(
+            "SELECT stored_path FROM batches WHERE batch_id = ?", (batch_id,)
+        ).fetchone()
+        if not row or not row["stored_path"]:
+            raise HTTPException(status_code=404, detail="Batch file not found")
+
+        upload_root = Path(config.UPLOAD_DIR).resolve()
+        candidate = Path(row["stored_path"]).resolve()
+        if not candidate.is_relative_to(upload_root) or not candidate.is_file():
+            raise HTTPException(status_code=404, detail="Batch file not found")
+        return FileResponse(str(candidate))
+    finally:
+        conn.close()
+
+
+@app.get("/api/fx/rates")
+def read_fx_rates() -> dict[str, float]:
+    """Return cached or reference FX rates (base INR=1.0)."""
+    conn = _get_ready_conn()
+    try:
+        return get_fx_rates(conn, fetch_live=False)
+    finally:
+        conn.close()
+
+
+@app.get("/api/audit-log/verify")
+def verify_audit_log() -> dict:
+    """Verify cryptographic hash-chain integrity across audit_chain rows."""
+    conn = _get_ready_conn()
+    try:
+        ensure_audit_chain_table(conn)
+        rows = conn.execute("SELECT * FROM audit_chain ORDER BY id ASC").fetchall()
+        return verify_audit_chain(rows)
+    finally:
+        conn.close()
+
+
+@app.get("/api/workspaces")
+def get_workspaces() -> list[dict]:
+    """List tenant workspaces (auto-seeding default if empty)."""
+    conn = _get_ready_conn()
+    try:
+        return list_workspaces(conn)
+    finally:
+        conn.close()
+
+
+@app.post("/api/workspaces")
+def post_workspace(body: WorkspaceCreateIn) -> dict:
+    """Create a new multi-tenant workspace."""
+    conn = _get_ready_conn()
+    try:
+        return create_workspace(conn, body.name, client_code=body.client_code)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        conn.close()
+
+
+@app.post("/api/copilot/ask")
+def post_copilot_ask(body: CopilotAskIn) -> dict:
+    """Answer a CFO question grounded in findings and proof_trail math."""
+    conn = _get_ready_conn()
+    try:
+        return ask_copilot(conn, body.question, workspace_id=body.workspace_id)
     finally:
         conn.close()
 
