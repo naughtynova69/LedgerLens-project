@@ -26,3 +26,12 @@ GEMINI_MODEL: str = GEMINI_PRIMARY_MODEL
 
 DB_PATH: str = os.getenv("DB_PATH", "./ledgerlens.db")
 UPLOAD_DIR: str = os.getenv("UPLOAD_DIR", "./uploads")
+
+# Embedded knowledge graph (LadybugDB). Disabled by default in code so every
+# pre-existing pytest suite keeps passing unchanged; enable via backend/.env
+# (LEDGERLENS_GRAPH_ENABLED=true) or explicit GraphClient injection in tests.
+GRAPH_ENABLED: bool = os.getenv("LEDGERLENS_GRAPH_ENABLED", "false").strip().lower() in (
+    "1", "true", "yes", "on",
+)
+GRAPH_PATH: str = os.getenv("LEDGERLENS_GRAPH_PATH", "./data/ledgerlens.lbdb")
+GRAPH_BUFFER_POOL_MB: int = int(os.getenv("LEDGERLENS_GRAPH_BUFFER_POOL_MB", "256"))
