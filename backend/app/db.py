@@ -29,6 +29,11 @@ def get_connection(db_path: str | None = None) -> sqlite3.Connection:
 def init_schema(conn: sqlite3.Connection) -> None:
     """Apply schema.sql to an open connection (idempotent)."""
     conn.executescript(_SCHEMA_PATH.read_text(encoding="utf-8"))
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(findings)").fetchall()}
+    if "recommended_action" not in cols:
+        conn.execute("ALTER TABLE findings ADD COLUMN recommended_action TEXT NOT NULL DEFAULT ''")
+    if "proof_trail" not in cols:
+        conn.execute("ALTER TABLE findings ADD COLUMN proof_trail TEXT NOT NULL DEFAULT '{}'")
     conn.commit()
 
 
