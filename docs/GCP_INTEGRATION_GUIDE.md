@@ -1,7 +1,7 @@
 # LedgerLens — Google Cloud Platform (GCP) Integration & Production Guide
 
 **Prepared for:** Vijay (Team Builders — Active GCP Billing Account)  
-**Target Stack:** Google Cloud Run · BigQuery · AlloyDB for PostgreSQL · Cloud Storage · Vertex AI (`gemini-4-carbon` / `gemini-3.8-vision-flash`) · Secret Manager · Pub/Sub  
+**Target Stack:** Google Cloud Run · BigQuery · AlloyDB for PostgreSQL · Cloud Storage · Vertex AI (`gemini-3.8-vision-flash`) · Secret Manager · Pub/Sub  
 **Primary Region:** `asia-south1` (Mumbai) · **Vertex AI Location:** `global` (or `asia-south1`)
 
 ---
@@ -16,7 +16,7 @@ LedgerLens keeps its core guarantee intact across every deployment target:
 flowchart LR
     U["Finance / AP Controller<br/>React 19 SPA"] --> CR["Cloud Run<br/>FastAPI + Static SPA"]
     CR -->|"Evidence PDFs / CSVs (SHA-256)"| GCS["Cloud Storage<br/>gs://$GCS_UPLOAD_BUCKET"]
-    CR -->|"Extract & Explain only<br/>USE_VERTEX_AI=true"| VAI["Vertex AI<br/>gemini-4-carbon / 3.8-vision-flash"]
+    CR -->|"Extract & Explain only<br/>USE_VERTEX_AI=true"| VAI["Vertex AI<br/>gemini-3.8-vision-flash"]
     SM["Secret Manager<br/>GEMINI_API_KEY"] -->|"Mounted secret"| CR
     CR -->|"Direct VPC Egress<br/>DB_BACKEND=alloydb"| ADB["AlloyDB for PostgreSQL<br/>Private VPC + pgvector"]
     CR -->|"POST /api/gcp/bigquery/sync"| BQ["BigQuery<br/>v_vendor_leakage_ranking<br/>v_recovery_roi"]
@@ -31,8 +31,8 @@ flowchart LR
 | `BQ_DATASET` | `ledgerlens_analytics` | BigQuery dataset populated by `infra/bigquery/schema.sql` and sync |
 | `USE_VERTEX_AI` | `true` | Routes extraction and CFO narrative calls through Vertex AI IAM instead of raw API key |
 | `GCP_PROJECT_ID` | `$PROJECT_ID` | Google Cloud project ID for Vertex AI, BigQuery, GCS, and Pub/Sub |
-| `GCP_LOCATION` | `global` (or `asia-south1`) | Vertex AI endpoint location (regional/global routing for `gemini-4-carbon` and `gemini-3.8-vision-flash`) |
-| `GEMINI_PRIMARY_MODEL` | `gemini-4-carbon` | Primary model for multimodal invoice/contract extraction & CFO narrative explanations |
+| `GCP_LOCATION` | `global` (or `asia-south1`) | Vertex AI endpoint location (regional/global routing for `gemini-3.8-vision-flash`) |
+| `GEMINI_PRIMARY_MODEL` | `gemini-3.8-vision-flash` | Primary model for multimodal invoice/contract extraction & CFO narrative explanations |
 | `GEMINI_FLASH_MODEL` | `gemini-3.8-vision-flash` | High-throughput model for batch/CSV extraction routing |
 | `GEMINI_API_KEY` | Secret Manager (`GEMINI_API_KEY:latest`) | Fallback / Google AI Studio key when `USE_VERTEX_AI=false` |
 | `PUBSUB_RECOVERY_TOPIC` | `ledgerlens-recovery-alerts` | Pub/Sub topic receiving `HOLD_PAYMENT` / clawback notifications |
@@ -99,7 +99,7 @@ gcloud billing budgets create \
 | **Cloud Storage (GCS)** | ~\$0.02/GB-month (`asia-south1` Standard); minimal Class A/B ops | **\$0.01 – \$0.10 / mo** | SHA-256 invoice PDFs & CSV batches for demos are under 100 MB. |
 | **Secret Manager** | **6 active secret versions + 10,000 access ops free/month** | **\$0 / mo** | Storing `GEMINI_API_KEY` uses 1 active version. |
 | **Pub/Sub** | **10 GB/month free** ingestion & delivery | **\$0 / mo** | JSON recovery alerts (`HOLD_PAYMENT`, `REQUEST_CREDIT_NOTE`) are a few KB each. |
-| **Vertex AI (Gemini 4 Carbon / 3.8 Vision Flash)** | Pay-per-token (1M input/output token pricing; no idle fee) | **\$0.05 – \$1.00 / demo** | `sample_data/` (~15 docs) + explanations cost pennies; deterministic `detect/` uses **0 tokens**. |
+| **Vertex AI (Gemini 3.8 Vision Flash)** | Pay-per-token (1M input/output token pricing; no idle fee) | **\$0.05 – \$1.00 / demo** | `sample_data/` (~15 docs) + explanations cost pennies; deterministic `detect/` uses **0 tokens**. |
 | **Cloud SQL for PostgreSQL** *(Alternative)* | Shared-core `db-f1-micro` / `db-g1-small` | **~\$10 – \$25 / mo** | Low-cost managed Postgres when you want relational persistence without AlloyDB's minimum vCPU floor. |
 | **AlloyDB for PostgreSQL** *(Enterprise)* | **Dedicated compute (`db-n2-highmem-2` / 2 vCPU, 16 GB RAM minimum); NO scale-to-zero** | **~\$120 – \$180 / mo** | **Bills continuously (~24x7) while the primary instance exists (~₹10,000–₹15,000/mo).** |
 
@@ -376,11 +376,11 @@ BigQuery powers LedgerLens's executive leakage warehouse (`v_vendor_leakage_rank
    > [!NOTE]
    > When `USE_VERTEX_AI=true` is enabled on Cloud Run, Gemini calls authenticate automatically via the Cloud Run service account (`roles/aiplatform.user`). Keeping `GEMINI_API_KEY` in Secret Manager ensures instant fallback if you toggle `USE_VERTEX_AI=false` or test locally.
 
-3. **Vertex AI (`gemini-4-carbon` / `gemini-3.8-vision-flash`):**
+3. **Vertex AI (`gemini-3.8-vision-flash`):**
    - Set `USE_VERTEX_AI=true`
    - Set `GCP_PROJECT_ID=${PROJECT_ID}`
-   - Set `GCP_LOCATION=global` (Vertex AI regional/global routing applies to `gemini-4-carbon` and `gemini-3.8-vision-flash`; use `global` for global routing or `asia-south1` when regional data residency is required)
-   - Set `GEMINI_PRIMARY_MODEL=gemini-4-carbon` and `GEMINI_FLASH_MODEL=gemini-3.8-vision-flash`
+   - Set `GCP_LOCATION=global` (Vertex AI regional/global routing applies to `gemini-3.8-vision-flash`; use `global` for global routing or `asia-south1` when regional data residency is required)
+   - Set `GEMINI_PRIMARY_MODEL=gemini-3.8-vision-flash` and `GEMINI_FLASH_MODEL=gemini-3.8-vision-flash`
    - **Neuro-Symbolic Guarantee:** Only `backend/app/extract/` and `backend/app/explain/` call Vertex AI. `backend/app/detect/` remains 100% pure deterministic Python.
 
 4. **Pub/Sub Recovery Alerts (`PUBSUB_RECOVERY_TOPIC`):**
@@ -415,7 +415,7 @@ gcloud run deploy "${SERVICE_NAME}" \
   --cpu=1 \
   --min-instances=0 \
   --max-instances=3 \
-  --set-env-vars="DB_BACKEND=sqlite,USE_VERTEX_AI=true,GCP_PROJECT_ID=${PROJECT_ID},GCP_LOCATION=global,GEMINI_PRIMARY_MODEL=gemini-4-carbon,GEMINI_FLASH_MODEL=gemini-3.8-vision-flash,GCS_UPLOAD_BUCKET=${GCS_UPLOAD_BUCKET},BQ_DATASET=${BQ_DATASET},PUBSUB_RECOVERY_TOPIC=${PUBSUB_RECOVERY_TOPIC}" \
+  --set-env-vars="DB_BACKEND=sqlite,USE_VERTEX_AI=true,GCP_PROJECT_ID=${PROJECT_ID},GCP_LOCATION=global,GEMINI_PRIMARY_MODEL=gemini-3.8-vision-flash,GEMINI_FLASH_MODEL=gemini-3.8-vision-flash,GCS_UPLOAD_BUCKET=${GCS_UPLOAD_BUCKET},BQ_DATASET=${BQ_DATASET},PUBSUB_RECOVERY_TOPIC=${PUBSUB_RECOVERY_TOPIC}" \
   --set-secrets="GEMINI_API_KEY=GEMINI_API_KEY:latest"
 ```
 
@@ -436,7 +436,7 @@ gcloud run deploy "${SERVICE_NAME}" \
   --network="${VPC_NETWORK}" \
   --subnet="${VPC_SUBNET}" \
   --vpc-egress=private-ranges-only \
-  --set-env-vars="DB_BACKEND=alloydb,ALLOYDB_INSTANCE_URI=${ALLOYDB_INSTANCE_URI},ALLOYDB_HOST=${ALLOYDB_PRIVATE_IP},USE_VERTEX_AI=true,GCP_PROJECT_ID=${PROJECT_ID},GCP_LOCATION=global,GEMINI_PRIMARY_MODEL=gemini-4-carbon,GEMINI_FLASH_MODEL=gemini-3.8-vision-flash,GCS_UPLOAD_BUCKET=${GCS_UPLOAD_BUCKET},BQ_DATASET=${BQ_DATASET},PUBSUB_RECOVERY_TOPIC=${PUBSUB_RECOVERY_TOPIC}" \
+  --set-env-vars="DB_BACKEND=alloydb,ALLOYDB_INSTANCE_URI=${ALLOYDB_INSTANCE_URI},ALLOYDB_HOST=${ALLOYDB_PRIVATE_IP},USE_VERTEX_AI=true,GCP_PROJECT_ID=${PROJECT_ID},GCP_LOCATION=global,GEMINI_PRIMARY_MODEL=gemini-3.8-vision-flash,GEMINI_FLASH_MODEL=gemini-3.8-vision-flash,GCS_UPLOAD_BUCKET=${GCS_UPLOAD_BUCKET},BQ_DATASET=${BQ_DATASET},PUBSUB_RECOVERY_TOPIC=${PUBSUB_RECOVERY_TOPIC}" \
   --set-secrets="GEMINI_API_KEY=GEMINI_API_KEY:latest,ALLOYDB_PASSWORD=ALLOYDB_PASSWORD:latest"
 ```
 
@@ -461,7 +461,7 @@ echo "LedgerLens URL: ${SERVICE_URL}"
    curl -s "${SERVICE_URL}/api/gcp/status" | jq .
    ```
 
-   Confirm `GET /api/gcp/status` shows active/configured status for Vertex AI (`gemini-4-carbon` / `gemini-3.8-vision-flash`), Cloud Storage (`$GCS_UPLOAD_BUCKET`), BigQuery (`$BQ_DATASET`), Pub/Sub (`$PUBSUB_RECOVERY_TOPIC`), Secret Manager, and your selected `DB_BACKEND` (`sqlite` or `alloydb`).
+   Confirm `GET /api/gcp/status` shows active/configured status for Vertex AI (`gemini-3.8-vision-flash`), Cloud Storage (`$GCS_UPLOAD_BUCKET`), BigQuery (`$BQ_DATASET`), Pub/Sub (`$PUBSUB_RECOVERY_TOPIC`), Secret Manager, and your selected `DB_BACKEND` (`sqlite` or `alloydb`).
 
 2. **Seed Sample Dataset & Run Deterministic Detection (`POST /api/seed/sample_data`):**
 

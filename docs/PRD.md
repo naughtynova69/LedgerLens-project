@@ -33,7 +33,7 @@ Three structural failure modes leave finance teams exposed:
 ### Core Product Thesis (Neuro-Symbolic Architecture)
 
 LedgerLens sits beside existing ERPs and AP workflows as a **pre-payment audit gate before every weekly pay run** (via zero-ERP CSV/PDF exports):
-1. **Multimodal Extraction (`Gemini 4 Carbon` / `Gemini 3.8 Vision Flash`):** Unstructured PDFs/scans and structured CSVs (invoices, POs, contracts, vendor masters, payment ledgers) are parsed into strict Pydantic JSON schemas with deterministic arithmetic cross-checks.
+1. **Multimodal Extraction (`Gemini 3.8 Vision Flash`):** Unstructured PDFs/scans and structured CSVs (invoices, POs, contracts, vendor masters, payment ledgers) are parsed into strict Pydantic JSON schemas with deterministic arithmetic cross-checks.
 2. **Deterministic Normalization & Rules Engine (`R1`–`R5`):** Pure Python stdlib rules—with **zero LLM imports, zero network calls, and zero database calls**—evaluate every normalized record and emit deterministic `amount_at_risk`, `confidence`, `recommended_action`, and `proof_trail` payloads.
 3. **Explainable Narrative & Immutable Workflow:** Gemini translates the deterministic `proof_trail` into CFO-ready language without altering or recomputing any numbers. Every ingestion, extraction, detection, and reviewer decision writes an append-only `audit_log` row.
 
@@ -83,7 +83,7 @@ LedgerLens sits beside existing ERPs and AP workflows as a **pre-payment audit g
 
 ```mermaid
 flowchart LR
-    A["1. Ingest<br/>CSV / PDF / Image Upload<br/>or 1-Click Demo Seed"] --> B["2. Extract<br/>Gemini 4 Carbon (PDF/Scan)<br/>Gemini 3.8 Vision Flash (Batch/CSV)<br/>+ Line-Total Math Check"]
+    A["1. Ingest<br/>CSV / PDF / Image Upload<br/>or 1-Click Demo Seed"] --> B["2. Extract<br/>Gemini 3.8 Vision Flash (PDF/Scan & Batch/CSV)<br/>+ Line-Total Math Check"]
     B --> C["3. Normalize<br/>Vendor Keys, Invoice #, ISO Dates,<br/>ISO-4217 Currency, Amounts"]
     C --> D["4. Detect (Pure Python)<br/>Deterministic Rules R1–R5<br/>Zero LLM / DB / Network Calls"]
     D --> E["5. Explain & Skills<br/>Gemini CFO Narrative grounded in<br/>proof_trail + Agent Skills Tools"]
@@ -111,7 +111,7 @@ Requirements are tagged by release phase: **`[MVP]`** (implemented and verified 
 
 ### 5.2 FR-2: Multimodal AI Extraction & Arithmetic Verification
 - **`[MVP]` Model Tier Routing (`backend/app/extract/gemini_extract.py`):**
-  - Routes single/complex documents (`invoices`, `contracts`, `purchase_orders` PDFs/images) to `GEMINI_PRIMARY_MODEL` (default `gemini-4-carbon`, `temperature=0`).
+  - Routes single/complex documents (`invoices`, `contracts`, `purchase_orders` PDFs/images) to `GEMINI_PRIMARY_MODEL` (default `gemini-3.8-vision-flash`, `temperature=0`).
   - Routes batch loads and `text/csv` workloads to `GEMINI_FLASH_MODEL` (default `gemini-3.8-vision-flash`, `Gemini 3.8 Vision Flash`).
 - **`[MVP]` Pydantic Structured Outputs (`backend/app/extract/schemas.py`):** Enforces `ExtractedInvoicePayload`, `ExtractedContractPayload`, and `ExtractedPOPayload` via `response_mime_type="application/json"` and `response_schema`.
 - **`[MVP]` Deterministic Line-Total Cross-Check:** `verify_extracted_line_totals()` validates `round(qty * unit_price * (1 + tax_pct / 100), 2)` against `line_total` within `±0.05` tolerance and returns structured `verification_warnings[]`, transitioning batches with mismatches or missing required fields to `state="needs_review"`.
@@ -157,7 +157,7 @@ Every rule in `backend/app/detect/rules/` returns `Finding` objects containing `
   - **6 Primary Views:**
     1. **Dashboard (`DashboardView.jsx`):** Pre-payment hero strip, 4 KPI cards (`Total Spend Audited`, `Total Money at Risk`, `Open Exceptions`, `Recovered / Blocked`), top findings preview, and R1–R5 rule coverage summary.
     2. **Proof Trail Explorer (`FindingsView.jsx` + `ProofTrailInspector.jsx`):** Searchable/filterable queue (by Rule, Severity, Status, text search; sorted by `amount_at_risk DESC`) paired with a split-view inspector showing:
-       - Attribution badge: `Decision: Deterministic Rule R[X] · Narrative: Gemini 4 Carbon`
+       - Attribution badge: `Decision: Deterministic Rule R[X] · Narrative: Gemini 3.8 Vision Flash`
        - CFO-Ready Explanation card
        - 3-Way Evidence Diff Card (Invoice Line vs. Contract Clause vs. PO Line + Linked Payments + `proof_trail.math`)
        - Reviewer Action Bar (`approve`, `reject`, `recovery`, `request_docs`) requiring an audit note + reviewer name
@@ -234,7 +234,7 @@ Running `POST /api/seed/sample_data` (or `pytest` in `backend/`) MUST produce **
 
 | Phase | Milestone | Key Deliverables |
 | :--- | :--- | :--- |
-| **Phase 0: Buildathon MVP *(Current)*** | Explainable Pre-Payment Gate | FastAPI + SQLite + `R1`–`R5` + Gemini 4 Carbon / 3.8 Vision Flash extraction & explanation + Agent Skills + React Split-View Proof Trail Explorer + Cloud Run container & Demo Runbook. |
+| **Phase 0: Buildathon MVP *(Current)*** | Explainable Pre-Payment Gate | FastAPI + SQLite + `R1`–`R5` + Gemini 3.8 Vision Flash extraction & explanation + Agent Skills + React Split-View Proof Trail Explorer + Cloud Run container & Demo Runbook. |
 | **Phase 1: Design Partner Pilot** | Cloud Production & Eval Harness | Cloud SQL + GCS migration, Vertex AI + Secret Manager, live FX rate API, AI Studio schema export + `eval_gemini_extraction.py` precision benchmark, PDF bounding-box highlights. |
 | **Phase 2: Enterprise Scale** | ERP Connectors & Spend Graph | Read-only SAP/NetSuite/Oracle connectors, multi-tenant RBAC/SSO, custom policy engine (`R6` split-PO, `R7` GRN 3-way match), **Graphify** vendor/entity risk network graph, Slack/Jira recovery routing. |
 

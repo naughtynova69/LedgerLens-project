@@ -6,8 +6,8 @@ LedgerLens uses Gemini in exactly **two** places — extraction and explanation.
 
 | Stage | Model | Mode | Output |
 |-------|-------|------|--------|
-| `extract/` | `GEMINI_PRIMARY_MODEL` (`gemini-4-carbon` default; `GEMINI_FLASH_MODEL` `gemini-3.8-vision-flash` for high-volume batch routing) | **Structured output** (JSON schema) + multimodal input (PDF/images) | Canonical invoice/contract JSON (schemas in `extract/schemas.py`) |
-| `explain/` | `GEMINI_PRIMARY_MODEL` (`gemini-4-carbon` default) | **Structured output** (JSON schema) | `{headline, explanation, recommended_action, confidence_label, limitations}` |
+| `extract/` | `GEMINI_PRIMARY_MODEL` / `GEMINI_FLASH_MODEL` (`gemini-3.8-vision-flash` default) | **Structured output** (JSON schema) + multimodal input (PDF/images) | Canonical invoice/contract JSON (schemas in `extract/schemas.py`) |
+| `explain/` | `GEMINI_PRIMARY_MODEL` (`gemini-3.8-vision-flash` default) | **Structured output** (JSON schema) | `{headline, explanation, recommended_action, confidence_label, limitations}` |
 
 Also fine to mention in the pitch: function calling (`backend/app/skills/`) wraps `fetch_payment_records`, `generate_audit_memo`, and `route_recovery_task` for ERP/workflow integration.
 
@@ -17,7 +17,7 @@ Also fine to mention in the pitch: function calling (`backend/app/skills/`) wrap
 2. Put it in `backend/.env` (never in code, never in git):
    ```
    GEMINI_API_KEY=AIza...
-   GEMINI_PRIMARY_MODEL=gemini-4-carbon
+   GEMINI_PRIMARY_MODEL=gemini-3.8-vision-flash
    GEMINI_FLASH_MODEL=gemini-3.8-vision-flash
    ```
 3. SDK (already in `requirements.txt`):
@@ -77,7 +77,7 @@ Gemini can propose structured tool calls — e.g. `lookup_vendor_master(vendor_n
 
 ## 7. Cost & latency tips
 
-- Primary model (`GEMINI_PRIMARY_MODEL=gemini-4-carbon`) handles multimodal PDF/scan extraction and CFO explanations; `GEMINI_FLASH_MODEL=gemini-3.8-vision-flash` handles high-volume batch/CSV extraction routing.
+- `GEMINI_PRIMARY_MODEL=gemini-3.8-vision-flash` and `GEMINI_FLASH_MODEL=gemini-3.8-vision-flash` handle all multimodal PDF/scan extraction, batch/CSV extraction, and CFO explanations.
 - Cache extraction results — re-running detect must **not** re-call Gemini.
 - Budget: the whole demo dataset is ~15 files → well inside free tier.
 

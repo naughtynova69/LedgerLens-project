@@ -29,7 +29,7 @@ export function UploadView({
     {
       id: "invoices",
       title: "Invoices",
-      desc: "Supplier invoice lines (CSV or PDF scan via Gemini 4 Carbon)",
+      desc: "Supplier invoice lines (CSV or PDF scan via Gemini 3.8 Vision Flash)",
       sample: "invoices.csv / .pdf",
       accent: "text-[#DC2626] bg-[#FEF2F2] border-[#FECACA]",
     },

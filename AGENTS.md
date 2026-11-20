@@ -17,7 +17,7 @@
 - **Backend:** Python 3.11+ · FastAPI · Pydantic v2 · SQLite (`backend/schema.sql`, portable to Cloud SQL) · `google-genai>=1.5`.
 - **Frontend:** React 19 · Vite 6 · Tailwind CSS 3.4 · Lucide icons.
 - **Model Env Config (never hardcode keys or legacy models):**
-  - `GEMINI_PRIMARY_MODEL=gemini-4-carbon` (multimodal extraction + CFO-ready explanation)
+  - `GEMINI_PRIMARY_MODEL=gemini-3.8-vision-flash` (multimodal vision extraction + CFO-ready explanation)
   - `GEMINI_FLASH_MODEL=gemini-3.8-vision-flash` (high-volume batch/vision extraction routing)
   - `GEMINI_API_KEY=` (stored in `backend/.env` locally or Google Secret Manager in Cloud Run; offline deterministic fallback/mock mode MUST work when unset).
 

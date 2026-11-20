@@ -12,7 +12,7 @@
 |---|---|
 | **GitHub Origin** | `https://github.com/naughtynova69/LedgerLens-project` (`main` protected via `Protect main` ruleset #27733621) |
 | **Hard Git Guardrail** | NEVER add/push to `Avani376/Ledgerlens`. NEVER push or merge directly into `main`; always branch & open a PR. |
-| **Models** | `GEMINI_PRIMARY_MODEL=gemini-4-carbon` · `GEMINI_FLASH_MODEL=gemini-3.8-vision-flash` (offline deterministic fallback active when key unset) |
+| **Models** | `GEMINI_PRIMARY_MODEL=gemini-3.8-vision-flash` · `GEMINI_FLASH_MODEL=gemini-3.8-vision-flash` (offline deterministic fallback active when key unset) |
 | **Neuro-Symbolic Invariant** | `backend/app/detect/` is pure Python `stdlib` only (zero LLM/DB/network imports). |
 | **Sample Data Gate** | `sample_data/` yields **6 findings** (`R1`: 1, `R2`: 1, `R3`: 1, `R4`: 2, `R5`: 1; nominal sum `40531.60`) and **0 false positives** on 4 clean controls (`INV-9001`, `INV-9010`, `INV-9400`, `INV-9500`). |
 | **UI Architecture** | Minimalist 3-surface Finance UI (`Exceptions`, `Activity`, `Cloud & Policy`) in `frontend/src/` (React 19 + Vite 6 + Tailwind 3.4). |
@@ -41,6 +41,13 @@
   - Aligned `GEMINI_FLASH_MODEL` default to `gemini-3.8-vision-flash` across config, `.env.example`, and all docs.
   - Created `docs/CONTEXT_LOG.md` and added token-efficient multi-agent + session-log rules to `AGENTS.md`.
 - **Open Next Steps:** Review & merge PR for `docs/icp-business-model-and-context-log`; optionally run live `GEMINI_API_KEY` extraction eval (`backend/tests/eval_gemini_extraction.py`) and deploy to Cloud Run via `deploy/setup_gcp.sh` + `deploy/cloudrun.sh`.
+
+### 2026-11-21 — Unify on Gemini 3.8 Vision Flash + Project Mind Map
+- **Branch:** `chore/use-gemini-38-vision-flash`
+- **Changes:**
+  - Replaced `gemini-4-carbon` with `gemini-3.8-vision-flash` across backend config, extraction, frontend attribution badges, Dockerfile/Cloud Run scripts, and all docs.
+  - Added [docs/PROJECT_MINDMAP.md](docs/PROJECT_MINDMAP.md) with a plain-English project overview, Done vs. To-Do mind map, and 5-step `Gemini 3.8 Vision Flash` accuracy playbook.
+- **Open Next Steps:** Merge PR for `chore/use-gemini-38-vision-flash`, run live `eval_gemini_extraction.py` with `GEMINI_API_KEY`, and implement PDF 300-DPI preprocessing + 1-retry math-repair loop.
 
 ---
 
