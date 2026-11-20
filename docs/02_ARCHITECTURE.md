@@ -74,7 +74,7 @@ flowchart TB
 
 | Component | Service | Notes |
 |-----------|---------|-------|
-| Backend API | **Cloud Run** | Container from `backend/Dockerfile`; env vars for `GEMINI_API_KEY` via Secret Manager |
+| Backend API | **Cloud Run** | Multi-stage container from root `Dockerfile` (`cloudbuild.yaml`, `deploy/cloudrun.sh`); env vars for `GEMINI_API_KEY` via Secret Manager |
 | Frontend | **Cloud Run** (static container) or Firebase Hosting | Static build of the Vite app |
 | Database | Cloud SQL (SQLite locally for dev) | Same schema |
 | Files | Cloud Storage bucket | Replaces `uploads/` |

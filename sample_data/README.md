@@ -8,7 +8,7 @@ Small, coherent, fictional dataset for a hardware/office-supplies buyer. Every n
 |------|------|------------|
 | `vendors.csv` | 6 | Vendor master data |
 | `contracts.csv` | 5 | Negotiated prices, terms, tax treatment, validity windows |
-| `purchase_orders.csv` | 7 | PO lines (one row per line) |
+| `purchase_orders.csv` | 8 | PO lines (one row per line) |
 | `invoices.csv` | 11 | Invoice **lines** (header fields repeat per line) |
 | `payments.csv` | 5 | Payments settled against invoices |
 
@@ -19,7 +19,7 @@ Small, coherent, fictional dataset for a hardware/office-supplies buyer. Every n
 | F-1 | R1 | `INV-8821` vs `INV-8821-R2` — same vendor, same ₹4,956.00, 2-day gap, altered invoice number, **paid twice** | critical | ₹4,956.00 |
 | F-2 | R2 | `INV-9102` bills LED Panel @ ₹465.00 vs contract `C-001` @ ₹420.00 (note: PO-1006 also carries 465 — the **contract still governs**) | high | ₹318.60 |
 | F-3 | R3 | `INV-9155` bills 60 × A4 Paper Box against `PO-1008` quantity 50 | high | ₹2,832.00 |
-| F-4 | R4 | `INV-9201` billed in **EUR** against `PO-1003` in **USD** | high | ₹225.00 exposure |
+| F-4 | R4 | `INV-9201` billed in **EUR** against `PO-1003` in **USD** | high | €225.00 exposure |
 | F-5 | R4 | `INV-9301` applies 18% GST to export freight that contract `C-004` marks **exempt** (`tax_pct = 0`) | high | ₹2,700.00 |
 | F-6 | R5 | `INV-9250` CloudSuite subscription ₹29,500.00 **paid 2026-10-10** although contract `C-005` was cancelled effective 2026-09-30 | critical | ₹29,500.00 |
 

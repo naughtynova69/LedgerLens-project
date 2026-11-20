@@ -8,10 +8,11 @@ from pathlib import Path
 
 from .. import config
 
-VALID_KINDS = {"invoices", "purchase_orders", "contracts", "payments", "payment_ledger"}
+VALID_KINDS = {"vendors", "invoices", "purchase_orders", "contracts", "payments", "payment_ledger"}
 
 # CSV column expectations per kind — must match docs/03_DATA_MODEL.md.
 REQUIRED_COLUMNS = {
+    "vendors": {"vendor_id", "vendor_name"},
     "invoices": {"invoice_number", "vendor_id", "invoice_date", "item",
                  "quantity", "unit_price", "currency", "tax_pct", "line_total"},
     "purchase_orders": {"po_id", "vendor_id", "item", "quantity", "unit_price", "currency"},

@@ -95,6 +95,7 @@ export function ProofTrailInspector({ finding, onMakeDecision, isSubmitting }) {
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#EEF2FF] text-[#4F46E5] border border-[#C7D2FE]">
               <Scale className="w-3 h-3" />
               Decision: Deterministic Rule {finding.rule_id} · Narrative: Gemini 4 Carbon
+              {expl.generated_without_gemini ? " (Offline Proof Mode)" : ""}
             </span>
           </div>
 
