@@ -1,4 +1,5 @@
 import React from "react";
+import { Sparkles, Upload, Database, Download, FileText } from "lucide-react";
 import { api } from "../api";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 
@@ -10,6 +11,7 @@ export function Navbar({
   onSeedDemo,
   onOpenUploadModal,
   onOpenMemoModal,
+  onOpenCopilot,
   loadingAction,
   workspaces,
   activeWorkspaceId,
@@ -57,9 +59,10 @@ export function Navbar({
                   key={item.id}
                   type="button"
                   onClick={() => setActiveTab(item.id)}
+                  aria-current={active ? "page" : undefined}
                   className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
                     active
-                      ? "bg-gray-100 text-[#111827]"
+                      ? "bg-gray-100 text-[#111827] shadow-2xs"
                       : "text-gray-500 hover:text-[#111827] hover:bg-gray-50"
                   }`}
                 >
@@ -89,34 +92,47 @@ export function Navbar({
             type="button"
             onClick={onOpenUploadModal}
             disabled={loadingAction}
-            className="px-2.5 py-1.5 text-xs font-medium rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 transition-colors disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 transition-colors disabled:opacity-50"
           >
-            Upload
+            <Upload className="w-3.5 h-3.5 text-gray-500" />
+            <span>Upload</span>
           </button>
 
           <button
             type="button"
             onClick={onSeedDemo}
             disabled={loadingAction}
-            className="px-2.5 py-1.5 text-xs font-medium rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 transition-colors disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 transition-colors disabled:opacity-50"
           >
-            Load Demo
+            <Database className="w-3.5 h-3.5 text-gray-500" />
+            <span>Load Demo</span>
           </button>
 
           <a
             href={api.getExportCsvUrl()}
             download="findings.csv"
-            className="hidden sm:inline-flex items-center px-2.5 py-1.5 text-xs font-medium rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 transition-colors"
+            className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 transition-colors"
           >
-            Export CSV
+            <Download className="w-3.5 h-3.5 text-gray-500" />
+            <span>Export CSV</span>
           </a>
 
           <button
             type="button"
-            onClick={onOpenMemoModal}
-            className="px-2.5 py-1.5 text-xs font-medium rounded-lg bg-[#111827] hover:bg-gray-800 text-white transition-colors"
+            onClick={onOpenCopilot}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-[#111827] transition-colors"
           >
-            CFO Memo
+            <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+            <span>CFO Copilot</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onOpenMemoModal}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg bg-[#111827] hover:bg-gray-800 text-white transition-colors"
+          >
+            <FileText className="w-3.5 h-3.5 text-gray-200" />
+            <span>CFO Memo</span>
           </button>
         </div>
       </div>

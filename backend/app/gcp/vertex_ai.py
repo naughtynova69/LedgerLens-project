@@ -21,7 +21,7 @@ def has_live_ai_credentials() -> bool:
 
 
 def create_genai_client():
-    """Create a lazily-imported google-genai Client for Vertex AI or API key auth."""
+    """Create a lazily-imported google-genai Client with a strict HTTP timeout."""
     if not is_vertex_configured() and not config.GEMINI_API_KEY:
         raise RuntimeError(
             "Neither GEMINI_API_KEY nor USE_VERTEX_AI+GCP_PROJECT_ID is configured."
@@ -29,9 +29,20 @@ def create_genai_client():
 
     from google import genai
 
+    try:
+        timeout_ms = max(1000, int(os.getenv("GEMINI_TIMEOUT_MS", "10000")))
+    except ValueError:
+        timeout_ms = 10000
+
+    kwargs: dict = {}
     if is_vertex_configured():
         project = os.getenv("GCP_PROJECT_ID", "").strip()
         location = os.getenv("GCP_LOCATION", "asia-south1").strip() or "asia-south1"
-        return genai.Client(vertexai=True, project=project, location=location)
+        kwargs = {"vertexai": True, "project": project, "location": location}
+    else:
+        kwargs = {"api_key": config.GEMINI_API_KEY}
 
-    return genai.Client(api_key=config.GEMINI_API_KEY)
+    try:
+        return genai.Client(**kwargs, http_options={"timeout": timeout_ms})
+    except TypeError:
+        return genai.Client(**kwargs)

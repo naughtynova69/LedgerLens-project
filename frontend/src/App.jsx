@@ -4,6 +4,7 @@ import { Toast } from "./components/Toast";
 import { Modal } from "./components/Modal";
 import { UploadModal } from "./components/UploadModal";
 import { NeedsReviewDrawer } from "./components/NeedsReviewDrawer";
+import { CopilotDrawer } from "./components/CopilotDrawer";
 import { FindingsView } from "./views/FindingsView";
 import { AuditLogView } from "./views/AuditLogView";
 import { CloudIntegrationsView } from "./views/CloudIntegrationsView";
@@ -23,6 +24,7 @@ export function App() {
   const [toast, setToast] = useState(null);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [memoModalOpen, setMemoModalOpen] = useState(false);
+  const [copilotOpen, setCopilotOpen] = useState(false);
   const [workspaces, setWorkspaces] = useState([]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState("default");
   const [reviewBatch, setReviewBatch] = useState(null);
@@ -226,6 +228,7 @@ export function App() {
         onSeedDemo={handleSeedDemo}
         onOpenUploadModal={() => setUploadModalOpen(true)}
         onOpenMemoModal={() => setMemoModalOpen(true)}
+        onOpenCopilot={() => setCopilotOpen(true)}
         loadingAction={loadingAction}
         workspaces={workspaces}
         activeWorkspaceId={activeWorkspaceId}
@@ -317,6 +320,12 @@ export function App() {
         records={reviewRecords}
         onSaveAndRedetect={handleSaveAndRedetect}
         saving={savingReview}
+      />
+
+      <CopilotDrawer
+        isOpen={copilotOpen}
+        onClose={() => setCopilotOpen(false)}
+        activeWorkspaceId={activeWorkspaceId}
       />
 
       <Modal

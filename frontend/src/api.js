@@ -6,13 +6,28 @@ const API_BASE = import.meta.env.VITE_API_BASE ?? "";
 
 async function request(endpoint, options = {}) {
   const url = `${API_BASE}${endpoint}`;
-  const response = await fetch(url, {
-    headers: {
-      ...(options.isFormData ? {} : { "Content-Type": "application/json" }),
-      ...options.headers,
-    },
-    ...options,
-  });
+  const { timeoutMs = 15000, isFormData, headers, ...fetchOptions } = options;
+  const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+
+  let response;
+  try {
+    response = await fetch(url, {
+      ...fetchOptions,
+      signal: controller ? controller.signal : undefined,
+      headers: {
+        ...(isFormData ? {} : { "Content-Type": "application/json" }),
+        ...headers,
+      },
+    });
+  } catch (err) {
+    if (err?.name === "AbortError") {
+      throw new Error("Request timed out. Please retry.");
+    }
+    throw err;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 
   if (!response.ok) {
     let errorDetail = `Request failed: ${response.statusText}`;

@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { ShieldCheck, ShieldAlert, Loader2, X } from "lucide-react";
+import { api } from "../api";
 import { StatusBadge } from "../components/StatusBadge";
 import { formatNumber } from "../utils/formatters";
 
@@ -11,6 +13,23 @@ export function AuditLogView({
   loadingAction,
 }) {
   const [search, setSearch] = useState("");
+  const [verifying, setVerifying] = useState(false);
+  const [verifyResult, setVerifyResult] = useState(null);
+  const [verifyError, setVerifyError] = useState(null);
+
+  const handleVerifyChain = async () => {
+    setVerifying(true);
+    setVerifyError(null);
+    try {
+      const res = await api.verifyAuditChain();
+      setVerifyResult(res);
+    } catch (err) {
+      setVerifyResult(null);
+      setVerifyError(err?.message || "Failed to verify audit log integrity.");
+    } finally {
+      setVerifying(false);
+    }
+  };
 
   const filteredLogs = (logs || []).filter((l) => {
     if (!search.trim()) return true;
@@ -41,7 +60,25 @@ export function AuditLogView({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={handleVerifyChain}
+            disabled={verifying || loadingAction}
+            className="px-3 py-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-xs font-medium text-[#111827] transition-colors disabled:opacity-50 inline-flex items-center gap-1.5"
+          >
+            {verifying ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-[#6B7280]" />
+                Verifying...
+              </>
+            ) : (
+              <>
+                <ShieldCheck className="w-3.5 h-3.5 text-[#047857]" />
+                Verify Ledger Integrity
+              </>
+            )}
+          </button>
           {onOpenUploadModal && (
             <button
               type="button"
@@ -64,6 +101,85 @@ export function AuditLogView({
           )}
         </div>
       </div>
+
+      {/* Hash-Chain Verification Status Banner */}
+      {(verifyResult || verifyError) && (
+        <div
+          role={verifyResult?.valid ? "status" : "alert"}
+          className={`rounded-lg border px-4 py-3 flex items-start justify-between gap-3 ${
+            verifyResult?.valid
+              ? "bg-emerald-50 border-emerald-200 text-emerald-900"
+              : "bg-rose-50 border-rose-200 text-rose-900"
+          }`}
+        >
+          <div className="flex items-start gap-2.5 min-w-0">
+            {verifyResult?.valid ? (
+              <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+            ) : (
+              <ShieldAlert className="w-4 h-4 text-rose-700 shrink-0 mt-0.5" />
+            )}
+            <div className="space-y-0.5 text-xs">
+              <p className="font-semibold">
+                {verifyResult?.valid
+                  ? "Ledger Integrity Verified"
+                  : verifyError
+                    ? "Verification Error"
+                    : "Ledger Integrity Compromised"}
+              </p>
+              {verifyError ? (
+                <p className="text-rose-800">{verifyError}</p>
+              ) : verifyResult?.valid ? (
+                <p className="text-emerald-800">
+                  Checked{" "}
+                  <span className="font-mono font-medium">
+                    {formatNumber(verifyResult.checked_entries)}
+                  </span>{" "}
+                  {verifyResult.checked_entries === 1 ? "entry" : "entries"}
+                  {verifyResult.head_hash && (
+                    <>
+                      {" · "}Head hash:{" "}
+                      <span
+                        className="font-mono font-medium"
+                        title={verifyResult.head_hash}
+                      >
+                        {verifyResult.head_hash.slice(0, 12)}...
+                      </span>
+                    </>
+                  )}
+                </p>
+              ) : (
+                <p className="text-rose-800">
+                  Checked{" "}
+                  <span className="font-mono font-medium">
+                    {formatNumber(verifyResult.checked_entries)}
+                  </span>{" "}
+                  {verifyResult.checked_entries === 1 ? "entry" : "entries"}
+                  {verifyResult.broken_at_id != null && (
+                    <>
+                      {" · "}Broken at entry{" "}
+                      <span className="font-mono font-medium">
+                        #{verifyResult.broken_at_id}
+                      </span>
+                    </>
+                  )}
+                  {verifyResult.reason && <> · {verifyResult.reason}</>}
+                </p>
+              )}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setVerifyResult(null);
+              setVerifyError(null);
+            }}
+            aria-label="Dismiss verification status"
+            className="text-current opacity-60 hover:opacity-100 p-0.5 rounded"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* Compact Ingested Batches Table */}
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">

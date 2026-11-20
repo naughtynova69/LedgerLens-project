@@ -43,26 +43,23 @@ _ALLOWED_COLUMNS = {
 }
 
 
-def _rows(conn: sqlite3.Connection, table: str) -> list[dict]:
-    """Fetch all rows from a table using fully static SQL literals.
+def _rows(conn: sqlite3.Connection, table: str, workspace_id: str = "default") -> list[dict]:
+    """Fetch all rows from a table (scoped by workspace_id where applicable) using static SQL."""
+    if table == "vendors":
+        return [dict(row) for row in conn.execute('SELECT * FROM "vendors"').fetchall()]
 
-    Table identifiers cannot be passed as bound parameters, so each statement
-    is written out in full — no dynamically constructed SQL text anywhere.
-    """
     match table:
-        case "vendors":
-            sql = 'SELECT * FROM "vendors"'
         case "contracts":
-            sql = 'SELECT * FROM "contracts"'
+            sql = 'SELECT * FROM "contracts" WHERE workspace_id = ?'
         case "purchase_orders":
-            sql = 'SELECT * FROM "purchase_orders"'
+            sql = 'SELECT * FROM "purchase_orders" WHERE workspace_id = ?'
         case "invoices":
-            sql = 'SELECT * FROM "invoices"'
+            sql = 'SELECT * FROM "invoices" WHERE workspace_id = ?'
         case "payments":
-            sql = 'SELECT * FROM "payments"'
+            sql = 'SELECT * FROM "payments" WHERE workspace_id = ?'
         case _:
             raise ValueError(f"unknown table: {table}")
-    return [dict(row) for row in conn.execute(sql).fetchall()]
+    return [dict(row) for row in conn.execute(sql, (workspace_id,)).fetchall()]
 
 
 def _ensure_vendor_exists(
@@ -84,7 +81,12 @@ def _ensure_vendor_exists(
         )
 
 
-def _insert_table_rows(conn: sqlite3.Connection, table_name: str, records: list[dict]) -> int:
+def _insert_table_rows(
+    conn: sqlite3.Connection,
+    table_name: str,
+    records: list[dict],
+    workspace_id: str = "default",
+) -> int:
     allowed = _ALLOWED_COLUMNS[table_name]
     inserted = 0
     for row in records:
@@ -98,6 +100,8 @@ def _insert_table_rows(conn: sqlite3.Connection, table_name: str, records: list[
         filtered = {k: v for k, v in row.items() if k in allowed}
         if not filtered:
             continue
+        if table_name != "vendors":
+            filtered["workspace_id"] = workspace_id
         cols = list(filtered.keys())
         placeholders = ",".join(["?"] * len(cols))
         conn.execute(
@@ -115,12 +119,13 @@ def _log_audit_event(
     object_type: str,
     object_id: str,
     detail: str = "",
+    workspace_id: str = "default",
 ) -> None:
     """Insert an audit_log row and append the corresponding hash-chained entry."""
     conn.execute(
-        """INSERT INTO audit_log (actor, action, object_type, object_id, detail)
-           VALUES (?, ?, ?, ?, ?)""",
-        (actor, action, object_type, object_id, detail),
+        """INSERT INTO audit_log (actor, action, object_type, object_id, detail, workspace_id)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (actor, action, object_type, object_id, detail, workspace_id),
     )
     append_chained_audit_event(
         conn,
@@ -143,10 +148,15 @@ def generate_explanation_for_finding(finding_dict: dict) -> dict:
     return fallback_without_gemini(finding_dict)
 
 
-def run_extraction_for_batch(conn: sqlite3.Connection, batch_id: str) -> dict:
+def run_extraction_for_batch(
+    conn: sqlite3.Connection,
+    batch_id: str,
+    workspace_id: str = "default",
+) -> dict:
     """Extract CSV or PDF/scan for a registered batch and persist normalized rows."""
     batch = conn.execute(
-        "SELECT * FROM batches WHERE batch_id = ?", (batch_id,)
+        "SELECT * FROM batches WHERE batch_id = ? AND workspace_id = ?",
+        (batch_id, workspace_id),
     ).fetchone()
     if batch is None:
         raise LookupError(f"batch not found: {batch_id}")
@@ -162,12 +172,12 @@ def run_extraction_for_batch(conn: sqlite3.Connection, batch_id: str) -> dict:
 
     result = extract_document(stored_path, kind=kind)
     records = result.get("records") or []
-    rows_persisted = _insert_table_rows(conn, table_name, records)
+    rows_persisted = _insert_table_rows(conn, table_name, records, workspace_id=workspace_id)
 
     new_state = "needs_review" if result.get("needs_review") else "extracted"
     conn.execute(
-        "UPDATE batches SET state = ?, rows_detected = ? WHERE batch_id = ?",
-        (new_state, rows_persisted, batch_id),
+        "UPDATE batches SET state = ?, rows_detected = ? WHERE batch_id = ? AND workspace_id = ?",
+        (new_state, rows_persisted, batch_id, workspace_id),
     )
     _log_audit_event(
         conn,
@@ -182,6 +192,7 @@ def run_extraction_for_batch(conn: sqlite3.Connection, batch_id: str) -> dict:
             "rows_extracted": rows_persisted,
             "warnings": len(result.get("verification_warnings") or []),
         }),
+        workspace_id=workspace_id,
     )
 
     return {
@@ -197,7 +208,20 @@ def run_extraction_for_batch(conn: sqlite3.Connection, batch_id: str) -> dict:
     }
 
 
-def run_detection(conn: sqlite3.Connection, batch_id: str | None = None) -> dict:
+def _next_finding_number(conn: sqlite3.Connection) -> int:
+    max_num = 0
+    for row in conn.execute("SELECT finding_id FROM findings").fetchall():
+        fid = str(row["finding_id"] or "")
+        if fid.startswith("F-") and fid[2:].isdigit():
+            max_num = max(max_num, int(fid[2:]))
+    return max_num + 1
+
+
+def run_detection(
+    conn: sqlite3.Connection,
+    batch_id: str | None = None,
+    workspace_id: str = "default",
+) -> dict:
     """Load normalized tables, run every registered rule, persist findings.
 
     Returns {"findings_created": int, "finding_ids": [...]}.
@@ -205,17 +229,18 @@ def run_detection(conn: sqlite3.Connection, batch_id: str | None = None) -> dict
     policy = dict(get_policy(conn))
     policy["fx_rates"] = get_fx_rates(conn, fetch_live=False)
     ctx = DetectionContext(
-        invoices=_rows(conn, "invoices"),
-        payments=_rows(conn, "payments"),
-        purchase_orders=_rows(conn, "purchase_orders"),
-        contracts=_rows(conn, "contracts"),
-        vendors=_rows(conn, "vendors"),
+        invoices=_rows(conn, "invoices", workspace_id=workspace_id),
+        payments=_rows(conn, "payments", workspace_id=workspace_id),
+        purchase_orders=_rows(conn, "purchase_orders", workspace_id=workspace_id),
+        contracts=_rows(conn, "contracts", workspace_id=workspace_id),
+        vendors=_rows(conn, "vendors", workspace_id=workspace_id),
         policy=policy,
     )
     findings = run_all_rules(ctx, policy=policy)
 
     existing_rows = conn.execute(
-        "SELECT finding_id, rule_id, entity_refs, status FROM findings"
+        "SELECT finding_id, rule_id, entity_refs, status FROM findings WHERE workspace_id = ?",
+        (workspace_id,),
     ).fetchall()
     existing_by_key: dict[tuple[str, str], dict] = {}
     for er in existing_rows:
@@ -225,7 +250,7 @@ def run_detection(conn: sqlite3.Connection, batch_id: str | None = None) -> dict
             canon_refs = str(er["entity_refs"] or "{}")
         existing_by_key[(er["rule_id"], canon_refs)] = dict(er)
 
-    next_num = len(existing_rows) + 1
+    next_num = _next_finding_number(conn)
     created: list[str] = []
     for finding in findings:
         canon_key = (finding.rule_id, json.dumps(finding.entity_refs, sort_keys=True))
@@ -248,7 +273,7 @@ def run_detection(conn: sqlite3.Connection, batch_id: str | None = None) -> dict
                    SET rule_id = ?, title = ?, severity = ?, amount_at_risk = ?,
                        currency = ?, entity_refs = ?, evidence = ?, confidence = ?,
                        summary = ?, explanation = ?, recommended_action = ?, proof_trail = ?
-                   WHERE finding_id = ?""",
+                   WHERE finding_id = ? AND workspace_id = ?""",
                 (
                     finding.rule_id,
                     finding.title,
@@ -263,6 +288,7 @@ def run_detection(conn: sqlite3.Connection, batch_id: str | None = None) -> dict
                     finding.recommended_action,
                     json.dumps(finding.proof_trail),
                     finding_id,
+                    workspace_id,
                 ),
             )
         else:
@@ -270,8 +296,8 @@ def run_detection(conn: sqlite3.Connection, batch_id: str | None = None) -> dict
                 """INSERT INTO findings
                    (finding_id, rule_id, title, severity, amount_at_risk, currency,
                     status, entity_refs, evidence, confidence, summary, explanation,
-                    recommended_action, proof_trail)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    recommended_action, proof_trail, workspace_id)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     finding_id,
                     finding.rule_id,
@@ -287,6 +313,7 @@ def run_detection(conn: sqlite3.Connection, batch_id: str | None = None) -> dict
                     json.dumps(explanation),
                     finding.recommended_action,
                     json.dumps(finding.proof_trail),
+                    workspace_id,
                 ),
             )
         created.append(finding_id)
@@ -298,6 +325,7 @@ def run_detection(conn: sqlite3.Connection, batch_id: str | None = None) -> dict
         object_type="batch",
         object_id=batch_id or "global",
         detail=f"Evaluated R1-R7 across {len(ctx.invoices)} invoice line(s); emitted {len(created)} finding(s).",
+        workspace_id=workspace_id,
     )
     return {"findings_created": len(created), "finding_ids": created}
 
@@ -315,11 +343,12 @@ def record_decision(conn: sqlite3.Connection, finding_id: str, action: str,
     if action not in status_by_action:
         raise ValueError(f"unknown action: {action}")
 
-    row = conn.execute("SELECT finding_id FROM findings WHERE finding_id = ?",
+    row = conn.execute("SELECT finding_id, workspace_id FROM findings WHERE finding_id = ?",
                        (finding_id,)).fetchone()
     if row is None:
         raise LookupError(f"finding not found: {finding_id}")
 
+    ws_id = row["workspace_id"] or "default"
     target_status = status_by_action[action]
     conn.execute("UPDATE findings SET status = ? WHERE finding_id = ?",
                  (target_status, finding_id))
@@ -334,6 +363,7 @@ def record_decision(conn: sqlite3.Connection, finding_id: str, action: str,
         object_type="finding",
         object_id=finding_id,
         detail=note,
+        workspace_id=ws_id,
     )
     if target_status in ("recovery", "rejected"):
         try:
@@ -440,10 +470,17 @@ def get_finding_with_sources(conn: sqlite3.Connection, finding_id: str) -> dict 
     return finding
 
 
-def get_stats(conn: sqlite3.Connection) -> dict:
+def get_stats(conn: sqlite3.Connection, workspace_id: str = "default") -> dict:
     """Return dashboard analytics and spend exposure KPIs."""
-    findings = [dict(r) for r in conn.execute("SELECT * FROM findings").fetchall()]
-    batches_count = conn.execute("SELECT COUNT(*) AS n FROM batches").fetchone()["n"]
+    findings = [
+        dict(r)
+        for r in conn.execute(
+            "SELECT * FROM findings WHERE workspace_id = ?", (workspace_id,)
+        ).fetchall()
+    ]
+    batches_count = conn.execute(
+        "SELECT COUNT(*) AS n FROM batches WHERE workspace_id = ?", (workspace_id,)
+    ).fetchone()["n"]
 
     total_at_risk = sum(f["amount_at_risk"] for f in findings)
     open_at_risk = sum(f["amount_at_risk"] for f in findings if f["status"] == "open")
@@ -465,7 +502,10 @@ def get_stats(conn: sqlite3.Connection) -> dict:
 
     total_audited_spend = 0.0
     try:
-        spend_row = conn.execute("SELECT SUM(line_total) AS s FROM invoices").fetchone()
+        spend_row = conn.execute(
+            "SELECT SUM(line_total) AS s FROM invoices WHERE workspace_id = ?",
+            (workspace_id,),
+        ).fetchone()
         if spend_row and spend_row["s"] is not None:
             total_audited_spend = round(float(spend_row["s"]), 2)
     except Exception:
@@ -484,7 +524,12 @@ def get_stats(conn: sqlite3.Connection) -> dict:
     }
 
 
-def ingest_csv_file_to_table(conn: sqlite3.Connection, path: Path, kind: str) -> int:
+def ingest_csv_file_to_table(
+    conn: sqlite3.Connection,
+    path: Path,
+    kind: str,
+    workspace_id: str = "default",
+) -> int:
     """Insert rows from a CSV file into the corresponding SQLite table."""
     table_name = "payments" if kind == "payment_ledger" else kind
     if table_name not in _ALLOWED_COLUMNS:
@@ -508,35 +553,47 @@ def ingest_csv_file_to_table(conn: sqlite3.Connection, path: Path, kind: str) ->
                         pass
             records.append(cleaned_row)
 
-    rows_inserted = _insert_table_rows(conn, table_name, records)
+    rows_inserted = _insert_table_rows(conn, table_name, records, workspace_id=workspace_id)
     conn.commit()
     return rows_inserted
 
 
-def seed_sample_dataset(conn: sqlite3.Connection, sample_dir: Path) -> dict:
+def seed_sample_dataset(
+    conn: sqlite3.Connection,
+    sample_dir: Path,
+    workspace_id: str = "default",
+) -> dict:
     """Populate database from sample_data CSVs and run detection."""
-    conn.execute("DELETE FROM decisions")
-    conn.execute("DELETE FROM findings")
-    conn.execute("DELETE FROM audit_log")
-    if conn.execute(
+    conn.execute(
+        "DELETE FROM decisions WHERE finding_id IN (SELECT finding_id FROM findings WHERE workspace_id = ?)",
+        (workspace_id,),
+    )
+    conn.execute("DELETE FROM findings WHERE workspace_id = ?", (workspace_id,))
+    conn.execute("DELETE FROM audit_log WHERE workspace_id = ?", (workspace_id,))
+    if workspace_id == "default" and conn.execute(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name='audit_chain'"
     ).fetchone():
         conn.execute("DELETE FROM audit_chain")
-    conn.execute("DELETE FROM batches WHERE kind = 'sample_data_demo'")
+    conn.execute(
+        "DELETE FROM batches WHERE kind = 'sample_data_demo' AND workspace_id = ?",
+        (workspace_id,),
+    )
     conn.commit()
 
     counts = {}
     for kind in ["vendors", "contracts", "purchase_orders", "invoices", "payments"]:
         csv_file = sample_dir / f"{kind}.csv"
         if csv_file.exists():
-            counts[kind] = ingest_csv_file_to_table(conn, csv_file, kind)
+            counts[kind] = ingest_csv_file_to_table(
+                conn, csv_file, kind, workspace_id=workspace_id
+            )
 
     cur = conn.execute("SELECT COUNT(*) AS n FROM batches")
     batch_id = f"DEMO-{cur.fetchone()['n'] + 1:04d}"
     conn.execute(
-        "INSERT INTO batches (batch_id, kind, stored_path, rows_detected, state) "
-        "VALUES (?, 'sample_data_demo', 'sample_data/', ?, 'detected')",
-        (batch_id, sum(counts.values())),
+        "INSERT INTO batches (batch_id, kind, stored_path, rows_detected, state, workspace_id) "
+        "VALUES (?, 'sample_data_demo', 'sample_data/', ?, 'detected', ?)",
+        (batch_id, sum(counts.values()), workspace_id),
     )
     _log_audit_event(
         conn,
@@ -545,10 +602,11 @@ def seed_sample_dataset(conn: sqlite3.Connection, sample_dir: Path) -> dict:
         object_type="batch",
         object_id=batch_id,
         detail=f"Seeded sample_data CSVs ({sum(counts.values())} rows)",
+        workspace_id=workspace_id,
     )
 
-    detection_res = run_detection(conn, batch_id=batch_id)
-    stats = get_stats(conn)
+    detection_res = run_detection(conn, batch_id=batch_id, workspace_id=workspace_id)
+    stats = get_stats(conn, workspace_id=workspace_id)
 
     return {
         "batch_id": batch_id,
@@ -559,10 +617,15 @@ def seed_sample_dataset(conn: sqlite3.Connection, sample_dir: Path) -> dict:
     }
 
 
-def build_memo(conn: sqlite3.Connection) -> str:
+def build_memo(conn: sqlite3.Connection, workspace_id: str = "default") -> str:
     """Deterministic one-page audit memo (markdown)."""
-    findings = [dict(r) for r in conn.execute(
-        "SELECT * FROM findings ORDER BY amount_at_risk DESC").fetchall()]
+    findings = [
+        dict(r)
+        for r in conn.execute(
+            "SELECT * FROM findings WHERE workspace_id = ? ORDER BY amount_at_risk DESC",
+            (workspace_id,),
+        ).fetchall()
+    ]
 
     total_exposure = sum(f["amount_at_risk"] for f in findings)
     total_open_at_risk = sum(f["amount_at_risk"] for f in findings if f["status"] == "open")
@@ -610,11 +673,20 @@ def build_memo(conn: sqlite3.Connection) -> str:
     return "\n".join(lines)
 
 
-def build_memo_structured(conn: sqlite3.Connection, batch_id: str | None = None) -> dict:
+def build_memo_structured(
+    conn: sqlite3.Connection,
+    batch_id: str | None = None,
+    workspace_id: str = "default",
+) -> dict:
     """Return both CFO Markdown memo and structured JSON summary."""
-    stats = get_stats(conn)
-    rows = [dict(r) for r in conn.execute(
-        "SELECT * FROM findings ORDER BY amount_at_risk DESC").fetchall()]
+    stats = get_stats(conn, workspace_id=workspace_id)
+    rows = [
+        dict(r)
+        for r in conn.execute(
+            "SELECT * FROM findings WHERE workspace_id = ? ORDER BY amount_at_risk DESC",
+            (workspace_id,),
+        ).fetchall()
+    ]
 
     rule_breakdown: dict[str, dict] = {}
     formatted_findings: list[dict] = []
@@ -640,7 +712,7 @@ def build_memo_structured(conn: sqlite3.Connection, batch_id: str | None = None)
         })
 
     out = {
-        "memo_markdown": build_memo(conn),
+        "memo_markdown": build_memo(conn, workspace_id=workspace_id),
         "summary": {
             "total_spend_audited": stats["total_audited_spend"],
             "total_money_at_risk": stats["total_at_risk"],
@@ -655,3 +727,59 @@ def build_memo_structured(conn: sqlite3.Connection, batch_id: str | None = None)
     if batch_id:
         out["batch_id"] = batch_id
     return out
+
+
+def make_workspace_view_conn(
+    conn: sqlite3.Connection, workspace_id: str = "default"
+) -> sqlite3.Connection:
+    """Build an in-memory SQLite connection scoped to ``workspace_id`` for analytics/exports."""
+    mem = sqlite3.connect(":memory:")
+    mem.row_factory = sqlite3.Row
+    mem.executescript(
+        """
+        CREATE TABLE vendors (
+            vendor_id TEXT PRIMARY KEY, vendor_name TEXT, tax_id TEXT,
+            default_currency TEXT, status TEXT
+        );
+        CREATE TABLE invoices (
+            invoice_number TEXT, vendor_id TEXT, invoice_date TEXT, po_id TEXT,
+            line_no INTEGER, item TEXT, quantity REAL, unit_price REAL,
+            currency TEXT, tax_pct REAL, line_total REAL, source_file TEXT,
+            status TEXT, workspace_id TEXT
+        );
+        CREATE TABLE findings (
+            finding_id TEXT PRIMARY KEY, rule_id TEXT, title TEXT, severity TEXT,
+            amount_at_risk REAL, currency TEXT, status TEXT, entity_refs TEXT,
+            evidence TEXT, confidence REAL, summary TEXT, explanation TEXT,
+            recommended_action TEXT, proof_trail TEXT, created_at TEXT, workspace_id TEXT
+        );
+        """
+    )
+    v_rows = conn.execute(
+        "SELECT vendor_id, vendor_name, tax_id, default_currency, status FROM vendors"
+    ).fetchall()
+    mem.executemany("INSERT INTO vendors VALUES (?, ?, ?, ?, ?)", [tuple(r) for r in v_rows])
+
+    inv_rows = conn.execute(
+        "SELECT invoice_number, vendor_id, invoice_date, po_id, line_no, item, quantity, "
+        "unit_price, currency, tax_pct, line_total, source_file, status, workspace_id "
+        "FROM invoices WHERE workspace_id = ?",
+        (workspace_id,),
+    ).fetchall()
+    mem.executemany(
+        "INSERT INTO invoices VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [tuple(r) for r in inv_rows],
+    )
+
+    f_rows = conn.execute(
+        "SELECT finding_id, rule_id, title, severity, amount_at_risk, currency, status, "
+        "entity_refs, evidence, confidence, summary, explanation, recommended_action, "
+        "proof_trail, created_at, workspace_id FROM findings WHERE workspace_id = ?",
+        (workspace_id,),
+    ).fetchall()
+    mem.executemany(
+        "INSERT INTO findings VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [tuple(r) for r in f_rows],
+    )
+    mem.commit()
+    return mem

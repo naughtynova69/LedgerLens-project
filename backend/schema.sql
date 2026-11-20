@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS contracts (
     start_date            TEXT,
     end_date              TEXT,
     status                TEXT NOT NULL DEFAULT 'active',
+    workspace_id          TEXT NOT NULL DEFAULT 'default',
     PRIMARY KEY (contract_id, item)
 );
 
@@ -35,6 +36,7 @@ CREATE TABLE IF NOT EXISTS purchase_orders (
     order_date        TEXT,
     expected_delivery TEXT,
     status            TEXT NOT NULL DEFAULT 'open',
+    workspace_id      TEXT NOT NULL DEFAULT 'default',
     PRIMARY KEY (po_id, po_line)
 );
 
@@ -53,6 +55,7 @@ CREATE TABLE IF NOT EXISTS invoices (
     line_total     REAL NOT NULL,
     source_file    TEXT,
     status         TEXT NOT NULL DEFAULT 'unpaid',
+    workspace_id   TEXT NOT NULL DEFAULT 'default',
     PRIMARY KEY (invoice_number, line_no)
 );
 
@@ -63,7 +66,8 @@ CREATE TABLE IF NOT EXISTS payments (
     currency      TEXT NOT NULL,
     fx_rate_to_inr REAL NOT NULL DEFAULT 1.0,
     payment_date  TEXT,
-    status        TEXT NOT NULL DEFAULT 'settled'
+    status        TEXT NOT NULL DEFAULT 'settled',
+    workspace_id  TEXT NOT NULL DEFAULT 'default'
 );
 
 CREATE TABLE IF NOT EXISTS batches (
@@ -72,6 +76,7 @@ CREATE TABLE IF NOT EXISTS batches (
     stored_path  TEXT,
     rows_detected INTEGER DEFAULT 0,
     state        TEXT NOT NULL DEFAULT 'uploaded',
+    workspace_id TEXT NOT NULL DEFAULT 'default',
     created_at   TEXT DEFAULT (datetime('now'))
 );
 
@@ -91,6 +96,7 @@ CREATE TABLE IF NOT EXISTS findings (
     explanation        TEXT,
     recommended_action TEXT NOT NULL DEFAULT '',
     proof_trail        TEXT NOT NULL DEFAULT '{}',
+    workspace_id       TEXT NOT NULL DEFAULT 'default',
     created_at         TEXT DEFAULT (datetime('now'))
 );
 
@@ -110,5 +116,6 @@ CREATE TABLE IF NOT EXISTS audit_log (
     action      TEXT NOT NULL,
     object_type TEXT NOT NULL,
     object_id   TEXT NOT NULL,
-    detail      TEXT DEFAULT ''
+    detail      TEXT DEFAULT '',
+    workspace_id TEXT NOT NULL DEFAULT 'default'
 );
