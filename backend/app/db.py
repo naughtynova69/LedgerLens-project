@@ -18,7 +18,9 @@ def get_connection(db_path: str | None = None) -> sqlite3.Connection:
     if path == ":memory:":
         conn = sqlite3.connect(":memory:")
     else:
-        conn = sqlite3.connect(str(path))
+        db_file = Path(path)
+        db_file.parent.mkdir(parents=True, exist_ok=True)
+        conn = sqlite3.connect(str(db_file))
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
@@ -37,10 +39,3 @@ def init_db(db_path: str | None = None) -> None:
         init_schema(conn)
     finally:
         conn.close()
-
-
-# Ensure default local database schema is initialized
-try:
-    init_db()
-except Exception:
-    pass
