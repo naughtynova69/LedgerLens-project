@@ -1,0 +1,7 @@
+vendor_id,vendor_name,tax_id,default_currency,status
+V001,Sunbeam Electricals Pvt Ltd,GSTIN07AAACS1234A1Z5,INR,active
+V002,NimbusCloud Software Pvt Ltd,GSTIN07BBBNC5678B1Z3,INR,active
+V003,Helix Office Supplies LLP,GSTIN07AAAFH9012H1ZK,INR,active
+V004,GlobalParts Trading Co,EIN-98-1234567,USD,active
+V005,Vertex Hardware Traders,GSTIN06AACCV3456V1Z2,INR,active
+V006,Acme Logistics Services,GSTIN07AACCA1111A1Z9,INR,active

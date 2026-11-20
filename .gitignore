@@ -1,0 +1,59 @@
+# ============================================================
+# LOCAL-ONLY FOLDERS — NEVER COMMIT / NEVER PUSH
+# ============================================================
+# Context_File/  : the team context pack, shared manually by the team lead.
+# Content/       : raw research & source notes.
+# These stay OUT of the repository on purpose. Do not force-add them.
+Context_File/
+Content/
+
+# ============================================================
+# SECRETS & ENVIRONMENT — NEVER COMMIT
+# ============================================================
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ============================================================
+# PYTHON
+# ============================================================
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.db
+*.sqlite3
+.worktrees/
+
+# ============================================================
+# NODE / FRONTEND
+# ============================================================
+node_modules/
+dist/
+.vite/
+*.local
+
+# ============================================================
+# UPLOADS & RUNTIME DATA
+# ============================================================
+backend/uploads/
+backend/data/
+*.log
+
+# ============================================================
+# IDE & OS
+# ============================================================
+.idea/
+.vscode/
+*.swp
+Thumbs.db
+.DS_Store

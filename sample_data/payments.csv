@@ -1,0 +1,6 @@
+payment_id,invoice_number,amount,currency,fx_rate_to_inr,payment_date,status
+PAY-5001,INV-8821,4956.00,INR,1.0,2026-10-20,settled
+PAY-5002,INV-8821-R2,4956.00,INR,1.0,2026-10-22,settled
+PAY-5003,INV-9001,2832.00,INR,1.0,2026-11-02,settled
+PAY-5004,INV-9010,14160.00,INR,1.0,2026-11-03,settled
+PAY-5005,INV-9250,29500.00,INR,1.0,2026-10-10,settled

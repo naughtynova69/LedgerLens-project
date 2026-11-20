@@ -1,0 +1,9 @@
+po_id,po_line,vendor_id,item,quantity,unit_price,currency,order_date,expected_delivery,status
+PO-1001,1,V001,LED Panel 18W,10,420.00,INR,2026-10-05,2026-10-12,delivered
+PO-1002,1,V003,A4 Paper Box,50,240.00,INR,2026-10-20,2026-10-26,delivered
+PO-1003,1,V004,Hex Bolt M8 (box of 100),20,45.00,USD,2026-10-25,2026-11-10,delivered
+PO-1004,1,V001,Cable Tray 2m,8,300.00,INR,2026-10-18,2026-10-24,delivered
+PO-1005,1,V002,CloudSuite monthly subscription,1,25000.00,INR,2026-10-01,2026-10-05,delivered
+PO-1006,1,V001,LED Panel 18W,6,465.00,INR,2026-10-28,2026-11-03,delivered
+PO-1007,1,V006,Domestic freight service,1,8000.00,INR,2026-11-01,2026-11-06,delivered
+PO-1008,1,V003,A4 Paper Box,50,240.00,INR,2026-10-30,2026-11-01,delivered
