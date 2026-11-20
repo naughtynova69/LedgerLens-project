@@ -80,11 +80,11 @@ def test_csv_extraction_precision_and_tamper_detection(tmp_path):
 
     with invoices_csv.open("r", encoding="utf-8") as f:
         expected_rows = list(csv.DictReader(f))
-    assert len(expected_rows) == 11
+    assert len(expected_rows) == 16
 
     result = extract_document(invoices_csv, kind="invoices")
     assert result["mode"] == "csv_deterministic"
-    assert len(result["records"]) == 11
+    assert len(result["records"]) == 16
 
     extracted_numbers = [r["invoice_number"] for r in result["records"]]
     expected_numbers = [r["invoice_number"] for r in expected_rows]

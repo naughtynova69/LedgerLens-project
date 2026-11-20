@@ -19,10 +19,14 @@ from .gcp.pubsub import publish_recovery_event
 from .gcp.vertex_ai import has_live_ai_credentials
 
 _ALLOWED_COLUMNS = {
-    "vendors": {"vendor_id", "vendor_name", "tax_id", "default_currency", "status"},
+    "vendors": {
+        "vendor_id", "vendor_name", "tax_id", "default_currency", "status",
+        "bank_account", "email", "phone", "address",
+    },
     "contracts": {
         "contract_id", "vendor_id", "item", "contracted_unit_price", "currency",
         "discount_pct", "payment_terms", "tax_pct", "start_date", "end_date", "status",
+        "amends_contract_id", "version",
     },
     "purchase_orders": {
         "po_id", "po_line", "vendor_id", "item", "quantity", "unit_price",
@@ -31,10 +35,17 @@ _ALLOWED_COLUMNS = {
     "invoices": {
         "invoice_number", "vendor_id", "invoice_date", "po_id", "line_no", "item",
         "quantity", "unit_price", "currency", "tax_pct", "line_total", "source_file", "status",
+        "approver_id",
     },
     "payments": {
         "payment_id", "invoice_number", "amount", "currency", "fx_rate_to_inr",
-        "payment_date", "status",
+        "payment_date", "status", "account_key",
+    },
+    "approvers": {
+        "approver_id", "name", "email", "phone", "address", "bank_account", "approval_limit",
+    },
+    "credit_notes": {
+        "credit_note_id", "vendor_id", "issue_date", "amount", "currency", "applied_status",
     },
 }
 
@@ -469,7 +480,8 @@ def ingest_csv_file_to_table(conn: sqlite3.Connection, path: Path, kind: str) ->
                 if k is not None
             }
             for num_col in ("quantity", "unit_price", "tax_pct", "line_total", "amount",
-                            "contracted_unit_price", "discount_pct", "fx_rate_to_inr"):
+                            "contracted_unit_price", "discount_pct", "fx_rate_to_inr",
+                            "approval_limit"):
                 if num_col in cleaned_row and cleaned_row[num_col]:
                     try:
                         cleaned_row[num_col] = float(cleaned_row[num_col])
@@ -491,7 +503,8 @@ def seed_sample_dataset(conn: sqlite3.Connection, sample_dir: Path) -> dict:
     conn.commit()
 
     counts = {}
-    for kind in ["vendors", "contracts", "purchase_orders", "invoices", "payments"]:
+    for kind in ["vendors", "approvers", "contracts", "purchase_orders",
+                 "invoices", "payments", "credit_notes"]:
         csv_file = sample_dir / f"{kind}.csv"
         if csv_file.exists():
             counts[kind] = ingest_csv_file_to_table(conn, csv_file, kind)

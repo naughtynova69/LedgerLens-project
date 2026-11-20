@@ -34,7 +34,42 @@ def init_schema(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE findings ADD COLUMN recommended_action TEXT NOT NULL DEFAULT ''")
     if "proof_trail" not in cols:
         conn.execute("ALTER TABLE findings ADD COLUMN proof_trail TEXT NOT NULL DEFAULT '{}'")
+    _migrate_graph_columns(conn)
     conn.commit()
+
+
+def _migrate_graph_columns(conn: sqlite3.Connection) -> None:
+    """Backward-compatible nullable columns for the graph projection.
+
+    schema.sql covers fresh databases; these guarded static ALTERs upgrade
+    databases created before the knowledge-graph layer existed. Statements are
+    fully static literals — identifiers are never interpolated.
+    """
+    vendors_cols = {r["name"] for r in conn.execute('PRAGMA table_info("vendors")').fetchall()}
+    if vendors_cols:
+        if "bank_account" not in vendors_cols:
+            conn.execute('ALTER TABLE "vendors" ADD COLUMN bank_account TEXT')
+        if "email" not in vendors_cols:
+            conn.execute('ALTER TABLE "vendors" ADD COLUMN email TEXT')
+        if "phone" not in vendors_cols:
+            conn.execute('ALTER TABLE "vendors" ADD COLUMN phone TEXT')
+        if "address" not in vendors_cols:
+            conn.execute('ALTER TABLE "vendors" ADD COLUMN address TEXT')
+
+    invoices_cols = {r["name"] for r in conn.execute('PRAGMA table_info("invoices")').fetchall()}
+    if invoices_cols and "approver_id" not in invoices_cols:
+        conn.execute('ALTER TABLE "invoices" ADD COLUMN approver_id TEXT')
+
+    contracts_cols = {r["name"] for r in conn.execute('PRAGMA table_info("contracts")').fetchall()}
+    if contracts_cols:
+        if "amends_contract_id" not in contracts_cols:
+            conn.execute('ALTER TABLE "contracts" ADD COLUMN amends_contract_id TEXT')
+        if "version" not in contracts_cols:
+            conn.execute('ALTER TABLE "contracts" ADD COLUMN version INTEGER NOT NULL DEFAULT 1')
+
+    payments_cols = {r["name"] for r in conn.execute('PRAGMA table_info("payments")').fetchall()}
+    if payments_cols and "account_key" not in payments_cols:
+        conn.execute('ALTER TABLE "payments" ADD COLUMN account_key TEXT')
 
 
 def init_db(db_path: str | None = None) -> None:
