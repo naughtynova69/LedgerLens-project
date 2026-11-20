@@ -1,0 +1,6 @@
+# Golden corpus bytes are sha256-pinned in MANIFEST.json and compared
+# byte-for-byte by the eval tests. Disable all EOL conversion so a
+# Windows checkout with core.autocrlf=true materializes the exact
+# committed bytes (LF) and the integrity/regeneration tests stay green
+# on every platform.
+* -text
