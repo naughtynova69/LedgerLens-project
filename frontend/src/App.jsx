@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Navbar } from "./components/Navbar";
 import { Toast } from "./components/Toast";
+import { UploadModal } from "./components/UploadModal";
 import { DashboardView } from "./views/DashboardView";
 import { FindingsView } from "./views/FindingsView";
-import { FindingDetailModal } from "./views/FindingDetailModal";
 import { UploadView } from "./views/UploadView";
 import { MemoView } from "./views/MemoView";
 import { RulesView } from "./views/RulesView";
@@ -16,12 +16,13 @@ export function App() {
   const [findings, setFindings] = useState([]);
   const [batches, setBatches] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
-  const [memoText, setMemoText] = useState("");
+  const [memoData, setMemoData] = useState(null);
   const [isOnline, setIsOnline] = useState(true);
   const [loadingAction, setLoadingAction] = useState(false);
   const [toast, setToast] = useState(null);
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
 
-  // Finding Detail Modal
+  // Split-View Proof Trail Selection
   const [selectedFindingId, setSelectedFindingId] = useState(null);
   const [selectedFindingDetail, setSelectedFindingDetail] = useState(null);
   const [isSubmittingDecision, setIsSubmittingDecision] = useState(false);
@@ -30,8 +31,19 @@ export function App() {
     setToast({ message, type, title });
     setTimeout(() => {
       setToast((curr) => (curr?.message === message ? null : curr));
-    }, 4000);
+    }, 4500);
   };
+
+  const handleSelectFinding = useCallback(async (findingId) => {
+    if (!findingId) return;
+    setSelectedFindingId(findingId);
+    try {
+      const detail = await api.getFinding(findingId);
+      setSelectedFindingDetail(detail);
+    } catch (err) {
+      showToast(err.message, "error", "Failed to Load Proof Trail");
+    }
+  }, []);
 
   const loadData = useCallback(async () => {
     try {
@@ -40,38 +52,46 @@ export function App() {
         api.getStats().catch(() => null),
         api.getFindings().catch(() => []),
         api.getBatches().catch(() => []),
-        api.getMemo().catch(() => ({ memo_markdown: "" })),
+        api.getMemo().catch(() => null),
         api.getAuditLog().catch(() => []),
       ]);
 
       setIsOnline(h.status === "ok");
       if (s) setStats(s);
-      if (f) setFindings(f);
+      if (f) {
+        setFindings(f);
+        if (f.length > 0 && !selectedFindingId) {
+          handleSelectFinding(f[0].finding_id);
+        }
+      }
       if (b) setBatches(b);
-      if (m?.memo_markdown) setMemoText(m.memo_markdown);
+      if (m) setMemoData(m);
       if (l) setAuditLogs(l);
     } catch {
       setIsOnline(false);
     }
-  }, []);
+  }, [selectedFindingId, handleSelectFinding]);
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 15000); // 15s poll
+    const interval = setInterval(loadData, 15000);
     return () => clearInterval(interval);
   }, [loadData]);
 
-  // Handle Demo Seed
   const handleSeedDemo = async () => {
     setLoadingAction(true);
     try {
       const res = await api.seedSampleData();
       showToast(
-        `Loaded 5 sample datasets with ${res.findings_created} planted anomalies (₹${res.total_at_risk?.toLocaleString()} at risk).`,
+        `Seeded sample dataset: ${res.findings_created} planted anomalies detected (₹${res.total_at_risk?.toLocaleString("en-IN")} at risk).`,
         "success",
         "Demo Dataset Loaded"
       );
+      const freshFindings = await api.getFindings().catch(() => []);
       await loadData();
+      if (freshFindings.length > 0) {
+        await handleSelectFinding(freshFindings[0].finding_id);
+      }
     } catch (err) {
       showToast(err.message, "error", "Seed Failed");
     } finally {
@@ -79,15 +99,14 @@ export function App() {
     }
   };
 
-  // Handle Run Detection
   const handleRunDetect = async () => {
     setLoadingAction(true);
     try {
       const res = await api.runGlobalDetect();
       showToast(
-        `Audit engine verified tables: ${res.findings_created} active spend exception(s) detected.`,
+        `Deterministic R1–R5 rules evaluated: ${res.findings_created} active finding(s).`,
         "success",
-        "Detection Engine Complete"
+        "Detection Complete"
       );
       await loadData();
     } catch (err) {
@@ -97,36 +116,24 @@ export function App() {
     }
   };
 
-  // Handle File Upload
   const handleUploadFile = async (kind, file) => {
-    const res = await api.uploadDocument(kind, file);
-    showToast(`Uploaded ${file.name} (${res.rows_detected} rows detected).`, "success", "Upload Registered");
+    const up = await api.uploadDocument(kind, file);
+    await api.runExtract(up.batch_id);
+    await api.runDetect(up.batch_id);
+    showToast(`Uploaded, extracted & audited ${file.name} (${up.batch_id}).`, "success", "Pipeline Complete");
     await loadData();
-    return res;
+    return up;
   };
 
-  // Handle Select Finding for Detail Modal
-  const handleSelectFinding = async (findingId) => {
-    setSelectedFindingId(findingId);
-    try {
-      const detail = await api.getFinding(findingId);
-      setSelectedFindingDetail(detail);
-    } catch (err) {
-      showToast(err.message, "error", "Failed to Load Finding");
-    }
-  };
-
-  // Handle Reviewer Decision
   const handleMakeDecision = async (findingId, action, reviewer, note) => {
     setIsSubmittingDecision(true);
     try {
       const res = await api.postDecision(findingId, action, reviewer, note);
       showToast(
-        `Finding ${findingId} updated to status "${res.status}". Audit row logged.`,
+        `Finding ${findingId} marked "${res.status}". Immutable audit row recorded.`,
         "success",
         "Decision Recorded"
       );
-      // Reload updated detail
       const updatedDetail = await api.getFinding(findingId);
       setSelectedFindingDetail(updatedDetail);
       await loadData();
@@ -138,20 +145,18 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#090D16] text-slate-100 flex flex-col font-sans selection:bg-emerald-500/20 selection:text-emerald-300">
-      {/* Top Navbar */}
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col font-sans">
       <Navbar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         stats={stats}
         isOnline={isOnline}
         onSeedDemo={handleSeedDemo}
-        onRunDetect={handleRunDetect}
+        onOpenUploadModal={() => setUploadModalOpen(true)}
         loadingAction={loadingAction}
       />
 
-      {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {activeTab === "dashboard" && (
           <DashboardView
             stats={stats}
@@ -166,7 +171,11 @@ export function App() {
         {activeTab === "findings" && (
           <FindingsView
             findings={findings}
+            selectedFindingId={selectedFindingId}
+            selectedFindingDetail={selectedFindingDetail}
             onSelectFinding={handleSelectFinding}
+            onMakeDecision={handleMakeDecision}
+            isSubmittingDecision={isSubmittingDecision}
             onSeedDemo={handleSeedDemo}
             loadingAction={loadingAction}
           />
@@ -184,9 +193,9 @@ export function App() {
 
         {activeTab === "memo" && (
           <MemoView
-            memoText={memoText}
-            stats={stats}
-            onCopy={() => showToast("Audit memo copied to clipboard!", "success")}
+            memoData={memoData}
+            onRefreshMemo={loadData}
+            onCopy={() => showToast("Audit memo copied to clipboard.", "success")}
           />
         )}
 
@@ -195,31 +204,29 @@ export function App() {
         {activeTab === "audit" && (
           <AuditLogView
             logs={auditLogs}
-            onSelectFinding={handleSelectFinding}
+            onSelectFinding={(id) => {
+              handleSelectFinding(id);
+              setActiveTab("findings");
+            }}
           />
         )}
       </main>
 
-      {/* Finding Detail Modal */}
-      <FindingDetailModal
-        isOpen={!!selectedFindingId}
-        onClose={() => {
-          setSelectedFindingId(null);
-          setSelectedFindingDetail(null);
+      <UploadModal
+        isOpen={uploadModalOpen}
+        onClose={() => setUploadModalOpen(false)}
+        onPipelineComplete={async () => {
+          await loadData();
+          setActiveTab("findings");
         }}
-        finding={selectedFindingDetail}
-        onMakeDecision={handleMakeDecision}
-        isSubmitting={isSubmittingDecision}
       />
 
-      {/* Floating Toast Notification */}
       <Toast toast={toast} onClose={() => setToast(null)} />
 
-      {/* Footer */}
-      <footer className="border-t border-slate-800/80 py-6 text-center text-xs text-slate-500 font-mono">
+      <footer className="border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-500 font-mono">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>LedgerLens — Explainable AI Spend Auditor</span>
-          <span>Google AI Buildathon · Gemini 2.5 Flash · Pure Deterministic Proofs</span>
+          <span>LedgerLens — Explainable AI Money-Leak Auditor</span>
+          <span>Startup Buildathon India 2026 · Gemini 4 Carbon · Deterministic Rules R1–R5</span>
         </div>
       </footer>
     </div>

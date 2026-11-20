@@ -2,7 +2,7 @@
  * LedgerLens API Client
  */
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
+const API_BASE = import.meta.env.VITE_API_BASE ?? "";
 
 async function request(endpoint, options = {}) {
   const url = `${API_BASE}${endpoint}`;
@@ -62,6 +62,11 @@ export const api = {
       isFormData: true,
     });
   },
+
+  runExtract: (batchId) =>
+    request(`/api/run/${batchId}/extract`, {
+      method: "POST",
+    }),
 
   runDetect: (batchId) =>
     request(`/api/run/${batchId}/detect`, {
