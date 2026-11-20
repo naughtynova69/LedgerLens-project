@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CFOExplanation",
+  "description": "Google AI Studio structured-output schema matching backend/app/explain/gemini_explain.py EXPLANATION_SCHEMA.",
+  "type": "object",
+  "properties": {
+    "headline": {
+      "type": "string",
+      "description": "Concise finding headline (max 12 words)"
+    },
+    "explanation": {
+      "type": "string",
+      "description": "Plain-language CFO explanation (3-6 sentences) grounded strictly in rule and proof_trail evidence"
+    },
+    "recommended_action": {
+      "type": "string",
+      "description": "Actionable next step for finance/procurement (1-2 sentences)"
+    },
+    "limitations": {
+      "type": "string",
+      "description": "Verification caveats or facts a human reviewer must confirm"
+    },
+    "confidence_label": {
+      "type": "string",
+      "description": "Rule-computed confidence label"
+    }
+  },
+  "required": [
+    "headline",
+    "explanation",
+    "recommended_action",
+    "limitations",
+    "confidence_label"
+  ],
+  "additionalProperties": false
+}

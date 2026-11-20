@@ -63,7 +63,7 @@ LedgerLens-project/
 ├── Dockerfile              ← Multi-stage Cloud Run container (frontend + FastAPI)
 ├── cloudbuild.yaml         ← Google Cloud Build + Cloud Run CI/CD pipeline
 ├── deploy/cloudrun.sh      ← One-command Cloud Run / GCS / Cloud SQL deploy script
-├── docs/                   ← Team specs (01–07) & DEMO_RUNBOOK.md
+├── docs/                   ← Team specs (01–07), DEMO_RUNBOOK.md & ai_studio_schemas/
 ├── backend/                ← FastAPI app, extraction, normalization, R1–R5 rules, skills & tests
 │   ├── app/
 │   │   ├── main.py         (API routes + Cloud Run SPA static mount)

@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ExtractedInvoicePayload",
+  "description": "Google AI Studio structured-output schema matching backend/app/extract/schemas.py ExtractedInvoicePayload.",
+  "type": "object",
+  "properties": {
+    "vendor": {
+      "type": "object",
+      "description": "Vendor identification extracted verbatim from the invoice.",
+      "properties": {
+        "name": {
+          "type": ["string", "null"],
+          "description": "Legal vendor name as printed"
+        },
+        "tax_id": {
+          "type": ["string", "null"],
+          "description": "GSTIN / EIN / tax identifier"
+        }
+      },
+      "required": ["name", "tax_id"],
+      "additionalProperties": false
+    },
+    "invoice": {
+      "type": "object",
+      "description": "Invoice header metadata extracted verbatim from the invoice.",
+      "properties": {
+        "number": {
+          "type": ["string", "null"],
+          "description": "Invoice number as printed"
+        },
+        "date": {
+          "type": ["string", "null"],
+          "description": "Invoice date in YYYY-MM-DD format"
+        },
+        "currency": {
+          "type": ["string", "null"],
+          "description": "ISO-4217 currency code"
+        },
+        "po_reference": {
+          "type": ["string", "null"],
+          "description": "Referenced Purchase Order ID"
+        },
+        "payment_terms": {
+          "type": ["string", "null"],
+          "description": "Payment terms, e.g. Net 30"
+        }
+      },
+      "required": ["number", "date", "currency", "po_reference", "payment_terms"],
+      "additionalProperties": false
+    },
+    "lines": {
+      "type": "array",
+      "description": "Line items billed on the invoice.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "item": {
+            "type": ["string", "null"],
+            "description": "Line item description"
+          },
+          "quantity": {
+            "type": ["number", "null"],
+            "description": "Billed unit quantity"
+          },
+          "unit_price": {
+            "type": ["number", "null"],
+            "description": "Billed price per unit"
+          },
+          "tax_pct": {
+            "type": ["number", "null"],
+            "description": "Tax percentage applied to line"
+          },
+          "line_total": {
+            "type": ["number", "null"],
+            "description": "Line total inclusive of tax"
+          }
+        },
+        "required": ["item", "quantity", "unit_price", "tax_pct", "line_total"],
+        "additionalProperties": false
+      }
+    },
+    "totals": {
+      "type": "object",
+      "description": "Invoice summary totals.",
+      "properties": {
+        "subtotal": {
+          "type": ["number", "null"],
+          "description": "Pre-tax subtotal"
+        },
+        "tax": {
+          "type": ["number", "null"],
+          "description": "Total tax amount"
+        },
+        "grand_total": {
+          "type": ["number", "null"],
+          "description": "Grand total payable"
+        }
+      },
+      "required": ["subtotal", "tax", "grand_total"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["vendor", "invoice", "lines", "totals"],
+  "additionalProperties": false
+}
