@@ -1,7 +1,7 @@
 """Gemini extraction (docs/06 §3). Structured output, temperature 0, fail closed.
 
 Routes single/complex documents (PDFs/contracts) to GEMINI_PRIMARY_MODEL
-(`gemini-4-carbon` default) and batch/CSV rows to GEMINI_FLASH_MODEL
+(`gemini-3.8-vision-flash` default) and batch/CSV rows to GEMINI_FLASH_MODEL
 (`gemini-3.8-vision-flash` default). Provides deterministic mock/fallback extraction
 when GEMINI_API_KEY is unset so offline CI tests and demos never crash.
 """
