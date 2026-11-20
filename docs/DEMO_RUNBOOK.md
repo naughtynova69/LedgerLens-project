@@ -45,7 +45,7 @@
   1. **Ingest & Extract (`POST /api/run/{batch_id}/extract`):** Routes PDFs/contracts to **`gemini-4-carbon`** (`GEMINI_PRIMARY_MODEL`) and high-volume batch/CSV workloads to **`gemini-2.5-flash`** (`GEMINI_FLASH_MODEL`) using strict Pydantic JSON schemas (`ExtractedInvoicePayload`) + deterministic line-total verification (`qty * unit_price * (1 + tax_pct/100)`).
   2. **Pure Deterministic Judge (`backend/app/detect/`):** Zero LLM imports and zero network calls. Evaluates `R1`–`R5`, computes confidence scores and `amount_at_risk`, and emits `proof_trail` JSON + standardized `recommended_action` (`HOLD_PAYMENT`, `REQUEST_CREDIT_NOTE`, `DISPUTE_VENDOR`, `CANCEL_AUTOPAY`).
   3. **Explain & Google Agent Skills (`backend/app/explain/`, `backend/app/skills/`):** Gemini narrates strictly from `proof_trail` and invokes structured function tools (`fetch_payment_records`, `generate_audit_memo`, `route_recovery_task`).
-  4. **Cross-Harness Readiness:** Built with `AGENTS.md` + isolated worktrees for ZCode and Google Antigravity IDE workflows.
+  4. **Cross-Harness Readiness:** Built with `AGENTS.md` + isolated worktrees and synced with Google AI Studio JSON schemas (`docs/ai_studio_schemas/`) for Google Antigravity IDE evaluation.
 
 ---
 
