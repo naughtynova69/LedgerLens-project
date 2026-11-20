@@ -250,7 +250,8 @@ def _generate_with_model(
     }
     config_kwargs.update(_media_resolution_kwargs(types, effective_mime))
 
-    response = _client().models.generate_content(
+    client = _client()
+    response = client.models.generate_content(
         model=model_name,
         contents=contents,
         config=types.GenerateContentConfig(**config_kwargs),

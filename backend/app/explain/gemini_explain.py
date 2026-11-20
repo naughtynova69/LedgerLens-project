@@ -73,7 +73,8 @@ def explain_finding(finding: dict) -> dict:
         },
     }
 
-    response = _client().models.generate_content(
+    client = _client()
+    response = client.models.generate_content(
         model=config.GEMINI_PRIMARY_MODEL,
         contents=[json.dumps(payload, ensure_ascii=False)],
         config=types.GenerateContentConfig(
