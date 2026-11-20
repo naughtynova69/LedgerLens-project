@@ -72,13 +72,13 @@ WITH latest_findings AS (
 )
 SELECT
     COALESCE(vendor_id, 'UNKNOWN') AS vendor_id,
-    COALESCE(ANY_VALUE(vendor_name), COALESCE(vendor_id, 'UNKNOWN')) AS vendor_name,
+    COALESCE(ANY_VALUE(vendor_name), ANY_VALUE(vendor_id), 'UNKNOWN') AS vendor_name,
     COUNT(*) AS finding_count,
     ROUND(SUM(amount_at_risk_inr), 2) AS total_at_risk_inr,
     ROUND(SUM(IF(LOWER(status) = 'open', amount_at_risk_inr, 0.0)), 2) AS open_at_risk_inr,
     ROUND(SUM(IF(LOWER(status) IN ('rejected', 'recovery', 'recovered'), amount_at_risk_inr, 0.0)), 2) AS recovered_inr
 FROM latest_findings
-GROUP BY vendor_id
+GROUP BY 1
 ORDER BY total_at_risk_inr DESC;
 
 -- Rule-level exposure summary (R1-R5) across the latest synced snapshot.
