@@ -51,6 +51,10 @@ _ALLOWED_COLUMNS = {
     "credit_notes": {
         "credit_note_id", "vendor_id", "issue_date", "amount", "currency", "applied_status",
     },
+    "goods_receipts": {
+        "grn_id", "po_id", "po_line", "vendor_id", "item",
+        "received_qty", "accepted_qty", "received_date",
+    },
 }
 
 
@@ -68,6 +72,8 @@ def _rows(conn: sqlite3.Connection, table: str, workspace_id: str = "default") -
             sql = 'SELECT * FROM "invoices" WHERE workspace_id = ?'
         case "payments":
             sql = 'SELECT * FROM "payments" WHERE workspace_id = ?'
+        case "goods_receipts":
+            sql = 'SELECT * FROM "goods_receipts" WHERE workspace_id = ?'
         case _:
             raise ValueError(f"unknown table: {table}")
     return [dict(row) for row in conn.execute(sql, (workspace_id,)).fetchall()]
@@ -111,7 +117,7 @@ def _insert_table_rows(
         filtered = {k: v for k, v in row.items() if k in allowed}
         if not filtered:
             continue
-        if table_name in ("contracts", "purchase_orders", "invoices", "payments"):
+        if table_name in ("contracts", "purchase_orders", "invoices", "payments", "goods_receipts"):
             filtered["workspace_id"] = workspace_id
         cols = list(filtered.keys())
         placeholders = ",".join(["?"] * len(cols))
@@ -283,6 +289,7 @@ def run_detection(
         purchase_orders=_rows(conn, "purchase_orders", workspace_id=workspace_id),
         contracts=_rows(conn, "contracts", workspace_id=workspace_id),
         vendors=_rows(conn, "vendors", workspace_id=workspace_id),
+        goods_receipts=_rows(conn, "goods_receipts", workspace_id=workspace_id),
         policy=policy,
         graph_evidence=_collect_graph_evidence(conn, graph_client, batch_id),
     )
@@ -599,12 +606,16 @@ def ingest_csv_file_to_table(
             }
             for num_col in ("quantity", "unit_price", "tax_pct", "line_total", "amount",
                             "contracted_unit_price", "discount_pct", "fx_rate_to_inr",
-                            "approval_limit"):
+                            "approval_limit", "received_qty", "accepted_qty"):
                 if num_col in cleaned_row and cleaned_row[num_col]:
                     try:
                         cleaned_row[num_col] = float(cleaned_row[num_col])
                     except (ValueError, TypeError):
                         pass
+            if cleaned_row.get("accepted_qty") == "":
+                cleaned_row["accepted_qty"] = None
+            if cleaned_row.get("po_line") == "":
+                cleaned_row.pop("po_line", None)
             records.append(cleaned_row)
 
     rows_inserted = _insert_table_rows(conn, table_name, records, workspace_id=workspace_id)

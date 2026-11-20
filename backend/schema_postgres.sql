@@ -51,6 +51,19 @@ CREATE TABLE IF NOT EXISTS purchase_orders (
     PRIMARY KEY (po_id, po_line)
 );
 
+CREATE TABLE IF NOT EXISTS goods_receipts (
+    grn_id        TEXT NOT NULL,
+    po_id         TEXT NOT NULL,
+    po_line       INTEGER NOT NULL DEFAULT 1,
+    vendor_id     TEXT DEFAULT '',
+    item          TEXT NOT NULL,
+    received_qty  DOUBLE PRECISION NOT NULL DEFAULT 0,
+    accepted_qty  DOUBLE PRECISION,
+    received_date TEXT DEFAULT '',
+    workspace_id  TEXT NOT NULL DEFAULT 'default',
+    PRIMARY KEY (grn_id, po_id, po_line)
+);
+
 -- One row per invoice LINE (header fields repeat).
 CREATE TABLE IF NOT EXISTS invoices (
     invoice_number TEXT NOT NULL,

@@ -8,7 +8,10 @@ from pathlib import Path
 
 from .. import config
 
-VALID_KINDS = {"vendors", "invoices", "purchase_orders", "contracts", "payments", "payment_ledger"}
+VALID_KINDS = {
+    "vendors", "invoices", "purchase_orders", "contracts",
+    "payments", "payment_ledger", "goods_receipts",
+}
 
 # CSV column expectations per kind — must match docs/03_DATA_MODEL.md.
 REQUIRED_COLUMNS = {
@@ -18,6 +21,7 @@ REQUIRED_COLUMNS = {
     "purchase_orders": {"po_id", "vendor_id", "item", "quantity", "unit_price", "currency"},
     "contracts": {"contract_id", "vendor_id", "item", "contracted_unit_price"},
     "payments": {"payment_id", "invoice_number", "amount", "currency"},
+    "goods_receipts": {"grn_id", "po_id", "item", "received_qty"},
 }
 # A raw bank/payment ledger export uses the same minimal shape as payments.
 REQUIRED_COLUMNS["payment_ledger"] = REQUIRED_COLUMNS["payments"]

@@ -42,6 +42,7 @@ _EXPECTED_POSTGRES_TABLES = {
     "vendors",
     "contracts",
     "purchase_orders",
+    "goods_receipts",
     "invoices",
     "payments",
     "batches",
@@ -358,7 +359,7 @@ def test_schema_postgres_defines_all_tables() -> None:
         sql_text,
         flags=re.IGNORECASE,
     )
-    assert len(tables) == 12
+    assert len(tables) == 13
     assert set(tables) == _EXPECTED_POSTGRES_TABLES
 
 
