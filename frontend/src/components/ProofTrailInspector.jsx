@@ -3,6 +3,7 @@ import { api } from "../api";
 import { StatusBadge } from "./StatusBadge";
 import { RuleBadge } from "./RuleBadge";
 import { SeverityBadge } from "./SeverityBadge";
+import { PdfEvidencePreview } from "./PdfEvidencePreview";
 import { formatCurrency, formatConfidence } from "../utils/formatters";
 
 const DEFAULT_NOTES = {
@@ -19,6 +20,7 @@ export function ProofTrailInspector({
 }) {
   const [note, setNote] = useState("");
   const [copyingDispute, setCopyingDispute] = useState(false);
+  const [showEvidencePreview, setShowEvidencePreview] = useState(false);
 
   if (!finding) {
     return (
@@ -82,6 +84,18 @@ export function ProofTrailInspector({
   const primaryInvoice = invoices[0];
   const primaryContract = contracts[0];
   const primaryPo = pos[0];
+
+  const evidenceBatchId =
+    finding.batch?.batch_id || finding.batch_id || primaryInvoice?.batch_id || null;
+  const evidenceFileName =
+    finding.batch?.file_name || finding.file_name || primaryInvoice?.file_name || "";
+  const evidenceMimeType =
+    finding.batch?.mime_type || finding.mime_type || primaryInvoice?.mime_type || "";
+  const hasDocumentEvidence =
+    Boolean(evidenceBatchId) &&
+    (evidenceMimeType.toLowerCase().includes("pdf") ||
+      evidenceMimeType.toLowerCase().startsWith("image/") ||
+      /\.(pdf|png|jpe?g|webp|gif|bmp)$/i.test(evidenceFileName));
 
   const invoiceRef =
     invoices.length > 1
@@ -273,6 +287,31 @@ export function ProofTrailInspector({
           </button>
         </div>
       </div>
+
+      {/* Inline PDF / Image Evidence Preview (when batch has an uploaded document) */}
+      {hasDocumentEvidence && (
+        <div className="p-5 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-medium text-[#111827]">
+              Source Document Evidence
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowEvidencePreview((v) => !v)}
+              className="px-2.5 py-1 rounded-md text-[11px] font-medium border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 transition-colors"
+            >
+              {showEvidencePreview ? "Hide Preview" : "Show Preview"}
+            </button>
+          </div>
+          {showEvidencePreview && (
+            <PdfEvidencePreview
+              batchId={evidenceBatchId}
+              fileName={evidenceFileName}
+              mimeType={evidenceMimeType}
+            />
+          )}
+        </div>
+      )}
 
       {/* Progressive Disclosure: Technical Proof & Audit Trail */}
       <details className="p-5 group">

@@ -36,7 +36,7 @@ class Finding:
     Gemini may narrate this (explain stage) but never changes the numbers.
     """
 
-    rule_id: str                       # "R1".."R5" (docs/04_DETECTION_RULES.md)
+    rule_id: str                       # "R1".."R7" (docs/04_DETECTION_RULES.md)
     title: str                         # finance-readable one-liner
     severity: str                      # critical | high | medium | low
     amount_at_risk: float              # overbilled delta, or full duplicate amount

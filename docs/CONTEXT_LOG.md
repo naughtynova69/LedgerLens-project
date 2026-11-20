@@ -60,6 +60,15 @@
 - **Checks:** `pytest` (66 passed, 3 skipped), `npm --prefix frontend run build` (0 errors)
 - **Open Next Steps:** Merge PR #9; run live locale evals with `GEMINI_API_KEY` + `RUN_LIVE_GEMINI_EVAL=1`; optionally add PDF 300-DPI preprocessing upstream of extraction and extend `normalize.py` (`%d.%m.%Y` dates, C$ currency map) when paths are free.
 
+### 2026-11-21 — Roadmap Tracks 2–6 & 8–12 + Multi-Harness Isolation
+- **Branch / PR:** `feat/roadmap-tracks-2-to-12` → PR #10
+- **Changes:**
+  - Added `CLAUDE.md`, `docs/HARNESS_ISOLATION.md`, `docs/ZCODE_VISION_ACCURACY_MASTER_PROMPT.md`, and `scripts/harness_lock.py` for Antigravity + ZCode concurrency isolation.
+  - Implemented policy-parameterized `R1`–`R5` + new pure-Python `R6` (Split-PO) & `R7` (GRN mismatch), Live FX service (`fx_service.py`), SQLite/AlloyDB `DBAdapter`, SHA-256 `audit_chain.py`, multi-tenant `workspaces.py`, and grounded `copilot.py` + webhook dispatcher, all wired in `services.py` & `main.py`.
+  - Added `NeedsReviewDrawer.jsx`, `PdfEvidencePreview.jsx`, `WorkspaceSwitcher.jsx`, and Vitest smoke tests (`frontend/src/__tests__/smoke.test.jsx`), wired in `App.jsx`, `Navbar.jsx`, `ProofTrailInspector.jsx`, and `api.js`.
+- **Checks:** `pytest` + `vitest run` + `npm --prefix frontend run build` + `detect/` AST purity (`DETECT_PURITY_OK`).
+- **Open Next Steps:** Merge PR #10 to `main`.
+
 ---
 
 ## Append Template (Copy for Future Sessions)
