@@ -181,8 +181,46 @@ def run_extraction_for_batch(conn: sqlite3.Connection, batch_id: str) -> dict:
     }
 
 
-def run_detection(conn: sqlite3.Connection, batch_id: str | None = None) -> dict:
+def _collect_graph_evidence(conn: sqlite3.Connection, graph_client, batch_id: str | None) -> dict:
+    """Project the relational DB into LadybugDB and fetch deterministic evidence.
+
+    Only active when the graph layer is enabled (config or explicit client).
+    Degradation is deliberate and silent: if the optional graph engine cannot
+    run, tabular R1-R5 detection proceeds exactly as before.
+    """
+    if graph_client is None and not config.GRAPH_ENABLED:
+        return {}
+    owned = graph_client is None
+    if owned:
+        from .graph import get_graph_client
+
+        graph_client = get_graph_client()
+    try:
+        from .graph import fetch_graph_evidence, project_batch_to_graph
+
+        project_batch_to_graph(conn, graph_client, batch_id=batch_id)
+        evidence = fetch_graph_evidence(graph_client)
+    except Exception:
+        return {}
+    finally:
+        if owned:
+            graph_client.close()
+    return {
+        "cross_entity_duplicates": evidence.cross_entity_duplicates,
+        "split_invoices": evidence.split_invoices,
+        "collusion": evidence.collusion,
+        "superseded_rates": evidence.superseded_rates,
+        "unapplied_credits": evidence.unapplied_credits,
+    }
+
+
+def run_detection(conn: sqlite3.Connection, batch_id: str | None = None,
+                  graph_client=None) -> dict:
     """Load normalized tables, run every registered rule, persist findings.
+
+    When the graph layer is enabled (or a graph client is injected), the batch
+    is first projected into LadybugDB and deterministic Cypher evidence for
+    rules R6-R8 is attached to the detection context.
 
     Returns {"findings_created": int, "finding_ids": [...]}.
     """
@@ -192,6 +230,7 @@ def run_detection(conn: sqlite3.Connection, batch_id: str | None = None) -> dict
         purchase_orders=_rows(conn, "purchase_orders"),
         contracts=_rows(conn, "contracts"),
         vendors=_rows(conn, "vendors"),
+        graph_evidence=_collect_graph_evidence(conn, graph_client, batch_id),
     )
     findings = run_all(ctx)
 
@@ -277,7 +316,8 @@ def run_detection(conn: sqlite3.Connection, batch_id: str | None = None) -> dict
            VALUES ('rules_engine', 'detect', 'batch', ?, ?)""",
         (
             batch_id or "global",
-            f"Evaluated R1-R5 across {len(ctx.invoices)} invoice line(s); emitted {len(created)} finding(s).",
+            f"Evaluated {'R1-R8 with graph evidence' if ctx.graph_evidence else 'R1-R5'} "
+            f"across {len(ctx.invoices)} invoice line(s); emitted {len(created)} finding(s).",
         ),
     )
     conn.commit()
@@ -562,6 +602,9 @@ def build_memo(conn: sqlite3.Connection) -> str:
         "R3": "Purchase Order Overbilling",
         "R4": "Currency & Tax Errors",
         "R5": "Cancelled Service Leakage",
+        "R6": "Cross-Entity Duplicate & Threshold-Splitting",
+        "R7": "Approver-Vendor Collusion",
+        "R8": "Contract Lineage & Unapplied Credits",
     }
     for rule_id in sorted(by_rule):
         name = rule_names.get(rule_id, "Rule " + rule_id)

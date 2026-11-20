@@ -10,13 +10,21 @@ from .types import Finding
 @dataclass
 class DetectionContext:
     """Normalized records handed to every rule. Rows are plain dicts whose keys
-    match the column dictionaries in docs/03_DATA_MODEL.md."""
+    match the column dictionaries in docs/03_DATA_MODEL.md.
+
+    ``graph_evidence`` carries pre-fetched deterministic Cypher match results
+    (plain dicts from app.graph.queries) for the graph rules R6-R8. It stays a
+    plain dict so this module keeps its stdlib-only contract; rules ignore it
+    when empty, which preserves the exact R1-R5 behavior for every pre-existing
+    suite and dataset.
+    """
 
     invoices: list = field(default_factory=list)        # one dict per invoice LINE
     payments: list = field(default_factory=list)
     purchase_orders: list = field(default_factory=list)
     contracts: list = field(default_factory=list)
     vendors: list = field(default_factory=list)
+    graph_evidence: dict = field(default_factory=dict)
 
 
 DETECTORS: dict[str, Callable[[DetectionContext], list[Finding]]] = {}
