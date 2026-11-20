@@ -39,6 +39,8 @@ def create_genai_client():
         project = os.getenv("GCP_PROJECT_ID", "").strip()
         location = os.getenv("GCP_LOCATION", "asia-south1").strip() or "asia-south1"
         kwargs = {"vertexai": True, "project": project, "location": location}
+    elif config.GEMINI_API_KEY.startswith("AQ."):
+        kwargs = {"vertexai": True, "api_key": config.GEMINI_API_KEY}
     else:
         kwargs = {"api_key": config.GEMINI_API_KEY}
 
