@@ -52,13 +52,13 @@
 ### 2026-11-21 — ZCode: Gemini 3.8 Vision Flash Accuracy (Domain Prompt + 1-Retry Math Repair)
 - **Branch / PR:** `feat/gemini-38-vision-accuracy` → PR #9
 - **Changes:**
-  - Replaced `EXTRACTION_SYSTEM_PROMPT` in `backend/app/extract/gemini_extract.py` with the domain-tuned Indian B2B AP prompt (ISO-8601 dates, ISO-4217 currency, lakh/crore comma stripping, revision-suffix preservation, CGST+SGST combining, TDS exclusion, exempt→0.0, HSN/SAC ignored, scan-quality fail-closed).
+  - Replaced `EXTRACTION_SYSTEM_PROMPT` in `backend/app/extract/gemini_extract.py` with a **locale-aware** AP prompt covering US / Canada / UK-EU / Western markets AND India: regional date conventions (US MM/DD, EU/India DD/MM, DE/CH DD.MM.YYYY + disambiguation), ISO-4217 mapping incl. `C$`→CAD / `A$`→AUD / `NZ$`→NZD, US-UK + Indian lakh/crore + European decimal-comma + Swiss apostrophe number grouping, revision-suffix preservation, tax generalization (India CGST+SGST/IGST + TDS; Canada GST+QST/HST; US Sales Tax; EU VAT/MwSt./TVA/IVA/BTW; zero-rated/Exempt/Nil/Reverse charge → 0.0), Western tax IDs (GSTIN/VAT No./EIN/BN), French/German/Spanish/Italian/Dutch label mapping, scan-quality fail-closed.
   - Added live **1-retry arithmetic self-correction** (`_extract_invoice_payload_live` + `build_arithmetic_retry_feedback`, `MAX_ARITHMETIC_RETRIES=1`): line-total mismatches fed back once at temperature 0; persisting warnings keep `needs_review` (fail-closed). `extract_invoice` now returns `verification_warnings` too.
   - Added guarded `media_resolution=MEDIA_RESOLUTION_HIGH` for PDF/image `GenerateContentConfig` (getattr-safe for older SDKs/mocks).
-  - Offline mock fallback hardened: `_extract_amount_kv` captures Indian comma amounts (`1,23,456.00`) that old patterns truncated at the first comma; `_normalize_tax_pct` deterministically combines split GST, maps exempt/nil to 0.0, never sums TDS.
-  - 12 new tests in `backend/tests/test_extract.py` + live Indian-GST eval in `backend/tests/eval_gemini_extraction.py` (`RUN_LIVE_GEMINI_EVAL=1`-gated).
-- **Checks:** `pytest` (62 passed, 2 skipped), `npm --prefix frontend run build` (0 errors)
-- **Open Next Steps:** Merge PR #9; run live Indian-GST eval with `GEMINI_API_KEY` + `RUN_LIVE_GEMINI_EVAL=1`; optionally add PDF 300-DPI preprocessing upstream of extraction.
+  - Offline mock fallback hardened to match: `_plain_decimal` parses US/Indian/EU/Swiss number formats; `_normalize_tax_pct` combines split tax (3-decimal rates like QST 9.975% kept), maps exempt/nil/reverse-charge to 0.0, never sums TDS; `_normalize_extracted_currency` maps C$/A$/NZ$; `_normalize_extracted_date` adds DD.MM.YYYY (shared `normalize.py` untouched — outside claimed paths).
+  - 16 new tests in `backend/tests/test_extract.py` + 2 live locale evals (Indian GST, US format) in `backend/tests/eval_gemini_extraction.py` (`RUN_LIVE_GEMINI_EVAL=1`-gated).
+- **Checks:** `pytest` (66 passed, 3 skipped), `npm --prefix frontend run build` (0 errors)
+- **Open Next Steps:** Merge PR #9; run live locale evals with `GEMINI_API_KEY` + `RUN_LIVE_GEMINI_EVAL=1`; optionally add PDF 300-DPI preprocessing upstream of extraction and extend `normalize.py` (`%d.%m.%Y` dates, C$ currency map) when paths are free.
 
 ---
 

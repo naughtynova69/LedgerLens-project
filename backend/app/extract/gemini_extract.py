@@ -47,21 +47,23 @@ You are a high-precision accounts-payable document extraction engine for an audi
 Extract ONLY fields literally visible in the document (PDF, scan, image, or CSV). NEVER guess, extrapolate, or invent missing values—return null for any unreadable or absent field.
 
 Domain & Formatting Rules:
-1. Dates: Normalize all dates (DD/MM/YYYY, DD-MMM-YYYY, YYYY/MM/DD, etc.) to strict ISO-8601 `YYYY-MM-DD`.
-2. Currency: Output ISO-4217 3-letter codes (`INR`, `USD`, `EUR`, `GBP`). Map `₹`, `Rs.`, `Rs`, `INR` -> `INR`; `$`, `US$` -> `USD`; `€` -> `EUR`; `£` -> `GBP`.
-3. Numbers & Indian Comma Grouping: Strip currency symbols and thousand separators (including Indian lakh/crore grouping like `1,23,456.00` -> `123456.00`). Return plain decimals.
+1. Dates: Normalize all dates to strict ISO-8601 `YYYY-MM-DD`. Detect the document's regional convention first: US invoices use MM/DD/YYYY; UK/EU/India invoices use DD/MM/YYYY; Germany/Switzerland use DD.MM.YYYY; also accept `DD-MMM-YYYY` and `YYYY/MM/DD`. Use document context (language, tax labels like `Sales Tax` vs `VAT`/`GST`, due date after invoice date) to disambiguate; when truly ambiguous, prefer DD/MM/YYYY.
+2. Currency: Output ISO-4217 3-letter codes. Map `₹`, `Rs.`, `Rs`, `INR` -> `INR`; `US$`, `$` -> `USD`; `C$`, `CA$`, `CAD` -> `CAD`; `A$` -> `AUD`; `NZ$` -> `NZD`; `€` -> `EUR`; `£` -> `GBP`; keep `CHF`, `SEK`, `NOK`, `DKK`, `JPY` verbatim as ISO codes. A printed currency statement (e.g. `All amounts in CAD`) always wins over bare symbols.
+3. Numbers & Grouping: Strip currency symbols and thousand separators; return plain dot decimals. Handle Indian lakh/crore grouping (`1,23,456.00` -> `123456.00`), US/UK grouping (`1,234,567.89` -> `1234567.89`), European decimal-comma formats (`1.234,56` -> `1234.56`, `1 234,56` -> `1234.56`), and Swiss apostrophe grouping (`1'234.56` -> `1234.56`).
 4. Invoice & Revision Numbers: Preserve exact suffixes and revision markers (e.g., `INV-8821-R2`, `CN-104`, `PO-1006`)—never strip `-R2` or `/FY26` suffixes.
-5. Tax & GST Handling:
-   - Combine split Indian GST components (`CGST 9% + SGST 9%` -> `tax_pct: 18.0`; `IGST 18%` -> `tax_pct: 18.0`).
-   - Do NOT treat TDS (Tax Deducted at Source) as invoice GST/tax or subtract TDS from `line_total` / `grand_total`.
-   - If a line is explicitly tax-exempt / zero-rated (`0%`, `Exempt`, `Nil`), set `tax_pct: 0.0`.
+5. Tax / VAT / GST / Sales Tax Handling:
+   - Combine split tax components into one effective rate: India `CGST 9% + SGST 9%` -> `tax_pct: 18.0`; `IGST 18%` -> `18.0`; Canada `GST 5% + QST 9.975%` -> `14.975`; `HST 13%` -> `13.0`.
+   - US sales tax (e.g., `Sales Tax 8.25%`) and EU VAT (`VAT`, `MwSt.`/`USt.`, `TVA`, `IVA`, `BTW`) -> use the printed rate as `tax_pct`; for multi-rate documents use each line's own rate.
+   - Zero-rated / exempt lines (`0%`, `Exempt`, `Nil`, `Zero-rated`, `Reverse charge`, `Out of scope`) -> `tax_pct: 0.0`.
+   - Do NOT treat withholding taxes (e.g., India TDS) as invoice tax, and do NOT subtract them from `line_total` / `grand_total`.
 6. Line Items & Multi-Page Tables:
-   - Extract every billable line item in order (`line_no` 1..N). Ignore subtotals, page headers/footers, and bank-detail blocks.
-   - Ignore HSN/SAC codes as item names; extract the actual item/service description into `item`.
+   - Extract every billable line item in order (`line_no` 1..N). Ignore subtotals, page headers/footers, and bank-detail/IBAN blocks.
+   - Ignore HSN/SAC, commodity, or tariff codes as item names; extract the actual item/service description into `item`.
    - If `unit_price` is pre-tax and `line_total` is post-tax, ensure `round(quantity * unit_price * (1 + tax_pct / 100), 2) == line_total`.
    - If `discount_pct` or `discount_applied_pct` is shown on the invoice or contract line, capture it accurately.
-7. Cross-Document References: Capture `vendor_name`, `vendor_id` (if printed), `po_id` / PO number, `contract_id`, and `payment_status` / `credited` indicators verbatim when present.
-8. Scan Quality: If a stamp, watermark, or low-DPI region obscures a number, return `null` rather than guessing so the fail-closed verifier flags `needs_review`.
+7. Cross-Document References & Tax IDs: Capture `vendor_name`, `vendor_id` (if printed), tax identifiers verbatim (`GSTIN`; `VAT No.` / `USt-IdNr.` / `TVA` / `NIF` / `BTW`; US `EIN`; Canadian `BN`), `po_id` / PO number, `contract_id`, and `payment_status` / `credited` indicators when present.
+8. Languages: Extract confidently from English, French, German, Spanish, Italian, and Dutch invoices (including mixed-language documents); map local labels to schema fields (e.g., `Facture`/`Rechnung`/`Fattura`/`Factura` = Invoice; `Rechnungsnummer`/`Numéro de facture`/`Número de factura` = Invoice Number; `Gesamtbetrag`/`Montant TTC`/`Totale documento` = Grand Total).
+9. Scan Quality: If a stamp, watermark, or low-DPI region obscures a number, return `null` rather than guessing so the fail-closed verifier flags `needs_review`.
 """
 
 
@@ -263,15 +265,39 @@ def _extract_kv(text: str, patterns: tuple[str, ...]) -> str | None:
     return None
 
 
-_AMOUNT_CAPTURE = r"(-?\d[\d,]*(?:\.\d+)?)"
+# Numeric field capture: digits with US/EU/Indian/Swiss grouping separators,
+# each separator required to be followed by digits (so single digits and
+# trailing punctuation never over-capture).
+_AMOUNT_CAPTURE = r"(-?\d+(?:[.,' ]\d+)*)"
+
+
+def _plain_decimal(raw: str) -> float:
+    """Parse regional number formats to a plain float (rightmost separator is decimal).
+
+    Handles US/UK grouping (1,234,567.89), Indian lakh/crore grouping (1,23,456.00),
+    European decimal commas (1.234,56 / 1 234,56), and Swiss apostrophes (1'234.56).
+    """
+    s = str(raw).strip().replace(" ", "").replace("'", "")
+    if not s:
+        return 0.0
+    if "." in s and "," in s:
+        if s.rfind(",") > s.rfind("."):
+            s = s.replace(".", "").replace(",", ".")  # EU: 1.234,56
+        else:
+            s = s.replace(",", "")  # US/IN: 1,234.56
+    elif "," in s and re.search(r",\d{1,2}$", s):
+        s = s.replace(",", ".")  # EU decimal comma without thousands: 1234,56
+    else:
+        s = s.replace(",", "")
+    return round(float(s), 2)
 
 
 def _extract_amount_kv(text: str, patterns: tuple[str, ...]) -> float | None:
-    """Extract a numeric field preserving Indian comma grouping (e.g. 1,23,456.00)."""
+    """Extract a numeric field across US/Indian/European number formats."""
     for pat in patterns:
         m = re.search(pat, text, flags=re.IGNORECASE | re.MULTILINE)
         if m:
-            return normalize_amount(m.group(1))
+            return _plain_decimal(m.group(1))
     return None
 
 
@@ -286,17 +312,40 @@ def _normalize_tax_pct(raw: str | None) -> float | None:
     text = str(raw or "").strip()
     if not text:
         return None
-    if re.search(r"\b(?:exempt|nil|zero[\s-]*rated)\b", text, flags=re.IGNORECASE):
+    if re.search(
+        r"\b(?:exempt|nil|zero[\s-]*rated|reverse[\s-]*charge|vat\s*reversed|out[\s-]*of[\s-]*scope)\b",
+        text,
+        flags=re.IGNORECASE,
+    ):
         return 0.0
     # Drop TDS clauses (from 'TDS' to the next +/;/newline) before summing percentages.
     stripped = re.sub(r"tds\b[^+;\r\n]*", " ", text, flags=re.IGNORECASE)
     percents = re.findall(r"(\d+(?:\.\d+)?)\s*%", stripped)
     if percents:
-        return round(sum(float(p) for p in percents), 2)
+        return round(sum(float(p) for p in percents), 3)  # keep 3-decimal rates (e.g. QST 9.975%)
     bare = re.search(r"-?\d+(?:\.\d+)?", stripped)
     if bare:
-        return round(float(bare.group()), 2)
+        return round(float(bare.group()), 3)
     return None
+
+
+def _normalize_extracted_date(raw: str | None) -> str:
+    """normalize_date plus German/Swiss DD.MM.YYYY support (offline mock path)."""
+    text = normalize_date(raw or "")
+    if re.fullmatch(r"\d{1,2}\.\d{1,2}\.\d{4}", text):
+        day, month, year = text.split(".")
+        return f"{year}-{int(month):02d}-{int(day):02d}"
+    return text
+
+
+# Western currency symbols the shared normalize map does not cover.
+_WESTERN_CURRENCY_SYMBOLS = {"C$": "CAD", "CA$": "CAD", "A$": "AUD", "NZ$": "NZD"}
+
+
+def _normalize_extracted_currency(raw: str | None, default: str = "INR") -> str:
+    """Map currency text (incl. Western symbols like C$/A$/NZ$) to an ISO-4217 code."""
+    token = str(raw or "").strip().upper()
+    return _WESTERN_CURRENCY_SYMBOLS.get(token) or normalize_currency(token) or default
 
 
 def _mock_extract_invoice_payload(
@@ -319,8 +368,8 @@ def _mock_extract_invoice_payload(
     stem_id = re.sub(r"[^A-Z0-9\-]", "", Path(source_name).stem.upper())[:20] or "SCAN-001"
     number = inv_no or f"INV-{stem_id}"
     vendor_clean = vendor_name or "Extracted PDF Vendor"
-    norm_date = normalize_date(inv_date or "2026-11-15")
-    norm_curr = normalize_currency(currency or "INR") or "INR"
+    norm_date = _normalize_extracted_date(inv_date or "2026-11-15")
+    norm_curr = _normalize_extracted_currency(currency)
     qty = qty_f if qty_f is not None else 1.0
     unit_price = unit_price_f if unit_price_f is not None else 1000.0
     tax_pct = _normalize_tax_pct(tax_s)
@@ -383,7 +432,7 @@ def _mock_extract_contract_payload(
             ContractLineExtracted(
                 item=item or "Extracted Service",
                 unit_price=price_f if price_f is not None else 1000.0,
-                currency=normalize_currency(currency or "INR") or "INR",
+                currency=_normalize_extracted_currency(currency),
                 discount_pct=0.0,
                 payment_terms="Net 30",
                 tax_pct=18.0,
@@ -418,7 +467,7 @@ def _mock_extract_po_payload(
                 item=item or "Extracted Item",
                 quantity=qty_f if qty_f is not None else 1.0,
                 unit_price=price_f if price_f is not None else 1000.0,
-                currency=normalize_currency(currency or "INR") or "INR",
+                currency=_normalize_extracted_currency(currency),
             )
         ],
     )

@@ -163,10 +163,24 @@ def test_csv_upload_new_vendor_without_preseed_succeeds(monkeypatch, tmp_path):
 # ---------------------------------------------------------------------------
 
 def test_extraction_system_prompt_domain_rules():
+    # India
     assert "CGST 9% + SGST 9%" in EXTRACTION_SYSTEM_PROMPT
     assert "IGST 18%" in EXTRACTION_SYSTEM_PROMPT
     assert "TDS" in EXTRACTION_SYSTEM_PROMPT
     assert "1,23,456.00" in EXTRACTION_SYSTEM_PROMPT
+    # US / Canada / Western Europe
+    assert "MM/DD/YYYY" in EXTRACTION_SYSTEM_PROMPT
+    assert "Sales Tax 8.25%" in EXTRACTION_SYSTEM_PROMPT
+    assert "GST 5% + QST 9.975%" in EXTRACTION_SYSTEM_PROMPT
+    assert "HST 13%" in EXTRACTION_SYSTEM_PROMPT
+    assert "Reverse charge" in EXTRACTION_SYSTEM_PROMPT
+    assert "1,234,567.89" in EXTRACTION_SYSTEM_PROMPT
+    assert "1.234,56" in EXTRACTION_SYSTEM_PROMPT
+    assert "C$" in EXTRACTION_SYSTEM_PROMPT and "CAD" in EXTRACTION_SYSTEM_PROMPT
+    assert "EIN" in EXTRACTION_SYSTEM_PROMPT
+    assert "Rechnungsnummer" in EXTRACTION_SYSTEM_PROMPT  # German label mapping
+    assert "Facture" in EXTRACTION_SYSTEM_PROMPT  # French label mapping
+    # Shared invariants
     assert "ISO-8601" in EXTRACTION_SYSTEM_PROMPT
     assert "ISO-4217" in EXTRACTION_SYSTEM_PROMPT
     assert "-R2" in EXTRACTION_SYSTEM_PROMPT  # revision suffix preservation
@@ -271,6 +285,109 @@ def test_zero_key_fallback_never_calls_gemini(monkeypatch, tmp_path):
     res = extract_document(pdf_like, "invoices")
     assert res["mode"] == "mock_fallback"
     assert res["records"][0]["invoice_number"] == "INV-OFF-1"
+
+
+# ---------------------------------------------------------------------------
+# Offline mock fallback: US / Canada / Western Europe formats
+# ---------------------------------------------------------------------------
+
+def test_offline_mock_us_thousands_and_sales_tax(monkeypatch, tmp_path):
+    monkeypatch.setattr(config, "GEMINI_API_KEY", "")
+    pdf_like = tmp_path / "inv_us.pdf"
+    pdf_like.write_bytes(
+        b"%PDF-1.4\n"
+        b"Vendor: Acme Industrial Supply Inc\n"
+        b"Invoice Number: INV-US-2026-014\n"
+        b"Date: 11/15/2026\n"
+        b"Currency: USD\n"
+        b"Item: Steel Bracket Kit\n"
+        b"Quantity: 2\n"
+        b"Unit Price: 1,234.56\n"
+        b"Tax: Sales Tax 8.25%\n"
+        b"Line Total: 2672.82\n"
+    )
+    res = extract_document(pdf_like, "invoices")
+    assert res["mode"] == "mock_fallback"
+    assert res["needs_review"] is False
+    assert res["verification_warnings"] == []
+    rec = res["records"][0]
+    assert rec["unit_price"] == pytest.approx(1234.56)  # US comma grouping
+    assert rec["tax_pct"] == pytest.approx(8.25)  # US sales tax as effective rate
+    assert rec["line_total"] == pytest.approx(2672.82)
+    assert rec["currency"] == "USD"
+
+
+def test_offline_mock_european_decimal_comma_and_vat(monkeypatch, tmp_path):
+    monkeypatch.setattr(config, "GEMINI_API_KEY", "")
+    pdf_like = tmp_path / "inv_eu.pdf"
+    pdf_like.write_bytes(
+        b"%PDF-1.4\n"
+        b"Vendor: Muster Handel GmbH\n"
+        b"Invoice Number: RE-2026-0042\n"
+        b"Date: 15.11.2026\n"
+        b"Currency: EUR\n"
+        b"Item: Stahlwinkel-Set\n"
+        b"Quantity: 2\n"
+        b"Unit Price: 1.234,56\n"
+        b"Tax: VAT 20%\n"
+        b"Line Total: 2.962,94\n"
+    )
+    res = extract_document(pdf_like, "invoices")
+    assert res["mode"] == "mock_fallback"
+    assert res["needs_review"] is False
+    assert res["verification_warnings"] == []
+    rec = res["records"][0]
+    assert rec["unit_price"] == pytest.approx(1234.56)  # 1.234,56 -> 1234.56
+    assert rec["tax_pct"] == pytest.approx(20.0)  # EU VAT
+    assert rec["line_total"] == pytest.approx(2962.94)  # 2.962,94 -> 2962.94
+    assert rec["currency"] == "EUR"
+    assert rec["invoice_date"] == "2026-11-15"  # DD.MM.YYYY (German)
+
+
+def test_offline_mock_canada_gst_qst_combined_and_cad(monkeypatch, tmp_path):
+    monkeypatch.setattr(config, "GEMINI_API_KEY", "")
+    pdf_like = tmp_path / "inv_ca.pdf"
+    pdf_like.write_bytes(
+        b"%PDF-1.4\n"
+        b"Vendor: Northern Supplies Ltd\n"
+        b"Invoice Number: CA-INV-7712\n"
+        b"Date: 2026-11-15\n"
+        b"Currency: C$\n"
+        b"Item: Winter Service Package\n"
+        b"Quantity: 1\n"
+        b"Unit Price: 1000.00\n"
+        b"Tax: GST 5% + QST 9.975%\n"
+        b"Line Total: 1149.75\n"
+    )
+    res = extract_document(pdf_like, "invoices")
+    assert res["mode"] == "mock_fallback"
+    assert res["needs_review"] is False
+    rec = res["records"][0]
+    assert rec["currency"] == "CAD"  # C$ mapped to ISO-4217
+    assert rec["tax_pct"] == pytest.approx(14.975)  # split GST + QST combined
+    assert rec["line_total"] == pytest.approx(1149.75)
+
+
+def test_offline_mock_reverse_charge_zero_rated(monkeypatch, tmp_path):
+    monkeypatch.setattr(config, "GEMINI_API_KEY", "")
+    pdf_like = tmp_path / "inv_rc.pdf"
+    pdf_like.write_bytes(
+        b"%PDF-1.4\n"
+        b"Vendor: Euro Components BV\n"
+        b"Invoice Number: NL-2026-118\n"
+        b"Date: 2026-11-15\n"
+        b"Currency: EUR\n"
+        b"Item: Cross-border Consulting\n"
+        b"Quantity: 2\n"
+        b"Unit Price: 500.00\n"
+        b"Tax: Reverse Charge\n"
+        b"Line Total: 1000.00\n"
+    )
+    res = extract_document(pdf_like, "invoices")
+    assert res["mode"] == "mock_fallback"
+    rec = res["records"][0]
+    assert rec["tax_pct"] == pytest.approx(0.0)  # EU reverse charge -> zero-rated
+    assert res["needs_review"] is False
 
 
 # ---------------------------------------------------------------------------

@@ -267,3 +267,35 @@ def test_live_gemini_extraction_indian_gst_and_comma_eval():
     assert payload.lines[0].unit_price == pytest.approx(123456.0)  # 1,23,456.00
     assert payload.lines[0].line_total == pytest.approx(291356.16)  # 2,91,356.16
     assert extracted.get("verification_warnings") == []  # arithmetic self-correction converged
+
+
+@pytest.mark.skipif(
+    not (os.getenv("RUN_LIVE_GEMINI_EVAL") == "1" and config.GEMINI_API_KEY),
+    reason="Offline mode; set RUN_LIVE_GEMINI_EVAL=1 and GEMINI_API_KEY to run live Gemini eval",
+)
+def test_live_gemini_extraction_us_format_eval():
+    """Live eval: US MM/DD/YYYY dates, comma thousands, US sales tax rate."""
+    sample_pdf_bytes = (
+        b"%PDF-1.4\n"
+        b"Vendor: Acme Industrial Supply Inc\n"
+        b"Invoice Number: INV-US-2026-014\n"
+        b"Date: 11/15/2026\n"
+        b"Currency: USD\n"
+        b"PO Reference: PO-7788\n"
+        b"Item: Steel Bracket Kit\n"
+        b"Quantity: 3\n"
+        b"Unit Price: 1,234.56\n"
+        b"Tax: Sales Tax 8.25%\n"
+        b"Line Total: 4009.23\n"
+        b"Subtotal: 3703.68\n"
+        b"Grand Total: 4009.23\n"
+    )
+    extracted = extract_invoice(sample_pdf_bytes, mime_type="application/pdf")
+    assert extracted["mode"] == "gemini_live"
+    payload = ExtractedInvoicePayload.model_validate(extracted)
+    assert payload.invoice.number == "INV-US-2026-014"
+    assert payload.invoice.date == "2026-11-15"  # MM/DD/YYYY (US) -> ISO
+    assert payload.lines[0].unit_price == pytest.approx(1234.56)  # US comma grouping
+    assert payload.lines[0].tax_pct == pytest.approx(8.25)  # US sales tax
+    assert payload.lines[0].line_total == pytest.approx(4009.23)
+    assert extracted.get("verification_warnings") == []
