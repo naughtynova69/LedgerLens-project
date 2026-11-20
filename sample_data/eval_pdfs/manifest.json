@@ -1,0 +1,516 @@
+[
+  {
+    "filename": "eval_invoice_01_in_gst_revision_lakh.pdf",
+    "locale": "IN",
+    "voice": "in_gst_revision_lakh",
+    "difficulty": "medium",
+    "mime_type": "application/pdf",
+    "engine": "reportlab-invariant",
+    "sha256": "958b564422cc53441ac460845ebf53a12a5493126fa29dcc4646666505a38865",
+    "bytes": 73063,
+    "expect_needs_review": false,
+    "arithmetic": {
+      "consistent": true,
+      "variance": 0.0,
+      "variance_field": null
+    },
+    "expected": {
+      "vendor_name": "Sunbeam Electricals Pvt Ltd",
+      "vendor_tax_id": "27AABCS1234F1Z5",
+      "invoice_number": "INV-8821-R2",
+      "invoice_date": "2026-11-15",
+      "currency": "INR",
+      "po_reference": "PO-1006",
+      "payment_terms": "Net 30",
+      "subtotal": 246912.0,
+      "tax": 44444.16,
+      "grand_total": 291356.16,
+      "lines": [
+        {
+          "item": "Industrial LED Panel",
+          "quantity": 2.0,
+          "unit_price": 123456.0,
+          "tax_pct": 18.0,
+          "line_total": 291356.16
+        }
+      ]
+    }
+  },
+  {
+    "filename": "eval_invoice_02_in_gst_crore.pdf",
+    "locale": "IN",
+    "voice": "in_gst_crore",
+    "difficulty": "medium",
+    "mime_type": "application/pdf",
+    "engine": "reportlab-invariant",
+    "sha256": "2fa3e935f827cf84aec1d3028cfcd98eb2402836673a4756fc1b7cee20a6bb2f",
+    "bytes": 73090,
+    "expect_needs_review": false,
+    "arithmetic": {
+      "consistent": true,
+      "variance": 0.0,
+      "variance_field": null
+    },
+    "expected": {
+      "vendor_name": "Bharat Forge Industries Ltd",
+      "vendor_tax_id": "29AAECB1234K1Z9",
+      "invoice_number": "INV-2026-7741",
+      "invoice_date": "2026-10-03",
+      "currency": "INR",
+      "po_reference": "PO-4471",
+      "payment_terms": "Net 45",
+      "subtotal": 9250000.0,
+      "tax": 1665000.0,
+      "grand_total": 10915000.0,
+      "lines": [
+        {
+          "item": "CNC Machined Flange Assembly",
+          "quantity": 500.0,
+          "unit_price": 18500.0,
+          "tax_pct": 18.0,
+          "line_total": 10915000.0
+        }
+      ]
+    }
+  },
+  {
+    "filename": "eval_invoice_03_in_gst_multiline.pdf",
+    "locale": "IN",
+    "voice": "in_gst_multiline",
+    "difficulty": "medium",
+    "mime_type": "application/pdf",
+    "engine": "reportlab-invariant",
+    "sha256": "f4b05dc74a4ef9fe198b41b07c459040b560216c4548f3e45e4491f5e5d0a4eb",
+    "bytes": 73831,
+    "expect_needs_review": false,
+    "arithmetic": {
+      "consistent": true,
+      "variance": 0.0,
+      "variance_field": null
+    },
+    "expected": {
+      "vendor_name": "Chennai Precision Tools Pvt Ltd",
+      "vendor_tax_id": "33AAKCC5678M1Z3",
+      "invoice_number": "INV-TP-9042",
+      "invoice_date": "2026-11-21",
+      "currency": "INR",
+      "po_reference": "PO-9012",
+      "payment_terms": "Net 45",
+      "subtotal": 131000.0,
+      "tax": 23580.0,
+      "grand_total": 154580.0,
+      "lines": [
+        {
+          "item": "Carbide Insert Pack TNMG16",
+          "quantity": 40.0,
+          "unit_price": 1850.0,
+          "tax_pct": 18.0,
+          "line_total": 87320.0
+        },
+        {
+          "item": "Digital Caliper 200mm",
+          "quantity": 6.0,
+          "unit_price": 4200.0,
+          "tax_pct": 18.0,
+          "line_total": 29736.0
+        },
+        {
+          "item": "Coolant Concentrate 20L",
+          "quantity": 12.0,
+          "unit_price": 2650.0,
+          "tax_pct": 18.0,
+          "line_total": 37524.0
+        }
+      ]
+    }
+  },
+  {
+    "filename": "eval_invoice_04_us_sales_tax.pdf",
+    "locale": "US",
+    "voice": "us_sales_tax",
+    "difficulty": "easy",
+    "mime_type": "application/pdf",
+    "engine": "reportlab-invariant",
+    "sha256": "421131c2687f0e5fc41da3a9068538ad7b7e9074c6f0998352ac132f30d60bd8",
+    "bytes": 72568,
+    "expect_needs_review": false,
+    "arithmetic": {
+      "consistent": true,
+      "variance": 0.0,
+      "variance_field": null
+    },
+    "expected": {
+      "vendor_name": "Acme Industrial Supply Inc",
+      "vendor_tax_id": "82-1234567",
+      "invoice_number": "INV-US-2026-014",
+      "invoice_date": "2026-11-15",
+      "currency": "USD",
+      "po_reference": "PO-7788",
+      "payment_terms": "Net 30",
+      "subtotal": 3703.68,
+      "tax": 305.55,
+      "grand_total": 4009.23,
+      "lines": [
+        {
+          "item": "Steel Bracket Kit",
+          "quantity": 3.0,
+          "unit_price": 1234.56,
+          "tax_pct": 8.25,
+          "line_total": 4009.23
+        }
+      ]
+    }
+  },
+  {
+    "filename": "eval_invoice_05_ca_gst_qst.pdf",
+    "locale": "CA",
+    "voice": "ca_gst_qst",
+    "difficulty": "hard",
+    "mime_type": "application/pdf",
+    "engine": "reportlab-invariant",
+    "sha256": "1a309ec68bbbb89b78834178cb94f06ead5eb33cd4bb93e8fe4a84793daea4bf",
+    "bytes": 72829,
+    "expect_needs_review": false,
+    "arithmetic": {
+      "consistent": true,
+      "variance": 0.0,
+      "variance_field": null
+    },
+    "expected": {
+      "vendor_name": "Laurentien Distribution Inc",
+      "vendor_tax_id": "123456789 RT0001",
+      "invoice_number": "INV-QC-5521",
+      "invoice_date": "2026-12-01",
+      "currency": "CAD",
+      "po_reference": "PO-3310",
+      "payment_terms": "Net 30",
+      "subtotal": 1159.0,
+      "tax": 173.56,
+      "grand_total": 1332.56,
+      "lines": [
+        {
+          "item": "Wall-Mount Storage Rack",
+          "quantity": 4.0,
+          "unit_price": 289.75,
+          "tax_pct": 14.975,
+          "line_total": 1332.56
+        }
+      ]
+    }
+  },
+  {
+    "filename": "eval_invoice_06_us_multiline.pdf",
+    "locale": "US",
+    "voice": "us_multiline",
+    "difficulty": "medium",
+    "mime_type": "application/pdf",
+    "engine": "reportlab-invariant",
+    "sha256": "7dd66932889eb7781d5341d786f47abf4557c5c3f14b8bbafebe4606b38d0bfa",
+    "bytes": 73266,
+    "expect_needs_review": false,
+    "arithmetic": {
+      "consistent": true,
+      "variance": 0.0,
+      "variance_field": null
+    },
+    "expected": {
+      "vendor_name": "Pacific Ridge Manufacturing LLC",
+      "vendor_tax_id": "91-1876543",
+      "invoice_number": "INV-PRM-1187",
+      "invoice_date": "2026-10-31",
+      "currency": "USD",
+      "po_reference": "PO-8823",
+      "payment_terms": "Net 45",
+      "subtotal": 2108.05,
+      "tax": 158.1,
+      "grand_total": 2266.15,
+      "lines": [
+        {
+          "item": "Aluminum Sheet 6061 3mm",
+          "quantity": 12.0,
+          "unit_price": 86.4,
+          "tax_pct": 7.5,
+          "line_total": 1114.56
+        },
+        {
+          "item": "Hex Bolt M10 Pack",
+          "quantity": 25.0,
+          "unit_price": 4.85,
+          "tax_pct": 7.5,
+          "line_total": 130.34
+        },
+        {
+          "item": "Anodizing Service",
+          "quantity": 1.0,
+          "unit_price": 950.0,
+          "tax_pct": 7.5,
+          "line_total": 1021.25
+        }
+      ]
+    }
+  },
+  {
+    "filename": "eval_invoice_07_de_mwst_decimal_comma.pdf",
+    "locale": "DE",
+    "voice": "de_mwst_decimal_comma",
+    "difficulty": "medium",
+    "mime_type": "application/pdf",
+    "engine": "reportlab-invariant",
+    "sha256": "889c0d456e405005f10e01365e0a5a8e5569a731f2c26e71db8bf3685f232d12",
+    "bytes": 73927,
+    "expect_needs_review": false,
+    "arithmetic": {
+      "consistent": true,
+      "variance": 0.0,
+      "variance_field": null
+    },
+    "expected": {
+      "vendor_name": "M\u00fcnchner Maschinenbau GmbH",
+      "vendor_tax_id": "DE812345678",
+      "invoice_number": "RE-2026-0342",
+      "invoice_date": "2026-12-02",
+      "currency": "EUR",
+      "po_reference": "PO-DE-776",
+      "payment_terms": "Net 30",
+      "subtotal": 2469.12,
+      "tax": 469.13,
+      "grand_total": 2938.25,
+      "lines": [
+        {
+          "item": "Pr\u00e4zisions-L\u00e4ngsmessger\u00e4t",
+          "quantity": 2.0,
+          "unit_price": 1234.56,
+          "tax_pct": 19.0,
+          "line_total": 2938.25
+        }
+      ]
+    }
+  },
+  {
+    "filename": "eval_invoice_08_fr_tva_decimal_comma.pdf",
+    "locale": "FR",
+    "voice": "fr_tva_decimal_comma",
+    "difficulty": "medium",
+    "mime_type": "application/pdf",
+    "engine": "reportlab-invariant",
+    "sha256": "b68eae4e825efd97961a372eccd95358ab406a7fa476a90a1ac621e2e6d8e9fa",
+    "bytes": 73238,
+    "expect_needs_review": false,
+    "arithmetic": {
+      "consistent": true,
+      "variance": 0.0,
+      "variance_field": null
+    },
+    "expected": {
+      "vendor_name": "Paris M\u00e9trologie SARL",
+      "vendor_tax_id": "FR32456789012",
+      "invoice_number": "FACT-2026-118",
+      "invoice_date": "2026-11-18",
+      "currency": "EUR",
+      "po_reference": "PO-FR-224",
+      "payment_terms": "Net 30",
+      "subtotal": 2235.0,
+      "tax": 447.0,
+      "grand_total": 2682.0,
+      "lines": [
+        {
+          "item": "Station de mesure dimensionnelle",
+          "quantity": 3.0,
+          "unit_price": 745.0,
+          "tax_pct": 20.0,
+          "line_total": 2682.0
+        }
+      ]
+    }
+  },
+  {
+    "filename": "eval_invoice_09_uk_vat.pdf",
+    "locale": "UK",
+    "voice": "uk_vat",
+    "difficulty": "easy",
+    "mime_type": "application/pdf",
+    "engine": "reportlab-invariant",
+    "sha256": "3edd75b5940c39dae2ab973501e3007a7e1ff85042485c6d900433ab372ba843",
+    "bytes": 73072,
+    "expect_needs_review": false,
+    "arithmetic": {
+      "consistent": true,
+      "variance": 0.0,
+      "variance_field": null
+    },
+    "expected": {
+      "vendor_name": "Albion Engineering Ltd",
+      "vendor_tax_id": "GB123456789",
+      "invoice_number": "INV-UK-3098",
+      "invoice_date": "2026-12-07",
+      "currency": "GBP",
+      "po_reference": "PO-UK-551",
+      "payment_terms": "Net 30",
+      "subtotal": 617.0,
+      "tax": 123.4,
+      "grand_total": 740.4,
+      "lines": [
+        {
+          "item": "Hydraulic Pressure Gauge",
+          "quantity": 5.0,
+          "unit_price": 123.4,
+          "tax_pct": 20.0,
+          "line_total": 740.4
+        }
+      ]
+    }
+  },
+  {
+    "filename": "eval_invoice_10_noisy_wrapped_multiline.pdf",
+    "locale": "IN",
+    "voice": "noisy_wrapped_multiline",
+    "difficulty": "hard",
+    "mime_type": "application/pdf",
+    "engine": "reportlab-invariant",
+    "sha256": "15f7992bd9a49d6fe4592c94d1b4a9c8c526aebfb1b6d9b4f52c08182f394ba4",
+    "bytes": 74976,
+    "expect_needs_review": false,
+    "arithmetic": {
+      "consistent": true,
+      "variance": 0.0,
+      "variance_field": null
+    },
+    "expected": {
+      "vendor_name": "Kolkata Print & Packaging Co",
+      "vendor_tax_id": "19AAJCK4321P1ZQ",
+      "invoice_number": "INV-KP-2026-310",
+      "invoice_date": "2026-11-09",
+      "currency": "INR",
+      "po_reference": "PO-6655",
+      "payment_terms": "Net 30",
+      "subtotal": 273883.75,
+      "tax": 49299.08,
+      "grand_total": 323182.83,
+      "lines": [
+        {
+          "item": "Laminated Packaging Film Roll 500mm x 1000m Food Grade Moisture Barrier with Heat Seal Coating",
+          "quantity": 120.0,
+          "unit_price": 425.5,
+          "tax_pct": 18.0,
+          "line_total": 60250.8
+        },
+        {
+          "item": "Corrugated Box Blank 5-Ply 450x350x250mm Bundle of 50 Sheets Kraft Finish",
+          "quantity": 8.0,
+          "unit_price": 11480.0,
+          "tax_pct": 18.0,
+          "line_total": 108371.2
+        },
+        {
+          "item": "Flexible Pouch Printing Ink Set CMYK Low Migration Food Contact Certified",
+          "quantity": 35.0,
+          "unit_price": 1265.25,
+          "tax_pct": 18.0,
+          "line_total": 52254.83
+        },
+        {
+          "item": "Rotogravure Cylinder Engraving Service Per Design Set Multi Repeat",
+          "quantity": 3.0,
+          "unit_price": 28900.0,
+          "tax_pct": 18.0,
+          "line_total": 102306.0
+        }
+      ]
+    }
+  },
+  {
+    "filename": "eval_invoice_11_noisy_tax_exempt.pdf",
+    "locale": "UK",
+    "voice": "noisy_tax_exempt",
+    "difficulty": "hard",
+    "mime_type": "application/pdf",
+    "engine": "reportlab-invariant",
+    "sha256": "bd1cdcf269e77cf40dbde42f6bbd6096af9c4bd71f38290490d3f705a11ba0a5",
+    "bytes": 73588,
+    "expect_needs_review": false,
+    "arithmetic": {
+      "consistent": true,
+      "variance": 0.0,
+      "variance_field": null
+    },
+    "expected": {
+      "vendor_name": "Thames Medical Supplies Ltd",
+      "vendor_tax_id": "GB987654321",
+      "invoice_number": "INV-TMS-0442",
+      "invoice_date": "2026-11-14",
+      "currency": "GBP",
+      "po_reference": "PO-UK-773",
+      "payment_terms": "Net 30",
+      "subtotal": 5790.0,
+      "tax": 0.0,
+      "grand_total": 5790.0,
+      "lines": [
+        {
+          "item": "Sterile Surgical Gloves Size 8 Box of 100",
+          "quantity": 6.0,
+          "unit_price": 340.0,
+          "tax_pct": 0.0,
+          "line_total": 2040.0
+        },
+        {
+          "item": "Digital Thermometer Non-Contact Medical Grade",
+          "quantity": 3.0,
+          "unit_price": 1250.0,
+          "tax_pct": 0.0,
+          "line_total": 3750.0
+        }
+      ]
+    }
+  },
+  {
+    "filename": "eval_invoice_12_noisy_math_mismatch.pdf",
+    "locale": "US",
+    "voice": "noisy_math_mismatch",
+    "difficulty": "hard",
+    "mime_type": "application/pdf",
+    "engine": "reportlab-invariant",
+    "sha256": "0a25e502e9b6b358685dee6c32ba8b61292bde7083855058e3c3e8532e321921",
+    "bytes": 73268,
+    "expect_needs_review": true,
+    "arithmetic": {
+      "consistent": false,
+      "variance": 120.0,
+      "variance_field": "line_total"
+    },
+    "expected": {
+      "vendor_name": "Grandview Office Depot LLC",
+      "vendor_tax_id": "47-2233445",
+      "invoice_number": "INV-GV-2026-091",
+      "invoice_date": "2026-11-05",
+      "currency": "USD",
+      "po_reference": "PO-9902",
+      "payment_terms": "Net 30",
+      "subtotal": 2170.0,
+      "tax": 179.03,
+      "grand_total": 2349.03,
+      "lines": [
+        {
+          "item": "Copy Paper A4 80gsm Box",
+          "quantity": 10.0,
+          "unit_price": 45.0,
+          "tax_pct": 8.25,
+          "line_total": 487.13
+        },
+        {
+          "item": "Toner Cartridge Black",
+          "quantity": 6.0,
+          "unit_price": 120.0,
+          "tax_pct": 8.25,
+          "line_total": 899.4
+        },
+        {
+          "item": "Desk Organizer Set",
+          "quantity": 4.0,
+          "unit_price": 250.0,
+          "tax_pct": 8.25,
+          "line_total": 1082.5
+        }
+      ]
+    }
+  }
+]
