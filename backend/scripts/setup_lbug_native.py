@@ -135,7 +135,18 @@ def _safe_members(archive: Path, destination: Path) -> list:
             if not candidate.is_relative_to(destination_resolved):
                 raise ValueError(f"archive member escapes target: {name}")
             if member.issym() or member.islnk():
-                raise ValueError(f"archive member is a link: {name}")
+                # Versioned .so links (liblbug.so -> liblbug.so.0) are expected;
+                # only reject link targets that escape the destination.
+                link_base = (
+                    (destination / Path(name).parent)
+                    if member.issym()
+                    else destination
+                )
+                link_resolved = (link_base / member.linkname).resolve()
+                if member.linkname.startswith("/") or ".." in Path(member.linkname).parts:
+                    raise ValueError(f"unsafe link target in archive member: {name}")
+                if not link_resolved.is_relative_to(destination_resolved):
+                    raise ValueError(f"link target escapes target: {name} -> {member.linkname}")
             safe.append(member)
     return safe
 
@@ -192,11 +203,53 @@ def main() -> int:
             except OSError:  # pragma: no cover - best effort on platforms that allow it
                 pass
 
+    if platform.system().lower() == "windows":
+        _ensure_windows_openssl()
+
     print(f"Extracted native library into {TARGET_DIR}:")
     for entry in sorted(TARGET_DIR.iterdir()):
         print(f"  - {entry.name}")
     print("app.graph.client resolves this path automatically (LBUG_C_API_LIB_PATH).")
     return 0
+
+
+def _ensure_windows_openssl() -> None:
+    """Provision OpenSSL 3 DLLs next to lbug_shared.dll on Windows.
+
+    lbug_shared.dll imports libssl-3-x64.dll / libcrypto-3-x64.dll, which the
+    release archive does not ship. CPython's own installation ships the same
+    OpenSSL 3 binaries (without the -x64 suffix) in its DLLs directory — copy
+    and rename them so the loader resolves the dependencies locally.
+    """
+    needed = {"libssl-3-x64.dll": "libssl-3.dll", "libcrypto-3-x64.dll": "libcrypto-3.dll"}
+    missing = [name for name in needed if not (TARGET_DIR / name).is_file()]
+    if not missing:
+        return
+
+    candidates = [
+        Path(sys.base_prefix) / "DLLs",
+        Path(sys.base_prefix),
+    ]
+    for dll_dir in candidates:
+        if not dll_dir.is_dir():
+            continue
+        for target_name, source_name in needed.items():
+            target_path = TARGET_DIR / target_name
+            source_path = dll_dir / source_name
+            if not target_path.is_file() and source_path.is_file():
+                target_path.write_bytes(source_path.read_bytes())
+                print(f"provisioned {target_name} from {source_path}")
+        break
+
+    still_missing = [name for name in needed if not (TARGET_DIR / name).is_file()]
+    if still_missing:
+        print(
+            "WARNING: could not provision OpenSSL DLLs automatically "
+            f"({', '.join(still_missing)}). Install the Microsoft VC++ "
+            "redistributable / OpenSSL 3 x64 runtime and place them next to "
+            "lbug_shared.dll.",
+            file=sys.stderr,
+        )
 
 
 if __name__ == "__main__":
