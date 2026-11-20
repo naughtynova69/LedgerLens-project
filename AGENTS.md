@@ -18,10 +18,12 @@
 - **Frontend:** React 19 · Vite 6 · Tailwind CSS 3.4 · Lucide icons.
 - **Model Env Config (never hardcode keys or legacy models):**
   - `GEMINI_PRIMARY_MODEL=gemini-4-carbon` (multimodal extraction + CFO-ready explanation)
-  - `GEMINI_FLASH_MODEL=gemini-2.5-flash` (high-volume batch extraction routing)
+  - `GEMINI_FLASH_MODEL=gemini-3.8-vision-flash` (high-volume batch/vision extraction routing)
   - `GEMINI_API_KEY=` (stored in `backend/.env` locally or Google Secret Manager in Cloud Run; offline deterministic fallback/mock mode MUST work when unset).
 
-## 4. Multi-Agent Git Worktree & Subagent Rules
+## 4. Multi-Agent, Token Efficiency & Session Context Log Rules
+- **Session Context Log:** Read the latest 2 entries in [docs/CONTEXT_LOG.md](docs/CONTEXT_LOG.md) at session start, and append a concise summary entry before opening your PR so future sessions resume without re-reading the repo.
+- **Sustainable Token-Efficient Multi-Agent Split:** Use at most **3 concurrent** worker subagents (`flash` tier for routine doc/copy/test edits) in isolated scopes with strictly non-overlapping owned file paths; keep prompts concise and use targeted `rg` + line-range reads instead of full-file reads.
 - Maximum **3 concurrent** worker subagents, each in an isolated git worktree (`git worktree add ../ledgerlens-tN-<slug> -b <branch> origin/main`) with strictly non-overlapping owned file paths.
 - Worker subagents commit locally to their own branches and MUST NEVER push, open PRs, edit outside owned paths, or leave background dev servers (`uvicorn` / `vite`) running.
 - Central orchestrator reviews diffs, wires shared integration points (`backend/app/main.py`, `backend/app/services.py`), merges in dependency order (`T1` → `T2` → `T3`), removes temporary worktrees, and runs full `pytest` + live HTTP smoke verification.

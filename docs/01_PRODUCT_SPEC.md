@@ -1,14 +1,14 @@
 # 01 · Product Spec — LedgerLens
 
-> One-line pitch: **LedgerLens is a pre-payment neuro-symbolic AI "money-leak auditor" for enterprise Accounts Payable that stops duplicate payments, contract price drift, PO overbilling, FX/tax errors, and cancelled-service charges before disbursement—with line-level proof trails.**
+> One-line pitch: **LedgerLens is a pre-payment neuro-symbolic AI "money-leak auditor" for mid-market finance teams (\$20M–\$500M annual supplier spend) and CA/audit firms that gates every pay run to stop duplicate payments, contract price drift, PO overbilling, FX/tax errors, and cancelled-service charges before disbursement—with line-level proof trails.**
 
 ## 1. Vision & Problem Statement
 
-Enterprises silently lose ~2% of outbound spend ($5B across $240B audited) to Accounts Payable leakage—fuzzy duplicate invoices, contract price drift, PO overbilling, FX/tax errors, and cancelled-service charges—because manual 3-way matching cannot scale, exact-match ERPs miss 61% of duplicates, and black-box AI alerts lack the verifiable proof finance teams require before blocking payment.
+Mid-market finance teams (\$20M–\$500M annual supplier spend) and CA/audit firms face structural Accounts Payable leakage—fuzzy duplicate invoices, contract price drift, PO overbilling, FX/tax errors, and cancelled-service charges. Industry benchmarks show manual invoice processing costs ~\$10 and takes 10+ days per invoice (PRGX), and post-payment recovery audits recover only 0.1% of spend (PRGX), whereas pre-payment prevention delivers 0.2%–0.35% savings on outbound spend (Xelix / Duplo). Exact-match ERP checks miss tweaked invoice numbers, and black-box AI alerts lack the verifiable proof finance teams require before blocking payment.
 
 Core principle: **Gemini extracts and explains; deterministic Python rules decide; every finding carries a verifiable line-level proof trail.**
 
-LedgerLens sits beside ERP/AP systems as a **pre-payment audit gate** and continuously compares **contracts, purchase orders, invoices, payments, and vendor master data** to stop leakage before money leaves the bank—or raise recovery tasks with CFO-ready proof.
+LedgerLens operates as a **pre-payment audit gate before every pay run**, comparing **contracts, purchase orders, invoices, payments, and vendor master data** to stop leakage before money leaves the bank. To remove adoption friction, LedgerLens enters via a **48-hour Historical Leak Diagnostic**—a zero-ERP onboarding wedge on exported CSV/PDF batches that proves ROI on past spend before gating live pay runs.
 
 ## 2. Users (personas)
 
@@ -54,12 +54,12 @@ LedgerLens sits beside ERP/AP systems as a **pre-payment audit gate** and contin
 
 | Tier | Model |
 |------|-------|
-| Pilot | **Recovery-based**: take a percentage of confirmed recoveries |
+| Pilot / Wedge | **48-hour Historical Leak Diagnostic** (zero-ERP CSV/PDF export wedge) → converts to pre-payment pay-run gating |
 | SaaS | Per entity / per invoice volume / per seat |
 | Enterprise | ERP integrations, multi-currency, audit logs, custom policy rules, SOC 2 controls |
 | Expansion modules | Procurement compliance, vendor-risk monitoring, tax recovery, contract-renewal savings |
 
-Beachhead: mid-market companies with messy AP operations → then global enterprises with multiple ERPs and currencies.
+Beachhead: mid-market finance teams (\$20M–\$500M annual supplier spend) and CA/audit firms via the 48-hour Historical Leak Diagnostic → expanding into pre-payment pay-run gating across multi-ERP, multi-currency enterprises.
 
 ## 7. Metrics that matter (quote these to judges)
 

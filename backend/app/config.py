@@ -20,7 +20,7 @@ GEMINI_PRIMARY_MODEL: str = os.getenv(
     "GEMINI_PRIMARY_MODEL",
     os.getenv("GEMINI_MODEL", "gemini-4-carbon"),
 )
-GEMINI_FLASH_MODEL: str = os.getenv("GEMINI_FLASH_MODEL", "gemini-2.5-flash")
+GEMINI_FLASH_MODEL: str = os.getenv("GEMINI_FLASH_MODEL", "gemini-3.8-vision-flash")
 # Backward-compatible alias pointing to the primary configured model
 GEMINI_MODEL: str = GEMINI_PRIMARY_MODEL
 

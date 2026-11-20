@@ -1,7 +1,7 @@
 # 04 · Detection Rules — the explainable core
 
 This is the most important engineering document in the repo. Every rule here must be:
-**deterministic** (same input → same finding), **evidence-carrying** (cites record IDs + field values), and **confidence-scored** (by the rule, not by Gemini).
+**deterministic** (same input → same finding), **evidence-carrying** (cites record IDs + field values), and **confidence-scored** (by the rule, not by Gemini). Together they power LedgerLens's **pre-payment gate before every pay run**, as well as the **48-hour Historical Leak Diagnostic** zero-ERP onboarding wedge for mid-market finance teams (\$20M–\$500M annual supplier spend) and CA/audit firms.
 
 ## 0. Rule engine contract
 
@@ -29,7 +29,7 @@ def detect_duplicates(ctx: DetectionContext) -> list[Finding]: ...
 
 ## R1 — Duplicate & near-duplicate invoices
 
-- **Intent:** same invoice resubmitted with altered invoice numbers, dates, or vendor-name formatting. Research context: **61% of paid duplicates had non-identical invoice numbers**, so fuzzy matching is mandatory.
+- **Intent:** same invoice resubmitted with altered invoice numbers, dates, or vendor-name formatting. Exact-match ERP checks miss tweaked invoice numbers, so fuzzy matching in a **pre-payment gate before every pay run** is mandatory—capturing **0.2%–0.35% pre-payment savings** (Xelix / Duplo) vs. **0.1% post-payment recovery** (PRGX) while avoiding **~\$10 and 10+ days per invoice** of manual rework (PRGX).
 - **Logic (MVP):**
   ```
   group invoices by normalized vendor_id
