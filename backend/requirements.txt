@@ -12,3 +12,7 @@ ladybug==0.22.3
 # dev
 pytest>=8.0
 httpx>=0.27
+
+# eval-corpus generator + PDF text-layer verification (sample_data/eval_pdfs/)
+reportlab>=4.0
+pypdf>=4.0
