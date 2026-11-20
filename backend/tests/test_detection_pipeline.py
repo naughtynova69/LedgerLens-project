@@ -53,7 +53,9 @@ def test_decision_updates_status_and_writes_audit_log(conn):
     assert out["status"] == "rejected"
     assert conn.execute("SELECT status FROM findings WHERE finding_id = ?",
                         (finding_id,)).fetchone()["status"] == "rejected"
-    assert conn.execute("SELECT COUNT(*) AS n FROM audit_log").fetchone()["n"] == 1
+    assert conn.execute("SELECT COUNT(*) AS n FROM audit_log").fetchone()["n"] == 2
+    assert conn.execute("SELECT COUNT(*) AS n FROM audit_log WHERE action = 'reject'").fetchone()["n"] == 1
+    assert conn.execute("SELECT COUNT(*) AS n FROM audit_log WHERE action = 'detect'").fetchone()["n"] == 1
 
 
 def test_memo_contains_totals(conn):

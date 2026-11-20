@@ -6,6 +6,7 @@ so the full pipeline is unit-testable without installing FastAPI.
 from __future__ import annotations
 
 import csv
+from datetime import datetime, timezone
 import json
 from pathlib import Path
 import sqlite3
@@ -149,7 +150,7 @@ def run_extraction_for_batch(conn: sqlite3.Connection, batch_id: str) -> dict:
     }
 
 
-def run_detection(conn: sqlite3.Connection) -> dict:
+def run_detection(conn: sqlite3.Connection, batch_id: str | None = None) -> dict:
     """Load normalized tables, run every registered rule, persist findings.
 
     Returns {"findings_created": int, "finding_ids": [...]}.
@@ -163,38 +164,91 @@ def run_detection(conn: sqlite3.Connection) -> dict:
     )
     findings = run_all(ctx)
 
-    existing = conn.execute("SELECT COUNT(*) AS n FROM findings").fetchone()["n"]
+    existing_rows = conn.execute(
+        "SELECT finding_id, rule_id, entity_refs, status FROM findings"
+    ).fetchall()
+    existing_by_key: dict[tuple[str, str], dict] = {}
+    for er in existing_rows:
+        try:
+            canon_refs = json.dumps(json.loads(er["entity_refs"] or "{}"), sort_keys=True)
+        except Exception:
+            canon_refs = str(er["entity_refs"] or "{}")
+        existing_by_key[(er["rule_id"], canon_refs)] = dict(er)
+
+    next_num = len(existing_rows) + 1
     created: list[str] = []
-    for offset, finding in enumerate(findings):
-        finding_id = f"F-{existing + offset + 1:04d}"
+    for finding in findings:
+        canon_key = (finding.rule_id, json.dumps(finding.entity_refs, sort_keys=True))
+        matched = existing_by_key.get(canon_key)
+        if matched is not None:
+            finding_id = matched["finding_id"]
+            status = matched["status"]
+        else:
+            finding_id = f"F-{next_num:04d}"
+            next_num += 1
+            status = "open"
+
         f_dict = finding.as_dict()
         f_dict["finding_id"] = finding_id
         explanation = generate_explanation_for_finding(f_dict)
 
-        conn.execute(
-            """INSERT OR REPLACE INTO findings
-               (finding_id, rule_id, title, severity, amount_at_risk, currency,
-                status, entity_refs, evidence, confidence, summary, explanation,
-                recommended_action, proof_trail)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (
-                finding_id,
-                finding.rule_id,
-                finding.title,
-                finding.severity,
-                finding.amount_at_risk,
-                finding.currency,
-                "open",
-                json.dumps(finding.entity_refs),
-                json.dumps([e.as_dict() for e in finding.evidence]),
-                finding.confidence,
-                finding.summary,
-                json.dumps(explanation),
-                finding.recommended_action,
-                json.dumps(finding.proof_trail),
-            ),
-        )
+        if matched is not None:
+            conn.execute(
+                """UPDATE findings
+                   SET rule_id = ?, title = ?, severity = ?, amount_at_risk = ?,
+                       currency = ?, entity_refs = ?, evidence = ?, confidence = ?,
+                       summary = ?, explanation = ?, recommended_action = ?, proof_trail = ?
+                   WHERE finding_id = ?""",
+                (
+                    finding.rule_id,
+                    finding.title,
+                    finding.severity,
+                    finding.amount_at_risk,
+                    finding.currency,
+                    json.dumps(finding.entity_refs),
+                    json.dumps([e.as_dict() for e in finding.evidence]),
+                    finding.confidence,
+                    finding.summary,
+                    json.dumps(explanation),
+                    finding.recommended_action,
+                    json.dumps(finding.proof_trail),
+                    finding_id,
+                ),
+            )
+        else:
+            conn.execute(
+                """INSERT INTO findings
+                   (finding_id, rule_id, title, severity, amount_at_risk, currency,
+                    status, entity_refs, evidence, confidence, summary, explanation,
+                    recommended_action, proof_trail)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    finding_id,
+                    finding.rule_id,
+                    finding.title,
+                    finding.severity,
+                    finding.amount_at_risk,
+                    finding.currency,
+                    status,
+                    json.dumps(finding.entity_refs),
+                    json.dumps([e.as_dict() for e in finding.evidence]),
+                    finding.confidence,
+                    finding.summary,
+                    json.dumps(explanation),
+                    finding.recommended_action,
+                    json.dumps(finding.proof_trail),
+                ),
+            )
         created.append(finding_id)
+
+    conn.execute(
+        """INSERT INTO audit_log (actor, action, object_type, object_id, detail)
+           VALUES ('rules_engine', 'detect', 'batch', ?, ?)""",
+        (
+            batch_id or "global",
+            f"Evaluated R1-R5 across {len(ctx.invoices)} invoice line(s); emitted {len(created)} finding(s).",
+        ),
+    )
     conn.commit()
     return {"findings_created": len(created), "finding_ids": created}
 
@@ -422,7 +476,7 @@ def seed_sample_dataset(conn: sqlite3.Connection, sample_dir: Path) -> dict:
     )
     conn.commit()
 
-    detection_res = run_detection(conn)
+    detection_res = run_detection(conn, batch_id=batch_id)
     stats = get_stats(conn)
 
     return {
@@ -471,7 +525,7 @@ def build_memo(conn: sqlite3.Connection) -> str:
     for f in findings:
         lines.append(
             f"- **[{f['severity'].upper()}] {f['finding_id']}** · {f['title']} — "
-            f"**₹{f['amount_at_risk']:,.2f} {f['currency']}** (Status: `{f['status']}`)"
+            f"**{f['amount_at_risk']:,.2f} {f['currency']}** (Status: `{f['status']}`)"
         )
         if f.get("summary"):
             lines.append(f"  > *Evidence summary:* {f['summary']}")
@@ -484,3 +538,47 @@ def build_memo(conn: sqlite3.Connection) -> str:
         "3. Reconcile R2 price variances with procurement contracts team.",
     ]
     return "\n".join(lines)
+
+
+def build_memo_structured(conn: sqlite3.Connection) -> dict:
+    """Return both CFO Markdown memo and structured JSON summary."""
+    stats = get_stats(conn)
+    rows = [dict(r) for r in conn.execute(
+        "SELECT * FROM findings ORDER BY amount_at_risk DESC").fetchall()]
+
+    rule_breakdown: dict[str, dict] = {}
+    formatted_findings: list[dict] = []
+    for row in rows:
+        rid = row["rule_id"]
+        bucket = rule_breakdown.setdefault(rid, {"count": 0, "amount_at_risk": 0.0, "currencies": []})
+        bucket["count"] += 1
+        bucket["amount_at_risk"] = round(bucket["amount_at_risk"] + float(row["amount_at_risk"]), 2)
+        if row["currency"] not in bucket["currencies"]:
+            bucket["currencies"].append(row["currency"])
+
+        formatted_findings.append({
+            "finding_id": row["finding_id"],
+            "rule_id": rid,
+            "title": row["title"],
+            "severity": row["severity"],
+            "amount_at_risk": row["amount_at_risk"],
+            "currency": row["currency"],
+            "status": row["status"],
+            "recommended_action": row.get("recommended_action") or "HOLD_PAYMENT",
+            "evidence": json.loads(row.get("evidence") or "[]"),
+            "entity_refs": json.loads(row.get("entity_refs") or "{}"),
+        })
+
+    return {
+        "memo_markdown": build_memo(conn),
+        "summary": {
+            "total_spend_audited": stats["total_audited_spend"],
+            "total_money_at_risk": stats["total_at_risk"],
+            "open_at_risk": stats["open_at_risk"],
+            "recovered_amount": stats["recovered_amount"],
+            "total_findings": stats["total_findings"],
+        },
+        "by_rule": rule_breakdown,
+        "findings": formatted_findings,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }

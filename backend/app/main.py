@@ -11,8 +11,10 @@ Endpoints:
   [done] GET  /api/findings                 — exception queue with filters
   [done] GET  /api/findings/{id}            — finding + joined evidence source records
   [done] POST /api/findings/{id}/decision   — approve/reject/request_docs/recovery
-  [done] GET  /api/memo                     — deterministic audit memo
+  [done] GET  /api/memo                     — deterministic audit memo (Markdown + JSON)
   [done] GET  /api/audit-log                — immutable decision history
+  [done] GET  /api/skills                   — Google Agent Skills declarations
+  [done] POST /api/skills/{tool_name}       — execute Agent Skill function call
 """
 from __future__ import annotations
 
@@ -20,8 +22,9 @@ import json
 from contextlib import asynccontextmanager
 from pathlib import Path
 import sqlite3
+from typing import Any
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Body, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import config
@@ -29,7 +32,7 @@ from .db import get_connection, init_schema
 from .ingest.router import VALID_KINDS, save_stream_to_upload, validate_csv
 from .models import DecisionIn
 from .services import (
-    build_memo,
+    build_memo_structured,
     get_finding_with_sources,
     get_stats,
     ingest_csv_file_to_table,
@@ -38,6 +41,7 @@ from .services import (
     run_extraction_for_batch,
     seed_sample_dataset,
 )
+from .skills import GEMINI_TOOL_DECLARATIONS, execute_skill
 
 
 def _get_ready_conn() -> sqlite3.Connection:
@@ -196,7 +200,7 @@ def run_extract(batch_id: str) -> dict:
 def run_detect(batch_id: str) -> dict:
     conn = _get_ready_conn()
     try:
-        result = run_detection(conn)
+        result = run_detection(conn, batch_id=batch_id)
         conn.execute("UPDATE batches SET state = 'detected' WHERE batch_id = ?", (batch_id,))
         conn.commit()
         result["batch_id"] = batch_id
@@ -277,7 +281,7 @@ def decide(finding_id: str, body: DecisionIn) -> dict:
 def memo() -> dict:
     conn = _get_ready_conn()
     try:
-        return {"memo_markdown": build_memo(conn)}
+        return build_memo_structured(conn)
     finally:
         conn.close()
 
@@ -288,5 +292,25 @@ def audit_log() -> list[dict]:
     try:
         rows = conn.execute("SELECT * FROM audit_log ORDER BY id DESC LIMIT 100").fetchall()
         return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+@app.get("/api/skills")
+def list_skills() -> dict:
+    """List Google Agent Skills / Gemini function-calling declarations."""
+    return {"tools": GEMINI_TOOL_DECLARATIONS}
+
+
+@app.post("/api/skills/{tool_name}")
+def invoke_skill(tool_name: str, payload: dict[str, Any] = Body(default_factory=dict)) -> dict:
+    """Invoke a Google Agent Skill tool deterministically against the audit DB."""
+    conn = _get_ready_conn()
+    try:
+        return execute_skill(conn, tool_name, payload)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     finally:
         conn.close()

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import pytest
 
+from app import config
 from app.main import (
     audit_log,
     decide,
@@ -18,7 +19,10 @@ from app.main import (
 from app.models import DecisionIn
 
 
-def test_api_workflow_end_to_end():
+def test_api_workflow_end_to_end(monkeypatch, tmp_path):
+    monkeypatch.setattr(config, "DB_PATH", str(tmp_path / "api_e2e.db"))
+    monkeypatch.setattr(config, "UPLOAD_DIR", str(tmp_path / "uploads"))
+
     # 1. Health check
     h = health()
     assert h["status"] == "ok"
@@ -30,9 +34,9 @@ def test_api_workflow_end_to_end():
 
     # 3. Stats endpoint
     st = stats()
-    assert st["total_findings"] >= 6
-    assert st["by_severity"]["critical"] >= 2
-    assert st["by_severity"]["high"] >= 4
+    assert st["total_findings"] == 6
+    assert st["by_severity"]["critical"] == 2
+    assert st["by_severity"]["high"] == 4
 
     # 4. Batches endpoint
     batches = list_batches()
@@ -41,8 +45,9 @@ def test_api_workflow_end_to_end():
 
     # 5. List findings
     findings = list_findings()
-    assert len(findings) >= 6
+    assert len(findings) == 6
     first_id = findings[0]["finding_id"]
+    assert "proof_trail" in findings[0]
 
     # 6. Get finding detail with joined source records
     detail = get_finding(first_id)
@@ -62,7 +67,8 @@ def test_api_workflow_end_to_end():
     assert len(logs) >= 1
     assert any(log["actor"] == "chief_auditor" and log["object_id"] == first_id for log in logs)
 
-    # 9. Verify audit memo
+    # 9. Verify audit memo (Markdown + JSON)
     m = memo()
     assert "# LedgerLens Audit Memo" in m["memo_markdown"]
     assert "40,531.60" in m["memo_markdown"]
+    assert m["summary"]["total_findings"] == 6
