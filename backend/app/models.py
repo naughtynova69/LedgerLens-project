@@ -34,3 +34,5 @@ class FindingOut(BaseModel):
     evidence: list[EvidenceOut] = []
     summary: str = ""
     explanation: dict | None = None
+    recommended_action: str = ""
+    proof_trail: dict = {}

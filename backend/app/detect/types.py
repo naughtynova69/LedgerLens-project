@@ -3,6 +3,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+VALID_RECOMMENDED_ACTIONS = (
+    "HOLD_PAYMENT",
+    "REQUEST_CREDIT_NOTE",
+    "DISPUTE_VENDOR",
+    "CANCEL_AUTOPAY",
+)
+
 
 @dataclass
 class EvidenceRef:
@@ -14,8 +21,12 @@ class EvidenceRef:
     value: str = ""      # stringified value, e.g. "4956.00 INR"
 
     def as_dict(self) -> dict:
-        return {"source": self.source, "record_id": self.record_id,
-                "field": self.field, "value": self.value}
+        return {
+            "source": self.source,
+            "record_id": self.record_id,
+            "field": self.field,
+            "value": self.value,
+        }
 
 
 @dataclass
@@ -34,6 +45,24 @@ class Finding:
     evidence: list[EvidenceRef] = field(default_factory=list)
     summary: str = ""                  # deterministic one-liner; feeds the explain stage
     confidence: float = 0.0            # 0..1, from the RULE — never from the LLM
+    recommended_action: str = "HOLD_PAYMENT"
+    proof_trail: dict = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if self.recommended_action not in VALID_RECOMMENDED_ACTIONS:
+            self.recommended_action = "HOLD_PAYMENT"
+        math_payload = dict(self.proof_trail.get("math", {})) if isinstance(self.proof_trail, dict) else {}
+        self.proof_trail = {
+            "rule_id": self.rule_id,
+            "severity": self.severity,
+            "amount_at_risk": self.amount_at_risk,
+            "currency": self.currency,
+            "confidence": self.confidence,
+            "entity_refs": dict(self.entity_refs),
+            "evidence": [e.as_dict() for e in self.evidence],
+            "math": math_payload,
+            "recommended_action": self.recommended_action,
+        }
 
     def as_dict(self) -> dict:
         return {
@@ -46,4 +75,6 @@ class Finding:
             "evidence": [e.as_dict() for e in self.evidence],
             "summary": self.summary,
             "confidence": self.confidence,
+            "recommended_action": self.recommended_action,
+            "proof_trail": self.proof_trail,
         }

@@ -87,9 +87,11 @@ CREATE TABLE IF NOT EXISTS findings (
     entity_refs    TEXT NOT NULL DEFAULT '{}',
     evidence       TEXT NOT NULL DEFAULT '[]',
     confidence     REAL NOT NULL DEFAULT 0,
-    summary        TEXT DEFAULT '',
-    explanation    TEXT,
-    created_at     TEXT DEFAULT (datetime('now'))
+    summary            TEXT DEFAULT '',
+    explanation        TEXT,
+    recommended_action TEXT NOT NULL DEFAULT '',
+    proof_trail        TEXT NOT NULL DEFAULT '{}',
+    created_at         TEXT DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS decisions (

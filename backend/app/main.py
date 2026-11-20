@@ -239,6 +239,7 @@ def list_findings(status: str | None = None, severity: str | None = None,
     for row in rows:
         row["entity_refs"] = json.loads(row.get("entity_refs") or "{}")
         row["evidence"] = json.loads(row.get("evidence") or "[]")
+        row["proof_trail"] = json.loads(row.get("proof_trail") or "{}")
         if row.get("explanation"):
             try:
                 row["explanation"] = json.loads(row["explanation"])

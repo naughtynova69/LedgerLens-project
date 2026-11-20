@@ -174,8 +174,9 @@ def run_detection(conn: sqlite3.Connection) -> dict:
         conn.execute(
             """INSERT OR REPLACE INTO findings
                (finding_id, rule_id, title, severity, amount_at_risk, currency,
-                status, entity_refs, evidence, confidence, summary, explanation)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                status, entity_refs, evidence, confidence, summary, explanation,
+                recommended_action, proof_trail)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 finding_id,
                 finding.rule_id,
@@ -189,6 +190,8 @@ def run_detection(conn: sqlite3.Connection) -> dict:
                 finding.confidence,
                 finding.summary,
                 json.dumps(explanation),
+                finding.recommended_action,
+                json.dumps(finding.proof_trail),
             ),
         )
         created.append(finding_id)
@@ -238,6 +241,7 @@ def get_finding_with_sources(conn: sqlite3.Connection, finding_id: str) -> dict 
     finding = dict(row)
     finding["entity_refs"] = json.loads(finding.get("entity_refs") or "{}")
     finding["evidence"] = json.loads(finding.get("evidence") or "[]")
+    finding["proof_trail"] = json.loads(finding.get("proof_trail") or "{}")
     if finding.get("explanation"):
         try:
             finding["explanation"] = json.loads(finding["explanation"])
