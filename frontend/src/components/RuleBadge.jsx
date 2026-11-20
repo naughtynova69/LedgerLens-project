@@ -36,6 +36,21 @@ const RULE_METADATA = {
     short: "R7 GRN",
     tone: "bg-sky-50/80 text-sky-700 border-sky-200/80",
   },
+  R8: {
+    label: "Cross-Entity Duplicate / Split-Invoice (Graph)",
+    short: "R8 Graph-Dup",
+    tone: "bg-red-50/80 text-red-700 border-red-200/80",
+  },
+  R9: {
+    label: "Approver-Vendor Collusion (Graph)",
+    short: "R9 Collusion",
+    tone: "bg-purple-50/80 text-purple-700 border-purple-200/80",
+  },
+  R10: {
+    label: "Contract Lineage & Unapplied Credits (Graph)",
+    short: "R10 Lineage",
+    tone: "bg-amber-50/80 text-amber-800 border-amber-200/80",
+  },
 };
 
 export function RuleBadge({ ruleId, full = false, className = "" }) {

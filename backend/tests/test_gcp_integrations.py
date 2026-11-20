@@ -49,6 +49,8 @@ _EXPECTED_POSTGRES_TABLES = {
     "decisions",
     "audit_log",
     "policy_settings",
+    "approvers",
+    "credit_notes",
 }
 
 
@@ -168,7 +170,7 @@ def test_bigquery_sync_after_sample_seed_offline(client: TestClient) -> None:
     assert data["mode"] == "local_simulation"
     assert data["synced"] is False
     assert data["dataset"] == "ledgerlens_analytics"
-    assert data["tables"]["audited_invoices"] == 11
+    assert data["tables"]["audited_invoices"] == 16
     assert data["tables"]["audit_findings"] == 6
     assert data["tables"]["audit_log_events"] >= 2
     assert data["total_rows_prepared"] == (
@@ -346,7 +348,7 @@ def test_check_alloydb_connection_offline_sqlite_fallback(
     assert explicit_sqlite["connected"] is False
 
 
-def test_schema_postgres_defines_all_ten_tables() -> None:
+def test_schema_postgres_defines_all_tables() -> None:
     schema_path = Path(__file__).resolve().parent.parent / "schema_postgres.sql"
     assert schema_path.is_file()
     sql_text = schema_path.read_text(encoding="utf-8")
@@ -356,7 +358,7 @@ def test_schema_postgres_defines_all_ten_tables() -> None:
         sql_text,
         flags=re.IGNORECASE,
     )
-    assert len(tables) == 10
+    assert len(tables) == 12
     assert set(tables) == _EXPECTED_POSTGRES_TABLES
 
 

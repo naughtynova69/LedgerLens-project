@@ -80,11 +80,11 @@ def test_csv_extraction_precision_and_tamper_detection(tmp_path):
 
     with invoices_csv.open("r", encoding="utf-8") as f:
         expected_rows = list(csv.DictReader(f))
-    assert len(expected_rows) == 11
+    assert len(expected_rows) == 16
 
     result = extract_document(invoices_csv, kind="invoices")
     assert result["mode"] == "csv_deterministic"
-    assert len(result["records"]) == 11
+    assert len(result["records"]) == 16
 
     extracted_numbers = [r["invoice_number"] for r in result["records"]]
     expected_numbers = [r["invoice_number"] for r in expected_rows]
@@ -299,3 +299,203 @@ def test_live_gemini_extraction_us_format_eval():
     assert payload.lines[0].tax_pct == pytest.approx(8.25)  # US sales tax
     assert payload.lines[0].line_total == pytest.approx(4009.23)
     assert extracted.get("verification_warnings") == []
+
+
+# ---- Golden Noisy-PDF Benchmark (sample_data/eval_pdfs/) ----
+# Append-only section: new imports for this benchmark live here (existing imports above are untouched).
+import hashlib
+import importlib.util
+import sys
+
+EVAL_PDF_DIR = REPO_ROOT / "sample_data" / "eval_pdfs"
+EXPECTED_VOICES = frozenset({
+    "clean_digital",
+    "indian_comma_grouping",
+    "split_gst_cgst_sgst",
+    "tds_withheld",
+    "revision_suffix",
+    "us_format",
+    "ocr_spacing",
+    "multiline_items",
+    "eur_decimal_comma",
+    "rounding_drift",
+    "tax_exemption",
+    "cross_total_variance",
+})
+
+
+def _load_golden_corpus() -> tuple[dict, list[dict]]:
+    """Load MANIFEST.json + entries for the golden corpus, skipping while it is not generated yet."""
+    manifest_path = EVAL_PDF_DIR / "MANIFEST.json"
+    if not manifest_path.exists():
+        pytest.skip("golden corpus not generated yet")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    entries = manifest.get("entries") or []
+    missing_pdfs = []
+    for entry in entries:
+        name = entry.get("file")
+        if not name or not (EVAL_PDF_DIR / name).exists():
+            missing_pdfs.append(name)
+    if not entries or missing_pdfs:
+        pytest.skip("golden corpus not generated yet")
+    return manifest, entries
+
+
+def _recompute_line_math(line: dict) -> tuple[float, float, float]:
+    """Recompute (pre_tax, line_tax, gross) from a ground-truth line's quantity/unit_price/tax_pct."""
+    pre_tax = line["quantity"] * line["unit_price"]
+    line_tax = pre_tax * (line.get("tax_pct") or 0.0) / 100.0
+    return pre_tax, line_tax, pre_tax + line_tax
+
+
+def test_eval_pdf_corpus_manifest_integrity():
+    """Golden corpus manifest is structurally sound and every PDF matches its recorded sha256/size."""
+    manifest, entries = _load_golden_corpus()
+
+    assert manifest["schema_version"] == "1.0"
+    assert manifest["count"] == 12
+    assert len(entries) == 12
+
+    filenames = [entry["file"] for entry in entries]
+    voices = [entry["voice"] for entry in entries]
+    assert len(set(filenames)) == len(filenames), "duplicate filenames in manifest"
+    assert len(set(voices)) == len(voices), "duplicate voices in manifest"
+    assert set(voices) == EXPECTED_VOICES
+
+    for entry in entries:
+        pdf_path = EVAL_PDF_DIR / entry["file"]
+        assert pdf_path.exists()
+        raw = pdf_path.read_bytes()
+        assert hashlib.sha256(raw).hexdigest() == entry["sha256"], entry["file"]
+        assert len(raw) == entry["bytes"], entry["file"]
+        assert raw.startswith(b"%PDF-1.4"), entry["file"]
+
+
+def test_eval_pdf_ground_truth_conforms_to_extraction_schema():
+    """Every ground-truth payload validates against ExtractedInvoicePayload with all signal fields present."""
+    _, entries = _load_golden_corpus()
+    for entry in entries:
+        payload = ExtractedInvoicePayload.model_validate(entry["ground_truth"])
+
+        assert payload.invoice.number is not None, entry["file"]
+        assert payload.invoice.date is not None, entry["file"]
+        assert re.match(r"^\d{4}-\d{2}-\d{2}$", payload.invoice.date), entry["file"]
+        assert payload.invoice.currency is not None, entry["file"]
+        assert payload.totals.grand_total is not None, entry["file"]
+
+        assert payload.lines, f"{entry['file']}: ground truth has no line items"
+        for line in payload.lines:
+            assert line.item is not None
+            assert line.quantity is not None
+            assert line.unit_price is not None
+            assert line.line_total is not None
+
+
+def test_eval_pdf_ground_truth_arithmetic_invariants():
+    """Consistent ground truths balance exactly; drifted ones deviate by exactly the declared variance."""
+    _, entries = _load_golden_corpus()
+    for entry in entries:
+        ground_truth = entry["ground_truth"]
+        lines = ground_truth["lines"]
+        totals = ground_truth["totals"]
+        arithmetic = entry["arithmetic"]
+
+        recomputed = [_recompute_line_math(line) for line in lines]
+        pre_tax_sum = sum(r[0] for r in recomputed)
+        tax_sum = sum(r[1] for r in recomputed)
+        gross_sum = sum(r[2] for r in recomputed)
+
+        if arithmetic["consistent"]:
+            for line, (_, _, gross) in zip(lines, recomputed):
+                assert line["line_total"] == pytest.approx(gross, abs=0.01), entry["file"]
+            assert totals["subtotal"] == pytest.approx(pre_tax_sum, abs=0.01), entry["file"]
+            assert totals["tax"] == pytest.approx(tax_sum, abs=0.01), entry["file"]
+            assert totals["grand_total"] == pytest.approx(
+                totals["subtotal"] + totals["tax"], abs=0.01
+            ), entry["file"]
+            continue
+
+        variance_field = arithmetic["variance_field"]
+        variance = arithmetic["variance"]
+        if variance_field == "line_total":
+            declared = sum(line["line_total"] for line in lines)
+            assert abs(declared - gross_sum) == pytest.approx(variance, abs=0.01), entry["file"]
+            # Undeviated fields still balance within a cent.
+            assert totals["subtotal"] == pytest.approx(pre_tax_sum, abs=0.01), entry["file"]
+            assert totals["tax"] == pytest.approx(tax_sum, abs=0.01), entry["file"]
+            assert totals["grand_total"] == pytest.approx(
+                totals["subtotal"] + totals["tax"], abs=0.01
+            ), entry["file"]
+        elif variance_field == "grand_total":
+            recomputed_grand = totals["subtotal"] + totals["tax"]
+            assert abs(totals["grand_total"] - recomputed_grand) == pytest.approx(
+                variance, abs=0.01
+            ), entry["file"]
+            # Undeviated fields (per-line totals, subtotal, tax) still balance within a cent.
+            for line, (_, _, gross) in zip(lines, recomputed):
+                assert line["line_total"] == pytest.approx(gross, abs=0.01), entry["file"]
+            assert totals["subtotal"] == pytest.approx(pre_tax_sum, abs=0.01), entry["file"]
+            assert totals["tax"] == pytest.approx(tax_sum, abs=0.01), entry["file"]
+        else:
+            pytest.fail(f"{entry['file']}: unknown arithmetic variance_field {variance_field!r}")
+
+
+def test_eval_pdf_text_layer_contains_ground_truth_signals():
+    """Decoded PDF bytes carry the vendor name for all voices and the invoice-number signal per voice."""
+    _, entries = _load_golden_corpus()
+    for entry in entries:
+        ground_truth = entry["ground_truth"]
+        voice = entry["voice"]
+        raw = (EVAL_PDF_DIR / entry["file"]).read_bytes()
+        text = raw.decode("latin-1")
+
+        vendor_name = ground_truth["vendor"]["name"]
+        assert vendor_name in text, f"{entry['file']}: vendor name {vendor_name!r} missing from PDF text"
+
+        number = ground_truth["invoice"]["number"]
+        if voice == "ocr_spacing":
+            # OCR voice prints the number with a single space between every glyph: "INV-EVAL-007" -> "I N V - E V A L - 0 0 7".
+            spaced = " ".join(number)
+            assert spaced in text, f"{entry['file']}: spaced invoice number {spaced!r} missing from PDF text"
+            collapsed = re.sub(r"\s+", "", text)
+            assert number in collapsed, f"{entry['file']}: invoice number {number!r} missing after whitespace collapse"
+        else:
+            assert number in text, f"{entry['file']}: invoice number {number!r} missing from PDF text"
+
+
+def test_eval_pdf_corpus_regenerates_deterministically():
+    """In-memory regeneration reproduces the exact committed PDF bytes and ground truth (offline, no subprocess)."""
+    manifest, entries = _load_golden_corpus()
+
+    generator_path = EVAL_PDF_DIR / "generate_eval_pdfs.py"
+    if not generator_path.exists():
+        pytest.skip("generator module not importable yet")
+
+    spec = importlib.util.spec_from_file_location("_eval_pdf_generator_under_test", generator_path)
+    if spec is None or spec.loader is None:
+        pytest.skip("generator module not importable yet")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    try:
+        spec.loader.exec_module(module)
+    except Exception:
+        pytest.skip("generator module not importable yet")
+
+    build_corpus = getattr(module, "build_corpus", None)
+    build_manifest_entries = getattr(module, "build_manifest_entries", None)
+    if not callable(build_corpus) or not callable(build_manifest_entries):
+        pytest.skip("generator module not importable yet")
+
+    regenerated = build_corpus()
+    expected_files = {entry["file"] for entry in entries}
+    assert set(regenerated.keys()) == expected_files
+
+    for entry in entries:
+        pdf_bytes = regenerated[entry["file"]]
+        assert hashlib.sha256(pdf_bytes).hexdigest() == entry["sha256"], entry["file"]
+
+    regenerated_entries = build_manifest_entries(regenerated)
+    regenerated_by_file = {entry["file"]: entry for entry in regenerated_entries}
+    assert set(regenerated_by_file.keys()) == expected_files
+    for entry in entries:
+        assert regenerated_by_file[entry["file"]]["ground_truth"] == entry["ground_truth"], entry["file"]

@@ -129,3 +129,53 @@ def detect_duplicates(ctx: DetectionContext) -> list[Finding]: ...
 ```
 
 **Golden rule:** the rule engine computes *all* numbers above. Gemini only translates `summary + evidence` into finance language — it cannot add, remove, or re-estimate amounts.
+
+---
+
+## Graph rules R8–R10 — deterministic Cypher over the embedded knowledge graph
+
+> Renumbered: `R6` (Split-PO) and `R7` (GRN mismatch) are the pure-tabular detectors added on `main`; the graph rules run as `R8`–`R10`.
+
+R8–R10 run on **LadybugDB** (`backend/app/graph/`, embedded in-process `.lbdb` file, `:memory:` under pytest). The Cypher layer (`app/graph/queries.py`) matches the multi-hop **structural** pattern; the rules (`app/detect/rules/graph_*.py`) re-verify every amount and date window in pure Python and attach a serialized `proof_subgraph` (`{nodes, edges, cypher_rule, summary}`) inside `proof_trail`. Confidence values are rule constants. The LLM is never the judge — Cypher finds, Python measures, Gemini narrates.
+
+### R8 — Cross-entity duplicate & threshold-splitting detection
+
+- **File:** `backend/app/detect/rules/graph_cross_entity_duplicate.py` (`@register("R8")`)
+- **What tabular R1 misses:** two **different** `vendor_id`s (sister entities, shell aliases) billing the same or split amount into the same **BankAccount** or **TaxIdentifier** node within a 30-day window — R1 groups strictly by vendor.
+- **Deterministic Cypher pattern:**
+  ```
+  MATCH (i1:Invoice)-[:ISSUED_BY]->(v1:Vendor)-[:USES_BANK]->(b:BankAccount)
+        <-[:USES_BANK]-(v2:Vendor)<-[:ISSUED_BY]-(i2:Invoice)
+  WHERE v1.vendor_id < v2.vendor_id
+    AND amount-drift(i1, i2) <= 0.005
+  ```
+  Equivalent pattern via `HAS_TAX_ID`. Splitting variant: two approved invoices across vendors sharing bank/tax within 7 days, each at 80–99.9% of the approver's `approval_limit`, combined sum above the limit.
+- **Python re-verification:** date gap ≤ 30 days (≤ 7 for splits), drift ≤ 0.5%, positive totals.
+- **Evidence:** exact invoice pair, both vendor ids, shared account/tax ref, date delta, amount at risk (`min(total_a, total_b)` for duplicates; `combined - approval_limit` for splits).
+- **Sample anomaly:** `INV-9701` (V007) vs `INV-9702` (V008), shared HDFC account, 3-day gap → **₹12,000.00**.
+
+### R9 — Approver–vendor collusion & conflict of interest
+
+- **File:** `backend/app/detect/rules/graph_collusion.py` (`@register("R9")`)
+- **What tabular rules miss:** an employee approving invoices for a vendor linked to them via **shared personal infrastructure** — no tabular key joins approver identity to vendor infrastructure.
+- **Deterministic Cypher patterns (three vectors):** shared `BankAccount` (`USES_BANK` / `APPROVER_USES_BANK`), shared `Address` (`LOCATED_AT` / `APPROVER_LOCATED_AT`), matching non-empty normalized phone.
+- **Severity:** `critical`; **action:** `HOLD_PAYMENT_AND_ESCALATE_INTERNAL_AUDIT`; amount at risk = invoice grand total.
+- **Sample anomaly:** approver `A-001` shares the "12 MG Road, Bengaluru" address node with vendor `V009` and approved `INV-9801` → **₹8,500.00**.
+
+### R10 — Contract amendment lineage & unapplied credit notes
+
+- **File:** `backend/app/detect/rules/graph_lineage_credits.py` (`@register("R8")`)
+- **What tabular R2 misses:** R2 compares only against contracts whose status is `active` in the ERP master data. A **signed amendment that has not been flipped to active** (ERP master-data lag) is invisible to R2 — exactly where the graph lineage catches leakage.
+- **Deterministic Cypher patterns:**
+  ```
+  MATCH (c_new:Contract)-[:AMENDS*1..5]->(c_old:Contract)<-[:GOVERNED_BY]-(i:Invoice)-[:HAS_LINE]->(l:InvoiceLine)
+  WHERE c_new.unit_rate < c_old.unit_rate
+  ```
+  Plus `OPEN` credit notes (`ISSUED_CREDIT`) on vendors with invoices dated after the credit-note issue date.
+- **Python re-verification:** billed line rate matches the superseded rate (≤0.5% tolerance), invoice date ≥ amendment effective date.
+- **Evidence / amount:** `(superseded_rate − amended_rate) × quantity`; credit-note amount for the credits pattern.
+- **Sample anomalies:** `INV-9601` billed at the superseded ₹5,000.00 rate while amendment `C-007` set ₹4,500.00 → **₹1,000.00**; open `CN-9001` (₹944.00) while `V006` keeps billing.
+
+### Activation
+
+Graph rules run only when the graph layer is enabled (`LEDGERLENS_GRAPH_ENABLED=true` in `backend/.env`, or an explicit graph client), so every pre-existing dataset, endpoint contract, and pytest suite keeps its exact R1–R5 behavior. With the layer on, the seeded demo dataset yields **10 findings** (6 tabular + 4 graph) totaling ₹62,975.60.

@@ -68,6 +68,68 @@ if vendor.status in ('cancelled', 'terminated', 'inactive') or po.status in ('ca
       severity: "Critical if paid; High if unpaid",
       sampleAnomaly: "INV-9250 · CloudSuite ₹29,500.00 billed 2026-10-08 after C-005 cancelled 2026-09-30",
     },
+    {
+      id: "R6",
+      name: "Split-PO / Approval-Limit Bypass",
+      intent: "Catches the same PO billed across consecutive invoices whose combined quantity/value bypasses per-invoice duplicate and approval-limit checks.",
+      logic: `group invoice lines by (po_id, normalized_item), order by invoice_date
+if combined_billed_qty > po.quantity across 2+ invoices:
+  emit Finding (amount_at_risk = excess portion of the later invoices)`,
+      severity: "High",
+      sampleAnomaly: "Split-PO detector over the seeded PO lines (tabular, no graph required)",
+    },
+    {
+      id: "R7",
+      name: "3-Way GRN Mismatch",
+      intent: "Detects invoices billing more quantity than was received/accepted on the matching goods-receipt note.",
+      logic: `join invoice line -> GRN line on (po_id, normalized_item)
+if invoice.quantity > grn.received_qty:
+  emit Finding (amount_at_risk = (qty - received_qty) * unit_price)`,
+      severity: "High",
+      sampleAnomaly: "GRN-mismatch detector over the seeded receipt records (tabular, no graph required)",
+    },
+    {
+      id: "R8",
+      name: "Cross-Entity Duplicate & Threshold-Splitting (Graph)",
+      intent: "Catches what tabular R1 cannot: two DIFFERENT vendor entities (sister firms, shell aliases) converging on the same bank account or tax identifier while billing near-identical invoices, plus approval-threshold splitting.",
+      logic: `Cypher (LadybugDB, deterministic):
+MATCH (i1:Invoice)-[:ISSUED_BY]->(v1:Vendor)-[:USES_BANK]->(b:BankAccount)
+      <-[:USES_BANK]-(v2:Vendor)<-[:ISSUED_BY]-(i2:Invoice)
+WHERE v1.vendor_id < v2.vendor_id
+  AND amount_drift(i1, i2) <= 0.005
+Python re-verification (pure stdlib):
+  date_gap <= 30 days; amount_at_risk = min(grand_total_a, grand_total_b)
+Splitting: approved invoices across vendors sharing bank/tax within 7 days,
+each at 80-99.9% of the approver limit, combined sum > limit`,
+      severity: "Critical if both paid; High otherwise",
+      sampleAnomaly: "INV-9701 (V007) vs INV-9702 (V008) · shared HDFC ••••8841 · ₹12,000.00 at risk",
+    },
+    {
+      id: "R9",
+      name: "Approver-Vendor Collusion & Conflict of Interest (Graph)",
+      intent: "Flags internal procurement fraud: an employee approves invoices for a vendor linked to them via shared personal infrastructure — bank account, registered address, or normalized phone.",
+      logic: `Cypher (LadybugDB, deterministic):
+MATCH (a:Approver)-[:APPROVED_INVOICE]->(i:Invoice)-[:ISSUED_BY]->
+      (v:Vendor)-[:LOCATED_AT]->(addr:Address)<-[:APPROVER_LOCATED_AT]-(a)
+-- plus shared-bank and shared-normalized-phone variants
+emit Finding (severity: critical,
+  action: HOLD_PAYMENT_AND_ESCALATE_INTERNAL_AUDIT)`,
+      severity: "Critical",
+      sampleAnomaly: "A-001 (Ravi Menon) approves INV-9801 (V009) · shared 12 MG Road address · ₹8,500.00",
+    },
+    {
+      id: "R10",
+      name: "Contract Lineage & Unapplied Credit Notes (Graph)",
+      intent: "Traverses AMENDS contract lineage to catch invoices billed at a superseded rate after a signed amendment lowered it (ERP master-data lag), plus OPEN supplier credit notes while the vendor keeps billing.",
+      logic: `Cypher (LadybugDB, deterministic):
+MATCH (c_new:Contract)-[:AMENDS*1..5]->(c_old:Contract)<-[:GOVERNED_BY]-(i:Invoice)
+WHERE c_new.unit_rate < c_old.unit_rate
+Python re-verification: billed rate == superseded rate, invoice_date >=
+amendment effective date; amount_at_risk = (old_rate - new_rate) * qty
+Credits: OPEN credit note with vendor invoices dated >= issue_date`,
+      severity: "High/Critical (lineage); Medium (credits)",
+      sampleAnomaly: "INV-9601 @ ₹5,000 vs amended C-007 @ ₹4,500 (₹1,000.00) · CN-9001 OPEN ₹944.00",
+    },
   ];
 
   return (
@@ -75,22 +137,25 @@ if vendor.status in ('cancelled', 'terminated', 'inactive') or po.status in ('ca
       <div>
         <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
           <BookOpen className="w-5 h-5 text-[#059669]" />
-          <span>Deterministic Detection Engine (R1–R5)</span>
+          <span>Deterministic Detection Engine (R1–R10)</span>
         </h1>
         <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-          Zero LLM SDK calls inside `backend/app/detect/` — every finding carries verifiable proof math.
+          Zero LLM SDK calls inside `backend/app/detect/` — R1–R7 run pure tabular Python, R8–R10 run deterministic
+          LadybugDB Cypher over the embedded knowledge graph. Every finding carries verifiable proof math.
         </p>
       </div>
 
       <div className="p-5 rounded-xl bg-white border border-slate-200 shadow-sm space-y-2">
         <div className="flex items-center gap-2 text-xs font-bold text-[#059669] uppercase tracking-wider">
           <Scale className="w-4 h-4" />
-          Neuro-Symbolic Contract: Gemini Extracts & Explains · Python Rules Decide
+          Neuro-Symbolic Contract: Gemini Extracts & Explains · Python Rules + Cypher Decide
         </div>
         <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
           Finance controllers cannot freeze vendor payouts on an opaque score. Every finding below emits a
           deterministic <code className="font-mono text-slate-900 bg-slate-100 px-1 rounded">proof_trail</code> JSON
-          payload linking the exact invoice line, contract clause, PO line, and payment record.
+          payload linking the exact invoice line, contract clause, PO line, and payment record — and for the graph rules R8–R10, the
+          serialized multi-hop <code className="font-mono text-slate-900 bg-slate-100 px-1 rounded">proof_subgraph</code>{" "}
+          from the embedded LadybugDB knowledge graph.
         </p>
       </div>
 

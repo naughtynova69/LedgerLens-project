@@ -3,6 +3,7 @@ import { Search, X } from "lucide-react";
 import { RuleBadge } from "../components/RuleBadge";
 import { StatusBadge } from "../components/StatusBadge";
 import { ProofTrailInspector } from "../components/ProofTrailInspector";
+import { GraphStatsCard } from "../components/GraphStatsCard";
 import { formatCurrency, formatConfidence } from "../utils/formatters";
 
 export function FindingsView({
@@ -34,6 +35,9 @@ export function FindingsView({
     { id: "R5", label: "R5 Cancelled" },
     { id: "R6", label: "R6 Split-PO" },
     { id: "R7", label: "R7 GRN" },
+    { id: "R8", label: "R8 Graph-Dup" },
+    { id: "R9", label: "R9 Collusion" },
+    { id: "R10", label: "R10 Lineage" },
   ];
 
   const statusTabs = [
@@ -192,6 +196,9 @@ export function FindingsView({
           </div>
         </div>
       </div>
+
+      {/* Embedded knowledge-graph KPI strip (LadybugDB) */}
+      <GraphStatsCard onToast={onToast} />
 
       {/* Single-Row Filter Bar */}
       <div className="flex flex-wrap items-center justify-between gap-2.5">

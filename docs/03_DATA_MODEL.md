@@ -15,7 +15,14 @@ erDiagram
     INVOICES ||--o{ FINDINGS : "produces"
     FINDINGS ||--o{ DECISIONS : "gets"
     FINDINGS ||--o{ AUDIT_LOG : "logged in"
+    VENDORS ||--o{ CREDIT_NOTES : "issues"
+    APPROVERS ||--o{ INVOICES : "approves"
+    CONTRACTS ||--o{ CONTRACTS : "amends (amends_contract_id)"
 ```
+
+### Graph projection (LadybugDB)
+
+SQLite/AlloyDB remains the transactional system of record. `backend/app/graph/projector.py` projects these tables into an embedded LadybugDB property graph (11 node tables, 15 relationship tables — see `backend/app/graph/schema.py`) where shared personal infrastructure (bank accounts, tax identifiers, addresses) and contract amendment lineage become first-class nodes/edges, powering deterministic multi-hop rules R6–R8. New nullable columns: `vendors.bank_account/email/phone/address`, `invoices.approver_id`, `contracts.amends_contract_id/version`, `payments.account_key`. New tables: `approvers`, `credit_notes`.
 
 ## 2. Table dictionaries
 

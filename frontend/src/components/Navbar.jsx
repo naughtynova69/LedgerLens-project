@@ -22,6 +22,7 @@ export function Navbar({
   const navItems = [
     { id: "exceptions", label: "Exceptions", badge: openCount },
     { id: "activity", label: "Activity" },
+    { id: "rules", label: "Rules & Graph" },
     { id: "cloud", label: "Cloud & Policy" },
   ];
 

@@ -6,7 +6,12 @@ CREATE TABLE IF NOT EXISTS vendors (
     vendor_name      TEXT NOT NULL,
     tax_id           TEXT,
     default_currency TEXT NOT NULL DEFAULT 'INR',
-    status           TEXT NOT NULL DEFAULT 'active'
+    status           TEXT NOT NULL DEFAULT 'active',
+    -- Graph-projection attributes (nullable for backward compatibility)
+    bank_account     TEXT,
+    email            TEXT,
+    phone            TEXT,
+    address          TEXT
 );
 
 CREATE TABLE IF NOT EXISTS contracts (
@@ -22,6 +27,9 @@ CREATE TABLE IF NOT EXISTS contracts (
     end_date              TEXT,
     status                TEXT NOT NULL DEFAULT 'active',
     workspace_id          TEXT NOT NULL DEFAULT 'default',
+    -- Amendment lineage for the graph layer (nullable for backward compatibility)
+    amends_contract_id    TEXT,
+    version               INTEGER NOT NULL DEFAULT 1,
     PRIMARY KEY (contract_id, item)
 );
 
@@ -56,7 +64,30 @@ CREATE TABLE IF NOT EXISTS invoices (
     source_file    TEXT,
     status         TEXT NOT NULL DEFAULT 'unpaid',
     workspace_id   TEXT NOT NULL DEFAULT 'default',
+    -- Approver linkage for the graph layer (nullable for backward compatibility)
+    approver_id    TEXT,
     PRIMARY KEY (invoice_number, line_no)
+);
+
+-- Approvers power the graph collusion/limit-splitting checks (R6/R7).
+CREATE TABLE IF NOT EXISTS approvers (
+    approver_id    TEXT PRIMARY KEY,
+    name           TEXT NOT NULL,
+    email          TEXT,
+    phone          TEXT,
+    address        TEXT,
+    bank_account   TEXT,
+    approval_limit REAL NOT NULL DEFAULT 0
+);
+
+-- Supplier credit notes power the unapplied-credit check (R8).
+CREATE TABLE IF NOT EXISTS credit_notes (
+    credit_note_id TEXT PRIMARY KEY,
+    vendor_id      TEXT NOT NULL REFERENCES vendors(vendor_id),
+    issue_date     TEXT,
+    amount         REAL NOT NULL DEFAULT 0,
+    currency       TEXT NOT NULL DEFAULT 'INR',
+    applied_status TEXT NOT NULL DEFAULT 'OPEN'
 );
 
 CREATE TABLE IF NOT EXISTS payments (
@@ -67,7 +98,9 @@ CREATE TABLE IF NOT EXISTS payments (
     fx_rate_to_inr REAL NOT NULL DEFAULT 1.0,
     payment_date  TEXT,
     status        TEXT NOT NULL DEFAULT 'settled',
-    workspace_id  TEXT NOT NULL DEFAULT 'default'
+    workspace_id  TEXT NOT NULL DEFAULT 'default',
+    -- Destination account for the graph layer (nullable for backward compatibility)
+    account_key   TEXT
 );
 
 CREATE TABLE IF NOT EXISTS batches (

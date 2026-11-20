@@ -75,7 +75,7 @@ def test_fx_live_fetch_inverts_and_persists() -> None:
 
     try:
         with patch(
-            "app.normalize.fx_service.urllib.request.urlopen",
+            "app.normalize.fx_service.guarded_urlopen",
             return_value=_FakeResp(json.dumps(payload).encode("utf-8")),
         ):
             rates = get_fx_rates(conn=conn, fetch_live=True)
@@ -99,7 +99,7 @@ def test_fx_live_fetch_failure_falls_back_to_cache_or_reference() -> None:
     conn = sqlite3.connect(":memory:")
     try:
         with patch(
-            "app.normalize.fx_service.urllib.request.urlopen",
+            "app.normalize.fx_service.guarded_urlopen",
             side_effect=OSError("network down"),
         ):
             rates = get_fx_rates(conn=conn, fetch_live=True)
