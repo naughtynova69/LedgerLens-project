@@ -3,6 +3,7 @@ import { Navbar } from "./components/Navbar";
 import { Toast } from "./components/Toast";
 import { Modal } from "./components/Modal";
 import { UploadModal } from "./components/UploadModal";
+import { NeedsReviewDrawer } from "./components/NeedsReviewDrawer";
 import { FindingsView } from "./views/FindingsView";
 import { AuditLogView } from "./views/AuditLogView";
 import { CloudIntegrationsView } from "./views/CloudIntegrationsView";
@@ -22,6 +23,11 @@ export function App() {
   const [toast, setToast] = useState(null);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [memoModalOpen, setMemoModalOpen] = useState(false);
+  const [workspaces, setWorkspaces] = useState([]);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState("default");
+  const [reviewBatch, setReviewBatch] = useState(null);
+  const [reviewRecords, setReviewRecords] = useState([]);
+  const [savingReview, setSavingReview] = useState(false);
 
   // Split-View Selection
   const [selectedFindingId, setSelectedFindingId] = useState(null);
@@ -51,7 +57,7 @@ export function App() {
 
   const loadData = useCallback(async () => {
     try {
-      const [h, s, f, b, m, l, exec] = await Promise.all([
+      const [h, s, f, b, m, l, exec, ws] = await Promise.all([
         api.getHealth().catch(() => ({ status: "offline" })),
         api.getStats().catch(() => null),
         api.getFindings().catch(() => []),
@@ -59,6 +65,7 @@ export function App() {
         api.getMemo().catch(() => null),
         api.getAuditLog().catch(() => []),
         api.getExecutiveAnalytics().catch(() => null),
+        api.getWorkspaces().catch(() => []),
       ]);
 
       setIsOnline(h.status === "ok");
@@ -73,6 +80,9 @@ export function App() {
       if (m) setMemoData(m);
       if (l) setAuditLogs(l);
       if (exec) setExecutiveAnalytics(exec);
+      if (Array.isArray(ws) && ws.length > 0) {
+        setWorkspaces(ws);
+      }
     } catch {
       setIsOnline(false);
     }
@@ -174,6 +184,38 @@ export function App() {
     }
   };
 
+  const needsReviewBatches = (batches || []).filter(
+    (b) => b.status === "needs_review"
+  );
+
+  const handleOpenReviewDrawer = (batch) => {
+    setReviewBatch(batch);
+    setReviewRecords(batch.needs_review_records || batch.records || []);
+  };
+
+  const handleSaveAndRedetect = async (updatedRecords) => {
+    if (!reviewBatch?.batch_id) return;
+    setSavingReview(true);
+    try {
+      await api.updateBatchRecords(reviewBatch.batch_id, {
+        records: updatedRecords,
+      });
+      await api.runDetect(reviewBatch.batch_id);
+      showToast(
+        `Updated quarantined lines for ${reviewBatch.batch_id} and re-ran detection.`,
+        "success",
+        "Quarantine Resolved"
+      );
+      setReviewBatch(null);
+      setReviewRecords([]);
+      await loadData();
+    } catch (err) {
+      showToast(err.message, "error", "Failed to Update Quarantined Lines");
+    } finally {
+      setSavingReview(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#FAFAFA] text-[#111827] flex flex-col font-sans">
       <Navbar
@@ -185,7 +227,35 @@ export function App() {
         onOpenUploadModal={() => setUploadModalOpen(true)}
         onOpenMemoModal={() => setMemoModalOpen(true)}
         loadingAction={loadingAction}
+        workspaces={workspaces}
+        activeWorkspaceId={activeWorkspaceId}
+        onChangeWorkspace={(wsId) => {
+          setActiveWorkspaceId(wsId);
+          showToast(`Switched workspace to ${wsId}.`, "info", "Workspace Changed");
+        }}
       />
+
+      {needsReviewBatches.length > 0 && (
+        <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-900">
+            <span>
+              <span className="font-semibold">
+                {needsReviewBatches.length}{" "}
+                {needsReviewBatches.length === 1 ? "batch" : "batches"}
+              </span>{" "}
+              quarantined with <span className="font-mono">needs_review</span> invoice
+              lines awaiting manual correction.
+            </span>
+            <button
+              type="button"
+              onClick={() => handleOpenReviewDrawer(needsReviewBatches[0])}
+              className="px-2.5 py-1 rounded-md font-medium bg-white border border-amber-300 text-amber-900 hover:bg-amber-100/60 transition-colors"
+            >
+              Review &amp; Fix Lines
+            </button>
+          </div>
+        </div>
+      )}
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {activeTab === "exceptions" && (
@@ -235,6 +305,18 @@ export function App() {
           await loadData();
           setActiveTab("exceptions");
         }}
+      />
+
+      <NeedsReviewDrawer
+        isOpen={Boolean(reviewBatch)}
+        onClose={() => {
+          setReviewBatch(null);
+          setReviewRecords([]);
+        }}
+        batch={reviewBatch}
+        records={reviewRecords}
+        onSaveAndRedetect={handleSaveAndRedetect}
+        saving={savingReview}
       />
 
       <Modal

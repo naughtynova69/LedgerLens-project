@@ -42,6 +42,15 @@
   - Created `docs/CONTEXT_LOG.md` and added token-efficient multi-agent + session-log rules to `AGENTS.md`.
 - **Open Next Steps:** Review & merge PR for `docs/icp-business-model-and-context-log`; optionally run live `GEMINI_API_KEY` extraction eval (`backend/tests/eval_gemini_extraction.py`) and deploy to Cloud Run via `deploy/setup_gcp.sh` + `deploy/cloudrun.sh`.
 
+### 2026-11-21 — Roadmap Tracks 2–6 & 8–12 + Multi-Harness Isolation
+- **Branch:** `feat/roadmap-tracks-2-to-12`
+- **Changes:**
+  - Added `CLAUDE.md`, `docs/HARNESS_ISOLATION.md`, `docs/ZCODE_VISION_ACCURACY_MASTER_PROMPT.md`, and `scripts/harness_lock.py` for Antigravity + ZCode concurrency isolation.
+  - Implemented policy-parameterized `R1`–`R5` + new pure-Python `R6` (Split-PO) & `R7` (GRN mismatch), Live FX service (`fx_service.py`), SQLite/AlloyDB `DBAdapter`, SHA-256 `audit_chain.py`, multi-tenant `workspaces.py`, and grounded `copilot.py` + webhook dispatcher, all wired in `services.py` & `main.py`.
+  - Added `NeedsReviewDrawer.jsx`, `PdfEvidencePreview.jsx`, `WorkspaceSwitcher.jsx`, and Vitest smoke tests (`frontend/src/__tests__/smoke.test.jsx`), wired in `App.jsx`, `Navbar.jsx`, `ProofTrailInspector.jsx`, and `api.js`.
+- **Checks:** `pytest` (`73 passed, 1 skipped`), `detect/` AST purity (`DETECT_PURITY_OK`), `npm --prefix frontend run build` (`0 errors`).
+- **Open Next Steps:** Push `feat/roadmap-tracks-2-to-12` & open PR to `main`; run `npm --prefix frontend install && npm --prefix frontend test` to execute Vitest smoke tests.
+
 ---
 
 ## Append Template (Copy for Future Sessions)

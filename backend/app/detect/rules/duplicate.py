@@ -76,6 +76,11 @@ def _payments_for(payments: list[dict], invoice_number: str) -> list[dict]:
 @register("R1")
 def detect_duplicates(ctx: DetectionContext) -> list[Finding]:
     findings: list[Finding] = []
+    policy = ctx.get("policy", {}) if isinstance(ctx, dict) else (getattr(ctx, "policy", None) or {})
+    raw_drift_pct = policy.get("r1_max_amount_drift_pct")
+    max_amount_drift = float(raw_drift_pct) / 100.0 if raw_drift_pct is not None else MAX_AMOUNT_DRIFT
+    raw_gap_days = policy.get("r1_max_date_gap_days")
+    max_date_gap_days = int(raw_gap_days) if raw_gap_days is not None else MAX_DATE_GAP_DAYS
 
     by_vendor: dict[str, list[dict]] = {}
     for inv in _group_by_invoice(ctx.invoices).values():
@@ -95,7 +100,7 @@ def detect_duplicates(ctx: DetectionContext) -> list[Finding]:
                     continue
 
                 amount_drift = abs(total_a - total_b) / max(total_a, total_b)
-                amount_ok = amount_drift <= MAX_AMOUNT_DRIFT
+                amount_ok = amount_drift <= max_amount_drift
                 line_sim = _line_similarity(a, b)
 
                 raw_num_sim = SequenceMatcher(None, a["invoice_number"], b["invoice_number"]).ratio()
@@ -107,7 +112,7 @@ def detect_duplicates(ctx: DetectionContext) -> list[Finding]:
                 standard_dup = (
                     amount_ok
                     and line_sim >= MIN_LINE_SIMILARITY
-                    and (num_sim >= MIN_NUMBER_SIMILARITY or (gap_days is not None and gap_days <= MAX_DATE_GAP_DAYS))
+                    and (num_sim >= MIN_NUMBER_SIMILARITY or (gap_days is not None and gap_days <= max_date_gap_days))
                 )
                 po_double_bill = same_po_item_qty and amount_ok and line_sim >= MIN_LINE_SIMILARITY
 
