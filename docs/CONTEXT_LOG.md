@@ -42,12 +42,14 @@
   - Created `docs/CONTEXT_LOG.md` and added token-efficient multi-agent + session-log rules to `AGENTS.md`.
 - **Open Next Steps:** Review & merge PR for `docs/icp-business-model-and-context-log`; optionally run live `GEMINI_API_KEY` extraction eval (`backend/tests/eval_gemini_extraction.py`) and deploy to Cloud Run via `deploy/setup_gcp.sh` + `deploy/cloudrun.sh`.
 
-### 2026-11-21 — Unify on Gemini 3.8 Vision Flash + Project Mind Map
-- **Branch:** `chore/use-gemini-38-vision-flash`
+### 2026-11-21 — Startup Buildathon Deck Fix & Regeneration (ZCode)
+- **Branch:** `docs/fix-buildathon-ppt`
 - **Changes:**
-  - Replaced `gemini-4-carbon` with `gemini-3.8-vision-flash` across backend config, extraction, frontend attribution badges, Dockerfile/Cloud Run scripts, and all docs.
-  - Added [docs/PROJECT_MINDMAP.md](docs/PROJECT_MINDMAP.md) with a plain-English project overview, Done vs. To-Do mind map, and 5-step `Gemini 3.8 Vision Flash` accuracy playbook.
-- **Open Next Steps:** Merge PR for `chore/use-gemini-38-vision-flash`, run live `eval_gemini_extraction.py` with `GEMINI_API_KEY`, and implement PDF 300-DPI preprocessing + 1-retry math-repair loop.
+  - Added deterministic `python-pptx` generator `docs/presentation/build_deck.py` plus official-template branding assets (`docs/presentation/assets/`) extracted from the original submission PDF.
+  - Regenerated the 7-slide submission deck (`LedgerLens_Startup_Buildathon_Submission.pptx` + exported PDF): removed uncited `$5B / $240B / 61%` claims in favor of cited benchmarks (PRGX / Xelix / Duplo / Ardent Partners / Mordor Intelligence — full URLs in speaker notes); replaced broken soft-hyphen glyphs with plain ASCII hyphens + clean en-dashes; aligned every deck fact to shipped code (`R1`–`R5`, `24` API routes, `gemini-3.8-vision-flash` as the unified primary/batch model per `backend/.env.example`, AlloyDB / BigQuery / GCS / Pub-Sub / Cloud Run, Agent Skills); closing slide now carries live proof (6 planted anomalies, `₹40,531.60`, 0 false positives, 51 tests) and repo links.
+  - Consolidated `docs/presentation/assets/` to the three images the generator uses (`header_strip.png`, `brand_block.png`, `graphics_collage.png`), replacing the four raw PDF-extracted intermediates merged via PR #8.
+- **Checks:** deck-level QA only (layout overflow/overlap scan + `pdftotext` content gates); no backend/frontend code touched — `pytest` and `npm run build` unaffected.
+- **Open Next Steps:** Merge PR for `docs/fix-buildathon-ppt` (deck already reflects the unified `gemini-3.8-vision-flash` config from PR #7); replace `[Live Cloud Run URL]` on the closing slide after the first Cloud Run deploy.
 
 ---
 
