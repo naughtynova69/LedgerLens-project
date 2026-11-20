@@ -235,3 +235,35 @@ def test_live_gemini_extraction_eval():
         assert req_key in card and isinstance(card[req_key], str) and card[req_key].strip()
     assert card["decision_engine"] == "Deterministic Rule R1"
     assert "INV-8821" in card["explanation"]
+
+
+@pytest.mark.skipif(
+    not (os.getenv("RUN_LIVE_GEMINI_EVAL") == "1" and config.GEMINI_API_KEY),
+    reason="Offline mode; set RUN_LIVE_GEMINI_EVAL=1 and GEMINI_API_KEY to run live Gemini eval",
+)
+def test_live_gemini_extraction_indian_gst_and_comma_eval():
+    """Live eval: split GST combining, Indian comma grouping, TDS + revision suffix."""
+    sample_pdf_bytes = (
+        b"%PDF-1.4\n"
+        b"Vendor: Sunbeam Electricals Pvt Ltd\n"
+        b"Invoice Number: INV-8821-R2\n"
+        b"Date: 15/11/2026\n"
+        b"Currency: INR\n"
+        b"PO Reference: PO-1006\n"
+        b"Item: Industrial LED Panel\n"
+        b"Quantity: 2\n"
+        b"Unit Price: 1,23,456.00\n"
+        b"Tax: CGST 9% + SGST 9% (TDS 2% withheld)\n"
+        b"Line Total: 2,91,356.16\n"
+        b"Subtotal: 2,46,912.00\n"
+        b"Grand Total: 2,91,356.16\n"
+    )
+    extracted = extract_invoice(sample_pdf_bytes, mime_type="application/pdf")
+    assert extracted["mode"] == "gemini_live"
+    payload = ExtractedInvoicePayload.model_validate(extracted)
+    assert payload.invoice.number == "INV-8821-R2"  # revision suffix preserved
+    assert payload.invoice.date == "2026-11-15"
+    assert payload.lines[0].tax_pct == pytest.approx(18.0)  # CGST 9% + SGST 9%, TDS ignored
+    assert payload.lines[0].unit_price == pytest.approx(123456.0)  # 1,23,456.00
+    assert payload.lines[0].line_total == pytest.approx(291356.16)  # 2,91,356.16
+    assert extracted.get("verification_warnings") == []  # arithmetic self-correction converged
