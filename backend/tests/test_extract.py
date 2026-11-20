@@ -134,3 +134,21 @@ def test_api_upload_and_extract_endpoint_end_to_end(monkeypatch, tmp_path):
     actions = [entry["action"] for entry in logs]
     assert "extract" in actions
     assert "ingest" in actions
+
+
+def test_csv_upload_new_vendor_without_preseed_succeeds(monkeypatch, tmp_path):
+    monkeypatch.setattr(config, "DB_PATH", str(tmp_path / "fresh_csv.db"))
+    monkeypatch.setattr(config, "UPLOAD_DIR", str(tmp_path / "uploads"))
+    client = TestClient(app)
+    csv_bytes = (
+        b"invoice_number,vendor_id,invoice_date,po_id,line_no,item,quantity,unit_price,currency,tax_pct,line_total,status\n"
+        b"INV-NEW-1,V-NEW-99,2026-11-19,,1,Widget X,2,100.00,INR,18,236.00,unpaid\n"
+    )
+    res = client.post(
+        "/api/ingest/upload",
+        data={"kind": "invoices"},
+        files={"file": ("new_vendor.csv", BytesIO(csv_bytes), "text/csv")},
+    )
+    assert res.status_code == 200
+    assert res.json()["rows_detected"] == 1
+    assert res.json()["problems"] == []

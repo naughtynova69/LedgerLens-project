@@ -67,11 +67,11 @@ npm run build
 
 ## Design System & Tokens
 
-- **Theme**: Obsidian canvas (`#090D16`), deep card surfaces (`#0D1424` / `#111A2E`), elevated subtle borders (`#1F293D`).
-- **Brand Accent**: Emerald audit glow (`#10B981`) and Electric Cyan (`#06B6D4`).
+- **Theme**: Institutional forensic light canvas (`#F8FAFC`), crisp white card surfaces (`#FFFFFF`), slate borders (`#E2E8F0`), deep slate ink (`#0F172A`).
+- **Brand Accent**: Emerald verified/recovered (`#059669`) and Indigo FX/tax (`#4F46E5`).
 - **Financial Severity Tokens**:
-  - `Critical`: Crimson Rose (`#F43F5E`)
-  - `High`: Warm Amber (`#F59E0B`)
-  - `Medium`: Electric Sky (`#0EA5E9`)
-  - `Low`: Neutral Slate (`#94A3B8`)
-- **Typography**: Inter for crisp reading hierarchy; tabular JetBrains Mono for exact currency amounts and IDs.
+  - `Critical` / `R1` / `R5`: Crimson (`#DC2626` on `#FEF2F2`)
+  - `High` / `R2` / `R3`: Amber (`#D97706` on `#FFFBEB`)
+  - `Medium` / `R4`: Indigo (`#4F46E5` on `#EEF2FF`)
+  - `Low`: Neutral Slate (`#475569`)
+- **Typography**: Inter for crisp reading hierarchy; tabular JetBrains Mono (`tabular-nums`) for exact currency amounts and IDs.

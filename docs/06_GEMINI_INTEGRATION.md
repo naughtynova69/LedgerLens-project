@@ -77,10 +77,10 @@ Gemini can propose structured tool calls — e.g. `lookup_vendor_master(vendor_n
 
 ## 7. Cost & latency tips
 
-- Flash model for everything in the MVP; batch extraction per file, not per line.
+- Primary model (`GEMINI_PRIMARY_MODEL=gemini-4-carbon`) handles multimodal PDF/scan extraction and CFO explanations; `GEMINI_FLASH_MODEL=gemini-2.5-flash` handles high-volume batch/CSV extraction routing.
 - Cache extraction results — re-running detect must **not** re-call Gemini.
 - Budget: the whole demo dataset is ~15 files → well inside free tier.
 
 ## 8. No-key fallback (so the demo never dies)
 
-`extract/` must degrade gracefully: with no `GEMINI_API_KEY`, PDF extraction is skipped and the loader accepts CSVs directly, and `explain/` returns the deterministic `summary` string as the explanation with a `"generated_without_gemini": true` flag. The dashboard works, the rules work, only the PDF magic is missing.
+`extract/` and `explain/` degrade gracefully: with no `GEMINI_API_KEY`, `extract/` runs deterministic CSV extraction plus an offline text/mock PDF fallback (`mode="mock_fallback"`) validated against the Pydantic schemas, and `explain/` returns a deterministic CFO-ready card grounded in `proof_trail` with `"generated_without_gemini": true`. The dashboard, rules, and workflow work offline without a key.

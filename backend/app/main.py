@@ -19,6 +19,7 @@ Endpoints:
 from __future__ import annotations
 
 import json
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 import sqlite3
@@ -26,6 +27,8 @@ from typing import Any
 
 from fastapi import Body, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from . import config
 from .db import get_connection, init_schema
@@ -278,10 +281,10 @@ def decide(finding_id: str, body: DecisionIn) -> dict:
 
 
 @app.get("/api/memo")
-def memo() -> dict:
+def memo(batch_id: str | None = None) -> dict:
     conn = _get_ready_conn()
     try:
-        return build_memo_structured(conn)
+        return build_memo_structured(conn, batch_id=batch_id)
     finally:
         conn.close()
 
@@ -314,3 +317,26 @@ def invoke_skill(tool_name: str, payload: dict[str, Any] = Body(default_factory=
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     finally:
         conn.close()
+
+
+_FRONTEND_DIST = Path(
+    os.getenv(
+        "FRONTEND_DIST",
+        str(Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"),
+    )
+).resolve()
+
+if (_FRONTEND_DIST / "index.html").is_file():
+    _assets_dir = _FRONTEND_DIST / "assets"
+    if _assets_dir.is_dir():
+        app.mount("/assets", StaticFiles(directory=str(_assets_dir)), name="assets")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    def serve_spa(full_path: str):
+        """Serve built React SPA for Cloud Run unified deployment without masking API 404s."""
+        if full_path.startswith("api/") or full_path == "api":
+            raise HTTPException(status_code=404, detail="API route not found")
+        candidate = (_FRONTEND_DIST / full_path).resolve()
+        if full_path and candidate.is_file() and candidate.is_relative_to(_FRONTEND_DIST):
+            return FileResponse(str(candidate))
+        return FileResponse(str(_FRONTEND_DIST / "index.html"))

@@ -422,12 +422,18 @@ def get_stats(conn: sqlite3.Connection) -> dict:
 def ingest_csv_file_to_table(conn: sqlite3.Connection, path: Path, kind: str) -> int:
     """Insert rows from a CSV file into the corresponding SQLite table."""
     table_name = "payments" if kind == "payment_ledger" else kind
-    rows_inserted = 0
+    if table_name not in _ALLOWED_COLUMNS:
+        raise ValueError(f"unsupported table kind: {kind}")
 
+    records: list[dict] = []
     with path.open("r", encoding="utf-8", errors="replace") as f:
         reader = csv.DictReader(f)
         for row in reader:
-            cleaned_row = {k.strip(): (v.strip() if isinstance(v, str) else v) for k, v in row.items()}
+            cleaned_row = {
+                k.strip(): (v.strip() if isinstance(v, str) else v)
+                for k, v in row.items()
+                if k is not None
+            }
             for num_col in ("quantity", "unit_price", "tax_pct", "line_total", "amount",
                             "contracted_unit_price", "discount_pct", "fx_rate_to_inr"):
                 if num_col in cleaned_row and cleaned_row[num_col]:
@@ -435,15 +441,9 @@ def ingest_csv_file_to_table(conn: sqlite3.Connection, path: Path, kind: str) ->
                         cleaned_row[num_col] = float(cleaned_row[num_col])
                     except (ValueError, TypeError):
                         pass
+            records.append(cleaned_row)
 
-            cols = list(cleaned_row.keys())
-            placeholders = ",".join(["?"] * len(cols))
-            conn.execute(
-                f"INSERT OR REPLACE INTO {table_name} ({','.join(cols)}) VALUES ({placeholders})",
-                list(cleaned_row.values()),
-            )
-            rows_inserted += 1
-
+    rows_inserted = _insert_table_rows(conn, table_name, records)
     conn.commit()
     return rows_inserted
 
@@ -494,8 +494,7 @@ def build_memo(conn: sqlite3.Connection) -> str:
         "SELECT * FROM findings ORDER BY amount_at_risk DESC").fetchall()]
 
     total_exposure = sum(f["amount_at_risk"] for f in findings)
-    total_open_at_risk = sum(f["amount_at_risk"] for f in findings
-                             if f["status"] in ("open", "approved", "recovery"))
+    total_open_at_risk = sum(f["amount_at_risk"] for f in findings if f["status"] == "open")
     by_rule: dict[str, float] = {}
     for f in findings:
         by_rule[f["rule_id"]] = by_rule.get(f["rule_id"], 0.0) + f["amount_at_risk"]
@@ -540,7 +539,7 @@ def build_memo(conn: sqlite3.Connection) -> str:
     return "\n".join(lines)
 
 
-def build_memo_structured(conn: sqlite3.Connection) -> dict:
+def build_memo_structured(conn: sqlite3.Connection, batch_id: str | None = None) -> dict:
     """Return both CFO Markdown memo and structured JSON summary."""
     stats = get_stats(conn)
     rows = [dict(r) for r in conn.execute(
@@ -569,7 +568,7 @@ def build_memo_structured(conn: sqlite3.Connection) -> dict:
             "entity_refs": json.loads(row.get("entity_refs") or "{}"),
         })
 
-    return {
+    out = {
         "memo_markdown": build_memo(conn),
         "summary": {
             "total_spend_audited": stats["total_audited_spend"],
@@ -582,3 +581,6 @@ def build_memo_structured(conn: sqlite3.Connection) -> dict:
         "findings": formatted_findings,
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
+    if batch_id:
+        out["batch_id"] = batch_id
+    return out
