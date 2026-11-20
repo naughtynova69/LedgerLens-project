@@ -14,6 +14,7 @@ from pathlib import Path
 import re
 
 from .. import config
+from ..gcp.vertex_ai import create_genai_client, has_live_ai_credentials
 from ..normalize import (
     canonical_vendor_key,
     normalize_amount,
@@ -101,15 +102,7 @@ def verify_extracted_line_totals(
 
 
 def _client():
-    if not config.GEMINI_API_KEY:
-        raise RuntimeError(
-            "GEMINI_API_KEY is not set. Copy backend/.env.example to backend/.env "
-            "and add your key from https://aistudio.google.com/apikey "
-            "(docs/06_GEMINI_INTEGRATION.md)."
-        )
-    from google import genai  # lazy import
-
-    return genai.Client(api_key=config.GEMINI_API_KEY)
+    return create_genai_client()
 
 
 def _generate_with_model(
@@ -373,7 +366,7 @@ def _payload_to_po_records(payload: ExtractedPOPayload) -> tuple[list[dict], boo
 def extract_invoice(pdf_bytes: bytes, mime_type: str = "application/pdf") -> dict:
     """Invoice PDF/scan -> canonical invoice JSON (ExtractedInvoicePayload)."""
     model_name = select_extraction_model("invoices", is_batch=False, mime_type=mime_type)
-    if config.GEMINI_API_KEY:
+    if has_live_ai_credentials():
         raw = _generate_with_model(pdf_bytes, mime_type, ExtractedInvoicePayload, model_name)
         payload = ExtractedInvoicePayload.model_validate(raw)
         data = payload.model_dump()
@@ -391,7 +384,7 @@ def extract_invoice(pdf_bytes: bytes, mime_type: str = "application/pdf") -> dic
 def extract_contract(pdf_bytes: bytes, mime_type: str = "application/pdf") -> dict:
     """Contract PDF/scan -> canonical contract JSON (ExtractedContractPayload)."""
     model_name = select_extraction_model("contracts", is_batch=False, mime_type=mime_type)
-    if config.GEMINI_API_KEY:
+    if has_live_ai_credentials():
         raw = _generate_with_model(pdf_bytes, mime_type, ExtractedContractPayload, model_name)
         payload = ExtractedContractPayload.model_validate(raw)
         data = payload.model_dump()
@@ -451,7 +444,7 @@ def extract_document(file_path: Path, kind: str, is_batch: bool = False) -> dict
     # PDF / image extraction path
     source_name = file_path.name
     if kind == "contracts":
-        if config.GEMINI_API_KEY:
+        if has_live_ai_credentials():
             raw = _generate_with_model(file_bytes, mime_type, ExtractedContractPayload, model_name)
             payload = ExtractedContractPayload.model_validate(raw)
             mode = "gemini_live"
@@ -470,7 +463,7 @@ def extract_document(file_path: Path, kind: str, is_batch: bool = False) -> dict
         }
 
     if kind == "purchase_orders":
-        if config.GEMINI_API_KEY:
+        if has_live_ai_credentials():
             raw = _generate_with_model(file_bytes, mime_type, ExtractedPOPayload, model_name)
             payload = ExtractedPOPayload.model_validate(raw)
             mode = "gemini_live"
@@ -489,7 +482,7 @@ def extract_document(file_path: Path, kind: str, is_batch: bool = False) -> dict
         }
 
     # Default: invoices PDF / scan
-    if config.GEMINI_API_KEY:
+    if has_live_ai_credentials():
         raw = _generate_with_model(file_bytes, mime_type, ExtractedInvoicePayload, model_name)
         payload = ExtractedInvoicePayload.model_validate(raw)
         mode = "gemini_live"

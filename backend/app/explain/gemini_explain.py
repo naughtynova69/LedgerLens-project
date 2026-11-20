@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 
 from .. import config
+from ..gcp.vertex_ai import create_genai_client, has_live_ai_credentials
 
 EXPLANATION_SYSTEM_PROMPT = """\
 You write findings for a corporate finance team. Input is a JSON finding and its
@@ -44,14 +45,7 @@ _ACTION_TEXT = {
 
 
 def _client():
-    if not config.GEMINI_API_KEY:
-        raise RuntimeError(
-            "GEMINI_API_KEY is not set — see docs/06_GEMINI_INTEGRATION.md. "
-            "Use fallback_without_gemini() when no key is configured."
-        )
-    from google import genai
-
-    return genai.Client(api_key=config.GEMINI_API_KEY)
+    return create_genai_client()
 
 
 def explain_finding(finding: dict) -> dict:

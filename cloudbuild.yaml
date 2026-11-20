@@ -21,13 +21,20 @@ steps:
       - "--region=${_REGION}"
       - "--platform=managed"
       - "--allow-unauthenticated"
-      - "--set-env-vars=GEMINI_PRIMARY_MODEL=gemini-4-carbon,GEMINI_FLASH_MODEL=gemini-2.5-flash"
+      - "--set-env-vars=GCP_PROJECT_ID=$PROJECT_ID,GCP_LOCATION=${_GCP_LOCATION},DB_BACKEND=${_DB_BACKEND},ALLOYDB_INSTANCE_URI=${_ALLOYDB_INSTANCE_URI},BQ_DATASET=${_BQ_DATASET},GCS_UPLOAD_BUCKET=${_GCS_UPLOAD_BUCKET},USE_VERTEX_AI=${_USE_VERTEX_AI},PUBSUB_RECOVERY_TOPIC=${_PUBSUB_RECOVERY_TOPIC},GEMINI_PRIMARY_MODEL=gemini-4-carbon,GEMINI_FLASH_MODEL=gemini-2.5-flash"
       - "--set-secrets=GEMINI_API_KEY=GEMINI_API_KEY:latest"
 
 substitutions:
   _REGION: asia-south1
   _REPO: ledgerlens
   _SERVICE_NAME: ledgerlens-auditor
+  _GCP_LOCATION: global
+  _DB_BACKEND: sqlite
+  _ALLOYDB_INSTANCE_URI: ""
+  _BQ_DATASET: ledgerlens_analytics
+  _GCS_UPLOAD_BUCKET: ""
+  _USE_VERTEX_AI: "true"
+  _PUBSUB_RECOVERY_TOPIC: ledgerlens-recovery-events
 
 images:
   - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/ledgerlens:$SHORT_SHA"

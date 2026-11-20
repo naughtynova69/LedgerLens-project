@@ -27,11 +27,19 @@ from typing import Any
 
 from fastapi import Body, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
 from . import config
 from .db import get_connection, init_schema
+from .finance.dispute_packets import generate_dispute_packet
+from .finance.exports import export_findings_csv
+from .finance.policy import apply_bulk_decision, get_policy, update_policy
+from .gcp.alloydb import check_alloydb_connection
+from .gcp.bigquery import compute_executive_analytics, sync_to_bigquery
+from .gcp.config_gcp import get_gcp_readiness_status
+from .gcp.storage import store_evidence_object
 from .ingest.router import VALID_KINDS, save_stream_to_upload, validate_csv
 from .models import DecisionIn
 from .services import (
@@ -45,6 +53,20 @@ from .services import (
     seed_sample_dataset,
 )
 from .skills import GEMINI_TOOL_DECLARATIONS, execute_skill
+
+
+class BulkDecisionIn(BaseModel):
+    finding_ids: list[str]
+    action: str
+    reviewer: str
+    note: str = ""
+
+
+class PolicyUpdateIn(BaseModel):
+    r1_max_amount_drift_pct: float | None = None
+    r1_max_date_gap_days: int | None = None
+    r4_max_fx_drift_pct: float | None = None
+    auto_hold_threshold_inr: float | None = None
 
 
 def _get_ready_conn() -> sqlite3.Connection:
@@ -172,12 +194,15 @@ async def upload(kind: str = Form(...), file: UploadFile = File(...)) -> dict:
             (batch_id, f"Uploaded {dest.name} ({kind}, {rows_detected} rows)"),
         )
         conn.commit()
+        evidence_obj = store_evidence_object(dest, batch_id, file.filename or "upload")
         return {
             "batch_id": batch_id,
             "kind": kind,
             "stored": str(dest),
             "rows_detected": rows_detected,
             "problems": problems,
+            "sha256": evidence_obj["sha256"],
+            "storage_uri": evidence_obj["uri"],
         }
     finally:
         conn.close()
@@ -313,6 +338,98 @@ def invoke_skill(tool_name: str, payload: dict[str, Any] = Body(default_factory=
         return execute_skill(conn, tool_name, payload)
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        conn.close()
+
+
+@app.get("/api/gcp/status")
+def gcp_status() -> dict:
+    """Return per-service GCP readiness status and AlloyDB connectivity."""
+    status = get_gcp_readiness_status()
+    status["alloydb_connection"] = check_alloydb_connection()
+    return status
+
+
+@app.post("/api/gcp/bigquery/sync")
+def bigquery_sync() -> dict:
+    """Sync SQLite audit tables into BigQuery (or local simulation fallback)."""
+    conn = _get_ready_conn()
+    try:
+        return sync_to_bigquery(conn)
+    finally:
+        conn.close()
+
+
+@app.get("/api/analytics/executive")
+def executive_analytics() -> dict:
+    """Return FX-normalized INR KPIs, vendor exposure ranking, and R1-R5 breakdown."""
+    conn = _get_ready_conn()
+    try:
+        return compute_executive_analytics(conn)
+    finally:
+        conn.close()
+
+
+@app.get("/api/findings/{finding_id}/dispute-packet")
+def finding_dispute_packet(finding_id: str) -> dict:
+    """Generate a formal vendor dispute notice packet for a finding."""
+    conn = _get_ready_conn()
+    try:
+        finding = get_finding_with_sources(conn, finding_id)
+        if finding is None:
+            raise HTTPException(status_code=404, detail=f"finding not found: {finding_id}")
+        return generate_dispute_packet(finding)
+    finally:
+        conn.close()
+
+
+@app.post("/api/findings/bulk-decision")
+def bulk_decide(body: BulkDecisionIn) -> dict:
+    """Apply a reviewer decision across multiple findings."""
+    conn = _get_ready_conn()
+    try:
+        return apply_bulk_decision(
+            conn, body.finding_ids, body.action, body.reviewer, body.note
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        conn.close()
+
+
+@app.get("/api/export/findings.csv")
+def export_findings(status: str | None = None, rule_id: str | None = None) -> Response:
+    """Export findings as an RFC-4180 CSV download."""
+    conn = _get_ready_conn()
+    try:
+        csv_content = export_findings_csv(conn, status=status, rule_id=rule_id)
+        return Response(
+            content=csv_content,
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=ledgerlens-exceptions.csv"},
+        )
+    finally:
+        conn.close()
+
+
+@app.get("/api/policy")
+def read_policy() -> dict:
+    """Return current deterministic audit policy thresholds."""
+    conn = _get_ready_conn()
+    try:
+        return get_policy(conn)
+    finally:
+        conn.close()
+
+
+@app.put("/api/policy")
+def write_policy(body: PolicyUpdateIn) -> dict:
+    """Validate and update deterministic audit policy thresholds."""
+    conn = _get_ready_conn()
+    try:
+        return update_policy(conn, body.model_dump(exclude_none=True))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     finally:

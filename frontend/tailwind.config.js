@@ -8,10 +8,10 @@ export default {
     extend: {
       colors: {
         canvas: {
-          DEFAULT: "#F8FAFC",
-          subtle: "#F1F5F9",
+          DEFAULT: "#FAFAFA",
+          subtle: "#F3F4F6",
           surface: "#FFFFFF",
-          border: "#E2E8F0",
+          border: "#E5E7EB",
         },
         brand: {
           50: "#ECFDF5",

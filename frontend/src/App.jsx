@@ -1,59 +1,64 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Navbar } from "./components/Navbar";
 import { Toast } from "./components/Toast";
+import { Modal } from "./components/Modal";
 import { UploadModal } from "./components/UploadModal";
-import { DashboardView } from "./views/DashboardView";
 import { FindingsView } from "./views/FindingsView";
-import { UploadView } from "./views/UploadView";
-import { MemoView } from "./views/MemoView";
-import { RulesView } from "./views/RulesView";
 import { AuditLogView } from "./views/AuditLogView";
+import { CloudIntegrationsView } from "./views/CloudIntegrationsView";
+import { MemoView } from "./views/MemoView";
 import { api } from "./api";
 
 export function App() {
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const [activeTab, setActiveTab] = useState("exceptions");
   const [stats, setStats] = useState(null);
   const [findings, setFindings] = useState([]);
   const [batches, setBatches] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
   const [memoData, setMemoData] = useState(null);
+  const [executiveAnalytics, setExecutiveAnalytics] = useState(null);
   const [isOnline, setIsOnline] = useState(true);
   const [loadingAction, setLoadingAction] = useState(false);
   const [toast, setToast] = useState(null);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [memoModalOpen, setMemoModalOpen] = useState(false);
 
-  // Split-View Proof Trail Selection
+  // Split-View Selection
   const [selectedFindingId, setSelectedFindingId] = useState(null);
   const [selectedFindingDetail, setSelectedFindingDetail] = useState(null);
   const [isSubmittingDecision, setIsSubmittingDecision] = useState(false);
 
-  const showToast = (message, type = "info", title = "") => {
+  const showToast = useCallback((message, type = "info", title = "") => {
     setToast({ message, type, title });
     setTimeout(() => {
       setToast((curr) => (curr?.message === message ? null : curr));
     }, 4500);
-  };
-
-  const handleSelectFinding = useCallback(async (findingId) => {
-    if (!findingId) return;
-    setSelectedFindingId(findingId);
-    try {
-      const detail = await api.getFinding(findingId);
-      setSelectedFindingDetail(detail);
-    } catch (err) {
-      showToast(err.message, "error", "Failed to Load Proof Trail");
-    }
   }, []);
+
+  const handleSelectFinding = useCallback(
+    async (findingId) => {
+      if (!findingId) return;
+      setSelectedFindingId(findingId);
+      try {
+        const detail = await api.getFinding(findingId);
+        setSelectedFindingDetail(detail);
+      } catch (err) {
+        showToast(err.message, "error", "Failed to Load Proof Trail");
+      }
+    },
+    [showToast]
+  );
 
   const loadData = useCallback(async () => {
     try {
-      const [h, s, f, b, m, l] = await Promise.all([
+      const [h, s, f, b, m, l, exec] = await Promise.all([
         api.getHealth().catch(() => ({ status: "offline" })),
         api.getStats().catch(() => null),
         api.getFindings().catch(() => []),
         api.getBatches().catch(() => []),
         api.getMemo().catch(() => null),
         api.getAuditLog().catch(() => []),
+        api.getExecutiveAnalytics().catch(() => null),
       ]);
 
       setIsOnline(h.status === "ok");
@@ -67,6 +72,7 @@ export function App() {
       if (b) setBatches(b);
       if (m) setMemoData(m);
       if (l) setAuditLogs(l);
+      if (exec) setExecutiveAnalytics(exec);
     } catch {
       setIsOnline(false);
     }
@@ -83,7 +89,9 @@ export function App() {
     try {
       const res = await api.seedSampleData();
       showToast(
-        `Seeded sample dataset: ${res.findings_created} planted anomalies detected (₹${res.total_at_risk?.toLocaleString("en-IN")} at risk).`,
+        `Seeded sample dataset: ${res.findings_created} planted anomalies detected (₹${res.total_at_risk?.toLocaleString(
+          "en-IN"
+        )} at risk).`,
         "success",
         "Demo Dataset Loaded"
       );
@@ -92,6 +100,7 @@ export function App() {
       if (freshFindings.length > 0) {
         await handleSelectFinding(freshFindings[0].finding_id);
       }
+      setActiveTab("exceptions");
     } catch (err) {
       showToast(err.message, "error", "Seed Failed");
     } finally {
@@ -116,21 +125,12 @@ export function App() {
     }
   };
 
-  const handleUploadFile = async (kind, file) => {
-    const up = await api.uploadDocument(kind, file);
-    await api.runExtract(up.batch_id);
-    await api.runDetect(up.batch_id);
-    showToast(`Uploaded, extracted & audited ${file.name} (${up.batch_id}).`, "success", "Pipeline Complete");
-    await loadData();
-    return up;
-  };
-
   const handleMakeDecision = async (findingId, action, reviewer, note) => {
     setIsSubmittingDecision(true);
     try {
       const res = await api.postDecision(findingId, action, reviewer, note);
       showToast(
-        `Finding ${findingId} marked "${res.status}". Immutable audit row recorded.`,
+        `Finding ${findingId} marked "${res.status}". Audit log updated.`,
         "success",
         "Decision Recorded"
       );
@@ -144,8 +144,38 @@ export function App() {
     }
   };
 
+  const handleBulkDecision = async (findingIds, action) => {
+    setIsSubmittingDecision(true);
+    try {
+      const defaultNote =
+        action === "recovery"
+          ? "Bulk hold / recovery initiated via Exceptions workbench."
+          : "Bulk approved as valid / false positive via Exceptions workbench.";
+      const res = await api.postBulkDecision(
+        findingIds,
+        action,
+        "Vijay (AP Lead)",
+        defaultNote
+      );
+      showToast(
+        `Updated ${res.updated_count} exception(s) to "${res.status}".`,
+        "success",
+        "Bulk Triage Complete"
+      );
+      if (selectedFindingId && findingIds.includes(selectedFindingId)) {
+        const updatedDetail = await api.getFinding(selectedFindingId).catch(() => null);
+        if (updatedDetail) setSelectedFindingDetail(updatedDetail);
+      }
+      await loadData();
+    } catch (err) {
+      showToast(err.message, "error", "Bulk Action Failed");
+    } finally {
+      setIsSubmittingDecision(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col font-sans">
+    <div className="min-h-screen bg-[#FAFAFA] text-[#111827] flex flex-col font-sans">
       <Navbar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -153,61 +183,47 @@ export function App() {
         isOnline={isOnline}
         onSeedDemo={handleSeedDemo}
         onOpenUploadModal={() => setUploadModalOpen(true)}
+        onOpenMemoModal={() => setMemoModalOpen(true)}
         loadingAction={loadingAction}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {activeTab === "dashboard" && (
-          <DashboardView
-            stats={stats}
-            findings={findings}
-            onSelectFinding={handleSelectFinding}
-            onNavigateTab={setActiveTab}
-            onSeedDemo={handleSeedDemo}
-            loadingAction={loadingAction}
-          />
-        )}
-
-        {activeTab === "findings" && (
+        {activeTab === "exceptions" && (
           <FindingsView
             findings={findings}
+            stats={stats}
+            executiveAnalytics={executiveAnalytics}
             selectedFindingId={selectedFindingId}
             selectedFindingDetail={selectedFindingDetail}
             onSelectFinding={handleSelectFinding}
             onMakeDecision={handleMakeDecision}
+            onBulkDecision={handleBulkDecision}
             isSubmittingDecision={isSubmittingDecision}
             onSeedDemo={handleSeedDemo}
             loadingAction={loadingAction}
+            onToast={showToast}
           />
         )}
 
-        {activeTab === "upload" && (
-          <UploadView
+        {activeTab === "activity" && (
+          <AuditLogView
+            logs={auditLogs}
             batches={batches}
-            onUploadFile={handleUploadFile}
-            onSeedDemo={handleSeedDemo}
+            onSelectFinding={(id) => {
+              handleSelectFinding(id);
+              setActiveTab("exceptions");
+            }}
+            onOpenUploadModal={() => setUploadModalOpen(true)}
             onRunDetect={handleRunDetect}
             loadingAction={loadingAction}
           />
         )}
 
-        {activeTab === "memo" && (
-          <MemoView
-            memoData={memoData}
-            onRefreshMemo={loadData}
-            onCopy={() => showToast("Audit memo copied to clipboard.", "success")}
-          />
-        )}
-
-        {activeTab === "rules" && <RulesView />}
-
-        {activeTab === "audit" && (
-          <AuditLogView
-            logs={auditLogs}
-            onSelectFinding={(id) => {
-              handleSelectFinding(id);
-              setActiveTab("findings");
-            }}
+        {activeTab === "cloud" && (
+          <CloudIntegrationsView
+            executiveAnalytics={executiveAnalytics}
+            onRefreshAnalytics={loadData}
+            onToast={showToast}
           />
         )}
       </main>
@@ -217,16 +233,31 @@ export function App() {
         onClose={() => setUploadModalOpen(false)}
         onPipelineComplete={async () => {
           await loadData();
-          setActiveTab("findings");
+          setActiveTab("exceptions");
         }}
       />
 
+      <Modal
+        isOpen={memoModalOpen}
+        onClose={() => setMemoModalOpen(false)}
+        title="CFO Audit Memo"
+        maxWidth="max-w-4xl"
+      >
+        <MemoView
+          memoData={memoData}
+          onRefreshMemo={loadData}
+          onCopy={() => showToast("Audit memo copied to clipboard.", "success")}
+        />
+      </Modal>
+
       <Toast toast={toast} onClose={() => setToast(null)} />
 
-      <footer className="border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-500 font-mono">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>LedgerLens — Explainable AI Money-Leak Auditor</span>
-          <span>Startup Buildathon India 2026 · Gemini 4 Carbon · Deterministic Rules R1–R5</span>
+      <footer className="border-t border-gray-200 bg-white py-3 text-xs text-[#6B7280]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
+          <span>LedgerLens · Explainable AI Money-Leak Auditor</span>
+          <span className="font-mono text-[11px]">
+            Deterministic Rules R1–R5 · Gemini 4 Carbon
+          </span>
         </div>
       </footer>
     </div>

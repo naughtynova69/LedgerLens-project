@@ -52,6 +52,15 @@ export const api = {
       body: JSON.stringify({ action, reviewer, note }),
     }),
 
+  postBulkDecision: (findingIds, action, reviewer, note = "") =>
+    request("/api/findings/bulk-decision", {
+      method: "POST",
+      body: JSON.stringify({ finding_ids: findingIds, action, reviewer, note }),
+    }),
+
+  getDisputePacket: (findingId) =>
+    request(`/api/findings/${findingId}/dispute-packet`),
+
   uploadDocument: (kind, file) => {
     const formData = new FormData();
     formData.append("kind", kind);
@@ -86,4 +95,23 @@ export const api = {
   getMemo: () => request("/api/memo"),
 
   getAuditLog: () => request("/api/audit-log"),
+
+  getGcpStatus: () => request("/api/gcp/status"),
+
+  syncBigQuery: () =>
+    request("/api/gcp/bigquery/sync", {
+      method: "POST",
+    }),
+
+  getExecutiveAnalytics: () => request("/api/analytics/executive"),
+
+  getPolicy: () => request("/api/policy"),
+
+  updatePolicy: (updates) =>
+    request("/api/policy", {
+      method: "PUT",
+      body: JSON.stringify(updates),
+    }),
+
+  getExportCsvUrl: () => `${API_BASE}/api/export/findings.csv`,
 };

@@ -5,32 +5,24 @@ export function SeverityBadge({ severity, className = "" }) {
 
   const config = {
     critical: {
-      bg: "bg-[#FEF2F2]",
-      text: "text-[#DC2626]",
-      border: "border-[#FECACA]",
-      dot: "bg-[#DC2626]",
-      label: "CRITICAL",
+      classes: "bg-red-50/80 text-red-700 border-red-200",
+      dot: "bg-[#B91C1C]",
+      label: "Critical",
     },
     high: {
-      bg: "bg-[#FFFBEB]",
-      text: "text-[#D97706]",
-      border: "border-[#FDE68A]",
-      dot: "bg-[#D97706]",
-      label: "HIGH",
+      classes: "bg-gray-50 text-gray-700 border-gray-200",
+      dot: "bg-gray-500",
+      label: "High",
     },
     medium: {
-      bg: "bg-[#EEF2FF]",
-      text: "text-[#4F46E5]",
-      border: "border-[#C7D2FE]",
-      dot: "bg-[#4F46E5]",
-      label: "MEDIUM",
+      classes: "bg-gray-50 text-gray-600 border-gray-200",
+      dot: "bg-gray-400",
+      label: "Medium",
     },
     low: {
-      bg: "bg-slate-100",
-      text: "text-slate-600",
-      border: "border-slate-200",
-      dot: "bg-slate-500",
-      label: "LOW",
+      classes: "bg-gray-50 text-gray-500 border-gray-200",
+      dot: "bg-gray-400",
+      label: "Low",
     },
   };
 
@@ -38,7 +30,7 @@ export function SeverityBadge({ severity, className = "" }) {
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide border whitespace-nowrap ${style.bg} ${style.text} ${style.border} ${className}`}
+      className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium border whitespace-nowrap ${style.classes} ${className}`}
     >
       <span className={`w-1.5 h-1.5 rounded-full ${style.dot}`} />
       {style.label}
