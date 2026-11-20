@@ -70,6 +70,10 @@ ENGINE_TAG = "reportlab-invariant"
 # Font selection: a Unicode TTF covering every glyph the corpus prints.
 # --------------------------------------------------------------------------
 FONT_CANDIDATES = [
+    # Bundled redistributable font (Bitstream Vera/DejaVu license, see
+    # fonts/LICENSE.dejavu.txt) — checked FIRST so every platform embeds the
+    # exact same TTF bytes and regeneration stays byte-identical cross-machine.
+    str(CORPUS_DIR / "fonts" / "DejaVuSans.ttf"),
     "C:/Windows/Fonts/nirmala.ttf",    # Nirmala UI (Indic + Latin) — ₹
     "C:/Windows/Fonts/seguisym.ttf",   # Segoe UI Symbol — ₹
     "C:/Windows/Fonts/arial.ttf",
