@@ -5,30 +5,30 @@ export function SeverityBadge({ severity, className = "" }) {
 
   const config = {
     critical: {
-      bg: "bg-rose-500/10",
-      text: "text-rose-400",
-      border: "border-rose-500/30",
-      dot: "bg-rose-500 animate-pulse",
+      bg: "bg-[#FEF2F2]",
+      text: "text-[#DC2626]",
+      border: "border-[#FECACA]",
+      dot: "bg-[#DC2626]",
       label: "CRITICAL",
     },
     high: {
-      bg: "bg-amber-500/10",
-      text: "text-amber-400",
-      border: "border-amber-500/30",
-      dot: "bg-amber-500",
+      bg: "bg-[#FFFBEB]",
+      text: "text-[#D97706]",
+      border: "border-[#FDE68A]",
+      dot: "bg-[#D97706]",
       label: "HIGH",
     },
     medium: {
-      bg: "bg-sky-500/10",
-      text: "text-sky-400",
-      border: "border-sky-500/30",
-      dot: "bg-sky-500",
+      bg: "bg-[#EEF2FF]",
+      text: "text-[#4F46E5]",
+      border: "border-[#C7D2FE]",
+      dot: "bg-[#4F46E5]",
       label: "MEDIUM",
     },
     low: {
-      bg: "bg-slate-500/10",
-      text: "text-slate-400",
-      border: "border-slate-500/30",
+      bg: "bg-slate-100",
+      text: "text-slate-600",
+      border: "border-slate-200",
       dot: "bg-slate-500",
       label: "LOW",
     },
@@ -38,7 +38,7 @@ export function SeverityBadge({ severity, className = "" }) {
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold tracking-wide border ${style.bg} ${style.text} ${style.border} ${className}`}
+      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide border whitespace-nowrap ${style.bg} ${style.text} ${style.border} ${className}`}
     >
       <span className={`w-1.5 h-1.5 rounded-full ${style.dot}`} />
       {style.label}

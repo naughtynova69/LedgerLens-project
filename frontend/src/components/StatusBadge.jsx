@@ -6,32 +6,53 @@ export function StatusBadge({ status, className = "" }) {
 
   const config = {
     open: {
-      bg: "bg-amber-500/10",
-      text: "text-amber-400",
-      border: "border-amber-500/30",
-      label: "Needs Review",
+      bg: "bg-[#FFFBEB]",
+      text: "text-[#D97706]",
+      border: "border-[#FDE68A]",
+      label: "Open",
       icon: AlertCircle,
     },
     approved: {
-      bg: "bg-emerald-500/10",
-      text: "text-emerald-400",
-      border: "border-emerald-500/30",
+      bg: "bg-[#ECFDF5]",
+      text: "text-[#059669]",
+      border: "border-[#A7F3D0]",
       label: "Approved",
       icon: CheckCircle2,
     },
     rejected: {
-      bg: "bg-rose-500/10",
-      text: "text-rose-400",
-      border: "border-rose-500/30",
-      label: "Blocked / Rejected",
+      bg: "bg-[#FEF2F2]",
+      text: "text-[#DC2626]",
+      border: "border-[#FECACA]",
+      label: "Rejected",
       icon: XCircle,
     },
     recovery: {
-      bg: "bg-purple-500/10",
-      text: "text-purple-400",
-      border: "border-purple-500/30",
-      label: "In Recovery",
+      bg: "bg-[#ECFDF5]",
+      text: "text-[#059669]",
+      border: "border-[#A7F3D0]",
+      label: "Recovered",
       icon: RotateCcw,
+    },
+    recover: {
+      bg: "bg-[#ECFDF5]",
+      text: "text-[#059669]",
+      border: "border-[#A7F3D0]",
+      label: "Recovered",
+      icon: RotateCcw,
+    },
+    reject: {
+      bg: "bg-[#FEF2F2]",
+      text: "text-[#DC2626]",
+      border: "border-[#FECACA]",
+      label: "Rejected",
+      icon: XCircle,
+    },
+    approve: {
+      bg: "bg-[#ECFDF5]",
+      text: "text-[#059669]",
+      border: "border-[#A7F3D0]",
+      label: "Approved",
+      icon: CheckCircle2,
     },
   };
 
@@ -40,9 +61,9 @@ export function StatusBadge({ status, className = "" }) {
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border ${style.bg} ${style.text} ${style.border} ${className}`}
+      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-semibold border whitespace-nowrap ${style.bg} ${style.text} ${style.border} ${className}`}
     >
-      <Icon className="w-3.5 h-3.5" />
+      <Icon className="w-3.5 h-3.5 shrink-0" />
       {style.label}
     </span>
   );
