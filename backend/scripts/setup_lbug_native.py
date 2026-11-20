@@ -40,7 +40,7 @@ LADYBUGDB_VERSION = os.getenv("LADYBUGDB_VERSION", "0.22.3")
 VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+$")
 RELEASE_BASE = f"https://github.com/LadybugDB/ladybug/releases/download/v{LADYBUGDB_VERSION}"
 
-ALLOWED_HOSTS = {"github.com", "objects.githubusercontent.com"}
+ALLOWED_HOSTS = {"github.com", "objects.githubusercontent.com", "release-assets.githubusercontent.com"}
 MAX_DOWNLOAD_BYTES = 256 * 1024 * 1024
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -90,7 +90,9 @@ class _ValidatedRedirectHandler(urllib.request.HTTPRedirectHandler):
 def _http_get(url: str, destination: Path) -> None:
     _validate_url(url)
     context = ssl.create_default_context()
-    opener = urllib.request.build_opener(_ValidatedRedirectHandler(), context)
+    opener = urllib.request.build_opener(
+        _ValidatedRedirectHandler(), urllib.request.HTTPSHandler(context=context)
+    )
     request = urllib.request.Request(url, headers={"User-Agent": "ledgerlens-setup"})
     with opener.open(request, timeout=300) as response:
         expected = response.headers.get("Content-Length")

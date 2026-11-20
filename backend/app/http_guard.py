@@ -96,5 +96,7 @@ def guarded_urlopen(request_or_url, timeout: float = 5.0, **kwargs):
     url = getattr(request_or_url, "full_url", None) or str(request_or_url)
     validate_public_http_url(url)
     context = ssl.create_default_context()
-    opener = urllib.request.build_opener(_ValidatedRedirectHandler(), context)
+    opener = urllib.request.build_opener(
+        _ValidatedRedirectHandler(), urllib.request.HTTPSHandler(context=context)
+    )
     return opener.open(request_or_url, timeout=timeout, **kwargs)
