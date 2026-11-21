@@ -51,7 +51,7 @@ def test_graph_degrades_gracefully_without_crashing(isolated_client):
     assert "total_nodes" in g_stats.json()
     g_rebuild = client.post("/api/graph/rebuild")
     assert g_rebuild.status_code == 200
-    g_ent = client.get("/api/graph/entity/Vendor/V-101")
+    g_ent = client.get("/api/graph/entity/Vendor/V007")
     assert g_ent.status_code == 200
 
 
