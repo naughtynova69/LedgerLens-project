@@ -8,10 +8,35 @@ export default {
     extend: {
       colors: {
         canvas: {
-          DEFAULT: "#FAFAFA",
-          subtle: "#F3F4F6",
+          DEFAULT: "#F8FAFC",
           surface: "#FFFFFF",
-          border: "#E5E7EB",
+          subtle: "#F1F5F9",
+          inset: "#E2E8F0",
+          border: "#E2E8F0",
+          strong: "#CBD5E1",
+        },
+        ink: {
+          primary: "#0F172A",
+          secondary: "#475569",
+          muted: "#64748B",
+        },
+        risk: {
+          fg: "#991B1B",
+          bg: "#FEF2F2",
+          border: "#FECACA",
+          dot: "#DC2626",
+        },
+        warn: {
+          fg: "#92400E",
+          bg: "#FFFBEB",
+          border: "#FDE68A",
+          dot: "#D97706",
+        },
+        ok: {
+          fg: "#065F46",
+          bg: "#ECFDF5",
+          border: "#A7F3D0",
+          dot: "#059669",
         },
         brand: {
           50: "#ECFDF5",

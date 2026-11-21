@@ -5,7 +5,14 @@ import { RuleBadge } from "../components/RuleBadge";
 import { StatusBadge } from "../components/StatusBadge";
 import { ProofTrailInspector } from "../components/ProofTrailInspector";
 import { GraphStatsCard } from "../components/GraphStatsCard";
-import { formatCurrency, formatConfidence } from "../utils/formatters";
+import { formatCurrency } from "../utils/formatters";
+
+const SEVERITY_DOT = {
+  critical: "bg-[#B91C1C]",
+  high: "bg-[#D97706]",
+  medium: "bg-slate-500",
+  low: "bg-slate-400",
+};
 
 export function FindingsView({
   findings,
@@ -48,6 +55,14 @@ export function FindingsView({
     { id: "recovered", label: "Recovered" },
   ];
 
+  const ruleCounts = useMemo(() => {
+    const counts = {};
+    for (const f of findings || []) {
+      counts[f.rule_id] = (counts[f.rule_id] || 0) + 1;
+    }
+    return counts;
+  }, [findings]);
+
   const filteredFindings = useMemo(() => {
     let result = [...(findings || [])];
 
@@ -82,42 +97,82 @@ export function FindingsView({
     setCheckedIds((prev) => prev.filter((id) => validIds.has(id)));
   }, [findings]);
 
-  // Keyboard triage: j/k or ArrowDown/ArrowUp to step through exceptions, / to focus search
+  // Keyboard-first triage: j/k or ↑/↓ navigate, / focus search, a/r recover, d dispute, Esc clear
   useEffect(() => {
     const onKeyDown = (e) => {
       const tag = (e.target?.tagName || "").toLowerCase();
-      if (tag === "input" || tag === "textarea" || tag === "select" || e.target?.isContentEditable) {
+      const isEditing =
+        tag === "input" || tag === "textarea" || tag === "select" || e.target?.isContentEditable;
+
+      if (e.key === "Escape") {
+        if (isEditing && e.target === searchInputRef.current) {
+          e.target.blur();
+        }
+        setSearchQuery("");
+        setCheckedIds([]);
         return;
       }
+
+      if (isEditing || e.metaKey || e.ctrlKey || e.altKey) {
+        return;
+      }
+
       if (e.key === "/") {
         e.preventDefault();
         searchInputRef.current?.focus();
         return;
       }
-      if (!filteredFindings.length) return;
+
       if (e.key === "j" || e.key === "ArrowDown") {
+        if (!filteredFindings.length) return;
         e.preventDefault();
         const idx = filteredFindings.findIndex((f) => f.finding_id === selectedFindingId);
         const nextIdx = idx < 0 ? 0 : Math.min(idx + 1, filteredFindings.length - 1);
         onSelectFinding(filteredFindings[nextIdx].finding_id);
-      } else if (e.key === "k" || e.key === "ArrowUp") {
+        return;
+      }
+
+      if (e.key === "k" || e.key === "ArrowUp") {
+        if (!filteredFindings.length) return;
         e.preventDefault();
         const idx = filteredFindings.findIndex((f) => f.finding_id === selectedFindingId);
         const prevIdx = idx <= 0 ? 0 : idx - 1;
         onSelectFinding(filteredFindings[prevIdx].finding_id);
+        return;
+      }
+
+      const activeId = selectedFindingDetail?.finding_id || selectedFindingId;
+      if (!activeId || isSubmittingDecision || !onMakeDecision) return;
+
+      if (e.key === "a" || e.key === "r") {
+        e.preventDefault();
+        onMakeDecision(
+          activeId,
+          "recovery",
+          "Vijay (AP Lead)",
+          "Payment held and recovery initiated via AP workstation."
+        );
+      } else if (e.key === "d") {
+        e.preventDefault();
+        onMakeDecision(
+          activeId,
+          "reject",
+          "Vijay (AP Lead)",
+          "Disputed with vendor pending credit note or revised invoice."
+        );
       }
     };
+
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [filteredFindings, selectedFindingId, onSelectFinding]);
-
-  const ruleBreakdown = useMemo(() => {
-    const counts = {};
-    for (const f of findings || []) {
-      counts[f.rule_id] = (counts[f.rule_id] || 0) + 1;
-    }
-    return Object.entries(counts).sort(([a], [b]) => a.localeCompare(b));
-  }, [findings]);
+  }, [
+    filteredFindings,
+    selectedFindingId,
+    selectedFindingDetail,
+    onSelectFinding,
+    onMakeDecision,
+    isSubmittingDecision,
+  ]);
 
   const allFilteredChecked =
     filteredFindings.length > 0 &&
@@ -159,53 +214,54 @@ export function FindingsView({
     executiveAnalytics?.total_audited_spend_inr ?? stats?.total_audited_spend ?? 0;
 
   return (
-    <div className="space-y-4">
-      {/* 4-Metric Executive Strip */}
-      <div className="bg-white border border-gray-200 rounded-lg grid grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-gray-200">
-        <div className="px-4 py-3.5">
-          <div className="text-[11px] font-medium uppercase tracking-wider text-[#6B7280]">
+    <div className="space-y-3">
+      {/* 4-Metric Financial KPI Strip */}
+      <div className="bg-white border border-[#E2E8F0] rounded-md grid grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[#E2E8F0]">
+        <div className="px-4 py-3">
+          <div className="text-[11px] font-medium uppercase tracking-wider text-slate-500">
             At Risk (INR Eq.)
           </div>
-          <div className="text-lg font-semibold font-mono tabular-nums text-[#B91C1C] mt-1">
+          <div className="text-lg font-semibold font-mono tabular-nums text-[#B91C1C] mt-0.5">
             {formatCurrency(atRiskInr, "INR")}
           </div>
         </div>
 
-        <div className="px-4 py-3.5">
-          <div className="text-[11px] font-medium uppercase tracking-wider text-[#6B7280]">
-            Open Items
+        <div className="px-4 py-3">
+          <div className="text-[11px] font-medium uppercase tracking-wider text-slate-500">
+            Open Exceptions
           </div>
-          <div className="text-lg font-semibold font-mono tabular-nums text-[#111827] mt-1">
+          <div className="text-lg font-semibold font-mono tabular-nums text-slate-900 mt-0.5">
             {openCount}
           </div>
         </div>
 
-        <div className="px-4 py-3.5">
-          <div className="text-[11px] font-medium uppercase tracking-wider text-[#6B7280]">
+        <div className="px-4 py-3">
+          <div className="text-[11px] font-medium uppercase tracking-wider text-slate-500">
             Recovered
           </div>
-          <div className="text-lg font-semibold font-mono tabular-nums text-[#047857] mt-1">
+          <div className="text-lg font-semibold font-mono tabular-nums text-[#047857] mt-0.5">
             {formatCurrency(recoveredInr, "INR")}
           </div>
         </div>
 
-        <div className="px-4 py-3.5">
-          <div className="text-[11px] font-medium uppercase tracking-wider text-[#6B7280]">
-            Audited Spend
+        <div className="px-4 py-3">
+          <div className="text-[11px] font-medium uppercase tracking-wider text-slate-500">
+            Total Audited Spend
           </div>
-          <div className="text-lg font-semibold font-mono tabular-nums text-[#111827] mt-1">
+          <div className="text-lg font-semibold font-mono tabular-nums text-slate-900 mt-0.5">
             {formatCurrency(auditedSpendInr, "INR")}
           </div>
         </div>
       </div>
 
-      {/* Embedded knowledge-graph KPI strip (LadybugDB) */}
+      {/* Single-Line 36px Knowledge-Graph Status Strip */}
       <GraphStatsCard onToast={onToast} />
 
-      {/* Single-Row Filter Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-2.5">
+      {/* 40px Single-Row Triage Toolbar */}
+      <div className="min-h-[40px] flex flex-wrap items-center justify-between gap-2 bg-white border border-[#E2E8F0] rounded-md px-2.5 py-1.5">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex rounded-lg border border-gray-200 bg-white p-0.5">
+          {/* Status Segmented Control */}
+          <div className="inline-flex rounded border border-[#E2E8F0] bg-[#F8FAFC] p-0.5">
             {statusTabs.map((tab) => {
               const active = statusFilter === tab.id;
               return (
@@ -213,10 +269,10 @@ export function FindingsView({
                   key={tab.id}
                   type="button"
                   onClick={() => setStatusFilter(tab.id)}
-                  className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                  className={`px-2.5 py-1 rounded-sm text-xs font-medium transition-colors ${
                     active
-                      ? "bg-gray-100 text-[#111827]"
-                      : "text-[#6B7280] hover:text-[#111827]"
+                      ? "bg-white text-slate-900 shadow-sm border border-[#E2E8F0]"
+                      : "text-slate-500 hover:text-slate-900 border border-transparent"
                   }`}
                 >
                   {tab.label}
@@ -225,120 +281,103 @@ export function FindingsView({
             })}
           </div>
 
+          {/* Rule Filter Dropdown */}
           <select
             value={ruleFilter}
             onChange={(e) => setRuleFilter(e.target.value)}
             aria-label="Filter by rule"
-            className="px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-xs text-[#111827] focus:outline-none focus:border-gray-400"
+            className="h-7 px-2 bg-white border border-[#E2E8F0] rounded text-xs text-slate-900 focus:outline-none focus:border-slate-400"
           >
-            {rulesList.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.label}
-              </option>
-            ))}
+            {rulesList.map((r) => {
+              const count = r.id === "all" ? findings?.length || 0 : ruleCounts[r.id] || 0;
+              return (
+                <option key={r.id} value={r.id}>
+                  {r.label} ({count})
+                </option>
+              );
+            })}
           </select>
 
-          {ruleBreakdown.length > 0 && (
-            <div className="hidden xl:flex items-center gap-1.5 pl-1" aria-label="Active rule counts">
-              {ruleBreakdown.map(([ruleId, count]) => {
-                const active = ruleFilter === ruleId;
-                return (
-                  <button
-                    key={ruleId}
-                    type="button"
-                    onClick={() => setRuleFilter(active ? "all" : ruleId)}
-                    className={`px-2 py-1 rounded-md text-[11px] font-mono tabular-nums border transition-colors ${
-                      active
-                        ? "bg-[#111827] text-white border-[#111827]"
-                        : "bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:text-[#111827]"
-                    }`}
-                    title={`Filter by ${ruleId}`}
-                  >
-                    {ruleId} · {count}
-                  </button>
-                );
-              })}
+          {/* Inline Bulk Action Bar (visible only when checkedIds.length > 0) */}
+          {checkedIds.length > 0 && (
+            <div className="flex items-center gap-1.5 pl-2 border-l border-[#E2E8F0]">
+              <span className="text-[11px] font-mono tabular-nums font-medium text-slate-900">
+                {checkedIds.length} selected
+              </span>
+              <button
+                type="button"
+                onClick={() => handleBulkAction("recovery")}
+                disabled={isSubmittingDecision}
+                className="px-2 py-1 rounded text-[11px] font-medium bg-[#047857] text-white hover:bg-[#065F46] transition-colors disabled:opacity-50"
+              >
+                Recover
+              </button>
+              <button
+                type="button"
+                onClick={() => handleBulkAction("reject")}
+                disabled={isSubmittingDecision}
+                className="px-2 py-1 rounded text-[11px] font-medium bg-[#B91C1C] text-white hover:bg-[#991B1B] transition-colors disabled:opacity-50"
+              >
+                Dispute
+              </button>
+              <button
+                type="button"
+                onClick={() => setCheckedIds([])}
+                className="px-2 py-1 rounded text-[11px] font-medium text-slate-600 hover:text-slate-900 border border-[#E2E8F0] bg-white hover:bg-slate-50 transition-colors"
+              >
+                Clear
+              </button>
             </div>
           )}
         </div>
 
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <div className="relative flex-1 sm:w-64">
-            <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               ref={searchInputRef}
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search vendor, invoice #, finding... (/)"
+              placeholder="Search vendor, invoice #, ID..."
               aria-label="Search exceptions"
-              className="w-full pl-8 pr-7 py-1.5 bg-white border border-gray-200 rounded-lg text-xs text-[#111827] placeholder-gray-400 focus:outline-none focus:border-gray-400"
+              className="w-full h-7 pl-8 pr-7 bg-[#F8FAFC] border border-[#E2E8F0] rounded text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-slate-400 focus:bg-white"
             />
-            {searchQuery && (
+            {searchQuery ? (
               <button
                 type="button"
                 onClick={() => setSearchQuery("")}
                 aria-label="Clear search"
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
+            ) : (
+              <kbd className="absolute right-2 top-1/2 -translate-y-1/2 px-1 py-0.5 text-[10px] font-mono text-slate-400 bg-white border border-[#E2E8F0] rounded pointer-events-none">
+                /
+              </kbd>
             )}
           </div>
 
           <a
             href={api.getExportCsvUrl()}
             download="findings.csv"
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 transition-colors whitespace-nowrap shrink-0"
+            className="inline-flex items-center gap-1.5 h-7 px-2.5 text-xs font-medium rounded border border-[#E2E8F0] bg-white hover:bg-slate-50 text-slate-700 transition-colors whitespace-nowrap shrink-0"
             title="Export findings to CSV"
           >
-            <Download className="w-3.5 h-3.5 text-gray-500" />
+            <Download className="w-3.5 h-3.5 text-slate-500" />
             <span className="hidden sm:inline">Export CSV</span>
           </a>
         </div>
       </div>
 
-      {/* Inline Bulk Triage Bar */}
-      {checkedIds.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-lg px-4 py-2.5 flex flex-wrap items-center justify-between gap-3">
-          <span className="text-xs font-medium text-[#111827] font-mono tabular-nums">
-            {checkedIds.length} selected
-          </span>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => handleBulkAction("recovery")}
-              disabled={isSubmittingDecision}
-              className="px-3 py-1 rounded-lg text-xs font-medium bg-red-50/80 text-red-700 border border-red-200 hover:bg-red-100/70 transition-colors disabled:opacity-50"
-            >
-              Hold / Recover Selected
-            </button>
-            <button
-              type="button"
-              onClick={() => handleBulkAction("approve")}
-              disabled={isSubmittingDecision}
-              className="px-3 py-1 rounded-lg text-xs font-medium bg-emerald-50/80 text-emerald-700 border border-emerald-200 hover:bg-emerald-100/70 transition-colors disabled:opacity-50"
-            >
-              Approve Selected
-            </button>
-            <button
-              type="button"
-              onClick={() => setCheckedIds([])}
-              className="px-2.5 py-1 rounded-lg text-xs font-medium text-[#6B7280] hover:text-[#111827] border border-gray-200 bg-white hover:bg-gray-50 transition-colors"
-            >
-              Clear
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Empty State or Split-View */}
+      {/* Empty State or Master-Detail Split Pane (55% / 45%) */}
       {filteredFindings.length === 0 ? (
-        <div className="p-12 text-center rounded-lg border border-gray-200 bg-white space-y-3">
-          <h3 className="text-sm font-semibold text-[#111827]">No matching exceptions</h3>
-          <p className="text-xs text-[#6B7280] max-w-sm mx-auto">
+        <div className="p-12 text-center rounded-md border border-[#E2E8F0] bg-white space-y-3">
+          <h3 className="text-sm font-semibold text-slate-900">No matching exceptions</h3>
+          <p className="text-xs text-slate-500 max-w-sm mx-auto">
             {findings?.length === 0
-              ? "Load the demo dataset or upload CSV/PDF documents to run deterministic rules R1–R7."
+              ? "Load the demo dataset or upload CSV/PDF documents to run deterministic rules R1–R10."
               : "Adjust your status, rule, or search filters."}
           </p>
           {findings?.length === 0 ? (
@@ -347,7 +386,7 @@ export function FindingsView({
                 type="button"
                 onClick={onSeedDemo}
                 disabled={loadingAction}
-                className="px-3.5 py-1.5 rounded-lg bg-[#111827] hover:bg-gray-800 text-white font-medium text-xs transition-colors disabled:opacity-50"
+                className="px-3.5 py-1.5 rounded bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs transition-colors disabled:opacity-50"
               >
                 Load Demo Dataset
               </button>
@@ -355,9 +394,9 @@ export function FindingsView({
                 <button
                   type="button"
                   onClick={onOpenDemoGuide}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100/80 text-indigo-700 font-medium text-xs transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded border border-[#E2E8F0] bg-white hover:bg-slate-50 text-slate-700 font-medium text-xs transition-colors"
                 >
-                  <PlayCircle className="w-3.5 h-3.5" />
+                  <PlayCircle className="w-3.5 h-3.5 text-slate-500" />
                   <span>Open Demo Guide</span>
                 </button>
               )}
@@ -370,41 +409,49 @@ export function FindingsView({
                 setRuleFilter("all");
                 setStatusFilter("all");
               }}
-              className="px-3.5 py-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-[#111827] font-medium text-xs transition-colors"
+              className="px-3.5 py-1.5 rounded border border-[#E2E8F0] bg-white hover:bg-slate-50 text-slate-900 font-medium text-xs transition-colors"
             >
               Reset Filters
             </button>
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-          {/* Left: Clean 5-Column Ledger Table */}
-          <div className="lg:col-span-5 bg-white border border-gray-200 rounded-lg overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-[#FAFAFA] border-b border-gray-200 text-[#6B7280]">
-                  <tr>
-                    <th className="py-2.5 pl-3 pr-1 w-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[55fr_45fr] gap-4 items-start">
+          {/* Left 55%: High-Density Master Ledger Table */}
+          <div className="min-w-0 bg-white border border-[#E2E8F0] rounded-md overflow-hidden">
+            <div className="max-h-[calc(100vh-280px)] overflow-y-auto overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="sticky top-0 z-10 bg-[#F8FAFC] border-b border-[#E2E8F0] text-slate-500">
+                  <tr className="h-9">
+                    <th className="pl-3 pr-1 w-8">
                       <input
                         type="checkbox"
                         checked={allFilteredChecked}
                         onChange={toggleAllFiltered}
                         aria-label="Select all visible findings"
-                        className="rounded border-gray-300 text-[#111827] focus:ring-0"
+                        className="rounded border-slate-300 text-slate-900 focus:ring-0"
                       />
                     </th>
-                    <th className="py-2.5 px-2 font-medium">Vendor / Rule</th>
-                    <th className="py-2.5 px-2 font-medium">Invoice #</th>
-                    <th className="py-2.5 px-2 font-medium text-right">Amount</th>
-                    <th className="py-2.5 pl-2 pr-3 font-medium text-right">Status</th>
+                    <th className="px-2 font-medium w-24 whitespace-nowrap">Rule</th>
+                    <th className="px-2 font-medium">Vendor / Invoice</th>
+                    <th className="px-2 font-medium text-right w-28 whitespace-nowrap">
+                      At Risk
+                    </th>
+                    <th className="pl-2 pr-3 font-medium text-right w-24 whitespace-nowrap">
+                      Status
+                    </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
+                <tbody className="divide-y divide-[#E2E8F0]">
                   {filteredFindings.map((finding) => {
                     const isSelected = selectedFindingId === finding.finding_id;
                     const isChecked = checkedIds.includes(finding.finding_id);
                     const refs = finding.entity_refs || {};
                     const invList = refs.invoice_numbers || [];
+                    const sevDot =
+                      SEVERITY_DOT[(finding.severity || "low").toLowerCase()] ||
+                      SEVERITY_DOT.low;
+
                     return (
                       <tr
                         key={finding.finding_id}
@@ -417,14 +464,14 @@ export function FindingsView({
                             onSelectFinding(finding.finding_id);
                           }
                         }}
-                        className={`cursor-pointer transition-colors focus-visible:outline-none focus-visible:bg-gray-100 ${
+                        className={`h-10 cursor-pointer focus-visible:outline-none focus-visible:bg-slate-100 ${
                           isSelected
-                            ? "bg-gray-50 border-l-2 border-l-[#111827]"
-                            : "hover:bg-gray-50/70 border-l-2 border-l-transparent"
+                            ? "bg-slate-100 border-l-2 border-l-slate-900"
+                            : "hover:bg-slate-50 border-l-2 border-l-transparent"
                         }`}
                       >
                         <td
-                          className="py-2.5 pl-3 pr-1 align-top"
+                          className="pl-3 pr-1 align-middle"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <input
@@ -432,44 +479,45 @@ export function FindingsView({
                             checked={isChecked}
                             onChange={() => toggleOne(finding.finding_id)}
                             aria-label={`Select ${finding.finding_id}`}
-                            className="mt-0.5 rounded border-gray-300 text-[#111827] focus:ring-0"
+                            className="rounded border-slate-300 text-slate-900 focus:ring-0"
                           />
                         </td>
 
-                        <td className="py-2.5 px-2 align-top">
-                          <div
-                            className="font-medium text-[#111827] truncate max-w-[130px]"
-                            title={finding.title}
-                          >
-                            {refs.vendor_id || "Vendor"}
-                          </div>
-                          <div className="mt-1">
+                        <td className="px-2 align-middle whitespace-nowrap">
+                          <div className="inline-flex items-center gap-1.5">
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full shrink-0 ${sevDot}`}
+                              title={`Severity: ${finding.severity || "low"}`}
+                            />
                             <RuleBadge ruleId={finding.rule_id} />
                           </div>
                         </td>
 
-                        <td className="py-2.5 px-2 align-top">
-                          <div
-                            className="font-mono text-[#111827] truncate max-w-[115px]"
-                            title={invList.join(", ")}
-                          >
-                            {invList[0] || "—"}
-                          </div>
-                          <div className="font-mono text-[11px] text-[#6B7280]">
-                            {finding.finding_id}
+                        <td className="px-2 align-middle min-w-0 max-w-[220px]">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span
+                              className="font-medium text-slate-900 truncate"
+                              title={finding.title}
+                            >
+                              {refs.vendor_id || "Vendor"}
+                            </span>
+                            <span className="text-slate-300 shrink-0">·</span>
+                            <span
+                              className="font-mono text-[11px] text-slate-500 truncate"
+                              title={invList.join(", ")}
+                            >
+                              {invList[0] || finding.finding_id}
+                            </span>
                           </div>
                         </td>
 
-                        <td className="py-2.5 px-2 text-right whitespace-nowrap align-top">
-                          <div className="font-mono tabular-nums font-medium text-[#B91C1C]">
+                        <td className="px-2 text-right whitespace-nowrap align-middle">
+                          <span className="font-mono tabular-nums font-medium text-[#B91C1C]">
                             {formatCurrency(finding.amount_at_risk, finding.currency)}
-                          </div>
-                          <div className="font-mono tabular-nums text-[11px] text-[#6B7280]">
-                            {formatConfidence(finding.confidence)}
-                          </div>
+                          </span>
                         </td>
 
-                        <td className="py-2.5 pl-2 pr-3 text-right whitespace-nowrap align-top">
+                        <td className="pl-2 pr-3 text-right whitespace-nowrap align-middle">
                           <StatusBadge status={finding.status} />
                         </td>
                       </tr>
@@ -478,16 +526,16 @@ export function FindingsView({
                 </tbody>
               </table>
             </div>
-            <div className="px-3.5 py-2 border-t border-gray-200 bg-[#FAFAFA] text-[11px] text-[#6B7280] flex items-center justify-between font-mono tabular-nums">
+            <div className="px-3 py-2 border-t border-[#E2E8F0] bg-[#F8FAFC] text-[11px] text-slate-500 flex items-center justify-between font-mono tabular-nums">
               <span>
                 {filteredFindings.length} of {findings.length} exceptions
               </span>
-              <span className="hidden sm:inline">j/k navigate · / search</span>
+              <span className="hidden sm:inline">j/k navigate · a recover · d dispute</span>
             </div>
           </div>
 
-          {/* Right: Calm Decision Pane */}
-          <div className="lg:col-span-7">
+          {/* Right 45%: Sticky Evidence & Proof Trail Inspector */}
+          <div className="min-w-0 lg:sticky lg:top-16">
             <ProofTrailInspector
               finding={selectedFindingDetail}
               onMakeDecision={onMakeDecision}

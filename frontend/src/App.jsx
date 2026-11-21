@@ -222,7 +222,7 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] text-[#111827] flex flex-col font-sans">
+    <div className="min-h-screen bg-[var(--bg-canvas)] text-[var(--text-primary)] flex flex-col font-sans">
       <Navbar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -243,10 +243,10 @@ export function App() {
       />
 
       {needsReviewBatches.length > 0 && (
-        <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-4">
-          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-900">
+        <div className="max-w-[1600px] w-full mx-auto px-4 pt-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 px-3.5 py-2 rounded-lg bg-[var(--warn-bg)] border border-[var(--warn-border)] text-xs text-[var(--warn-fg)]">
             <span>
-              <span className="font-semibold">
+              <span className="font-semibold tabular-nums">
                 {needsReviewBatches.length}{" "}
                 {needsReviewBatches.length === 1 ? "batch" : "batches"}
               </span>{" "}
@@ -256,7 +256,7 @@ export function App() {
             <button
               type="button"
               onClick={() => handleOpenReviewDrawer(needsReviewBatches[0])}
-              className="px-2.5 py-1 rounded-md font-medium bg-white border border-amber-300 text-amber-900 hover:bg-amber-100/60 transition-colors"
+              className="px-2.5 py-1 rounded-md font-medium bg-[var(--bg-surface)] border border-[var(--warn-border)] text-[var(--warn-fg)] hover:bg-amber-100/60 transition-colors duration-100"
             >
               Review &amp; Fix Lines
             </button>
@@ -264,7 +264,7 @@ export function App() {
         </div>
       )}
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="flex-1 max-w-[1600px] w-full mx-auto px-4 py-4">
         {activeTab === "exceptions" && (
           <FindingsView
             findings={findings}
@@ -361,8 +361,8 @@ export function App() {
 
       <Toast toast={toast} onClose={() => setToast(null)} />
 
-      <footer className="border-t border-gray-200 bg-white py-3 text-xs text-[#6B7280]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
+      <footer className="border-t border-[var(--border-hairline)] bg-[var(--bg-surface)] py-2.5 text-xs text-[var(--text-muted)]">
+        <div className="max-w-[1600px] mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <span>LedgerLens · Explainable AI Money-Leak Auditor</span>
           <span className="font-mono text-[11px]">
             Deterministic Rules R1–R10 (LadybugDB Graph) · Gemini 3.8 Vision Flash

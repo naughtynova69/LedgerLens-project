@@ -2,12 +2,33 @@ import React from "react";
 import { BookOpen, Code2, Scale } from "lucide-react";
 import { RuleBadge } from "../components/RuleBadge";
 
+function getSeverityStyle(severityText) {
+  const lower = (severityText || "").toLowerCase();
+  if (lower.startsWith("critical")) {
+    return {
+      container: "bg-[#FEF2F2] text-[#991B1B] border-[#FECACA]",
+      dot: "bg-[#DC2626]",
+    };
+  }
+  if (lower.includes("high")) {
+    return {
+      container: "bg-[#FFFBEB] text-[#92400E] border-[#FDE68A]",
+      dot: "bg-[#D97706]",
+    };
+  }
+  return {
+    container: "bg-[#F8FAFC] text-[#334155] border-[#E2E8F0]",
+    dot: "bg-[#64748B]",
+  };
+}
+
 export function RulesView() {
   const rules = [
     {
       id: "R1",
       name: "Duplicate & Near-Duplicate Invoices",
-      intent: "Detects the 61% non-identical duplicate problem via alphanumeric invoice canonicalization, date proximity, line-item Jaccard similarity, and same-PO double billing.",
+      intent:
+        "Detects the 61% non-identical duplicate problem via alphanumeric invoice canonicalization, date proximity, line-item Jaccard similarity, and same-PO double billing.",
       logic: `group invoices by vendor_id
 for pair (A, B) with A.invoice_number != B.invoice_number:
   amount_ok = |total_A - total_B| / max(total_A, total_B) <= 0.005
@@ -22,7 +43,8 @@ for pair (A, B) with A.invoice_number != B.invoice_number:
     {
       id: "R2",
       name: "Contract Price Leakage",
-      intent: "Catches unit price charges above negotiated contract rates and missed agreed discounts. The contract always governs over the PO.",
+      intent:
+        "Catches unit price charges above negotiated contract rates and missed agreed discounts. The contract always governs over the PO.",
       logic: `join invoice_line -> contract_line on (vendor_id, normalized_item)
 where contract.status == 'active' and start_date <= invoice_date <= end_date
 governed_rate = contracted_unit_price * (1 - discount_pct / 100)
@@ -35,7 +57,8 @@ if unit_price > contracted_unit_price or missed_discount:
     {
       id: "R3",
       name: "Purchase Order Mismatch & Overbilling",
-      intent: "Flags cumulative billed quantities above PO limits, premature billing before delivery on open POs, and unordered items billed against a PO.",
+      intent:
+        "Flags cumulative billed quantities above PO limits, premature billing before delivery on open POs, and unordered items billed against a PO.",
       logic: `sum(non_duplicate invoice.quantity) per (po_id, normalized_item)
 if total_billed_qty > po.quantity:
   amount_at_risk = (total_billed_qty - po.quantity) * po.unit_price * (1 + tax_pct / 100)
@@ -49,7 +72,8 @@ if po_id in purchase_orders and item not on po_id:
     {
       id: "R4",
       name: "Currency, FX & Tax Errors",
-      intent: "Flags currency mismatches (PO -> Contract -> Vendor), FX rate anomalies (>2% drift), tax applied on exempt contract items, and duplicate tax lines.",
+      intent:
+        "Flags currency mismatches (PO -> Contract -> Vendor), FX rate anomalies (>2% drift), tax applied on exempt contract items, and duplicate tax lines.",
       logic: `1. Currency mismatch vs PO / Contract / Vendor default_currency -> exposure = line_total
 2. FX anomaly: |fx_rate_to_inr - REFERENCE_FX_RATES[currency]| / ref > 2% -> exposure = INR delta
 3. Tax overcharge: invoice.tax_pct > contract.tax_pct -> exposure = qty * unit_price * tax_delta%
@@ -60,7 +84,8 @@ if po_id in purchase_orders and item not on po_id:
     {
       id: "R5",
       name: "Cancelled-Service Leakage",
-      intent: "Catches charges billed after contract cancellation/termination/expiry, against inactive vendors, or referencing cancelled POs.",
+      intent:
+        "Catches charges billed after contract cancellation/termination/expiry, against inactive vendors, or referencing cancelled POs.",
       logic: `if contract.status in ('cancelled', 'terminated') or invoice_date > contract.end_date:
   emit Finding (amount_at_risk = line_total, action: CANCEL_AUTOPAY)
 if vendor.status in ('cancelled', 'terminated', 'inactive') or po.status in ('cancelled', 'terminated'):
@@ -71,7 +96,8 @@ if vendor.status in ('cancelled', 'terminated', 'inactive') or po.status in ('ca
     {
       id: "R6",
       name: "Split-PO / Approval-Limit Bypass",
-      intent: "Catches the same PO billed across consecutive invoices whose combined quantity/value bypasses per-invoice duplicate and approval-limit checks.",
+      intent:
+        "Catches the same PO billed across consecutive invoices whose combined quantity/value bypasses per-invoice duplicate and approval-limit checks.",
       logic: `group invoice lines by (po_id, normalized_item), order by invoice_date
 if combined_billed_qty > po.quantity across 2+ invoices:
   emit Finding (amount_at_risk = excess portion of the later invoices)`,
@@ -81,7 +107,8 @@ if combined_billed_qty > po.quantity across 2+ invoices:
     {
       id: "R7",
       name: "3-Way GRN Mismatch",
-      intent: "Detects invoices billing more quantity than was received/accepted on the matching goods-receipt note.",
+      intent:
+        "Detects invoices billing more quantity than was received/accepted on the matching goods-receipt note.",
       logic: `join invoice line -> GRN line on (po_id, normalized_item)
 if invoice.quantity > grn.received_qty:
   emit Finding (amount_at_risk = (qty - received_qty) * unit_price)`,
@@ -91,7 +118,8 @@ if invoice.quantity > grn.received_qty:
     {
       id: "R8",
       name: "Cross-Entity Duplicate & Threshold-Splitting (Graph)",
-      intent: "Catches what tabular R1 cannot: two DIFFERENT vendor entities (sister firms, shell aliases) converging on the same bank account or tax identifier while billing near-identical invoices, plus approval-threshold splitting.",
+      intent:
+        "Catches what tabular R1 cannot: two DIFFERENT vendor entities (sister firms, shell aliases) converging on the same bank account or tax identifier while billing near-identical invoices, plus approval-threshold splitting.",
       logic: `Cypher (LadybugDB, deterministic):
 MATCH (i1:Invoice)-[:ISSUED_BY]->(v1:Vendor)-[:USES_BANK]->(b:BankAccount)
       <-[:USES_BANK]-(v2:Vendor)<-[:ISSUED_BY]-(i2:Invoice)
@@ -107,7 +135,8 @@ each at 80-99.9% of the approver limit, combined sum > limit`,
     {
       id: "R9",
       name: "Approver-Vendor Collusion & Conflict of Interest (Graph)",
-      intent: "Flags internal procurement fraud: an employee approves invoices for a vendor linked to them via shared personal infrastructure — bank account, registered address, or normalized phone.",
+      intent:
+        "Flags internal procurement fraud: an employee approves invoices for a vendor linked to them via shared personal infrastructure — bank account, registered address, or normalized phone.",
       logic: `Cypher (LadybugDB, deterministic):
 MATCH (a:Approver)-[:APPROVED_INVOICE]->(i:Invoice)-[:ISSUED_BY]->
       (v:Vendor)-[:LOCATED_AT]->(addr:Address)<-[:APPROVER_LOCATED_AT]-(a)
@@ -120,7 +149,8 @@ emit Finding (severity: critical,
     {
       id: "R10",
       name: "Contract Lineage & Unapplied Credit Notes (Graph)",
-      intent: "Traverses AMENDS contract lineage to catch invoices billed at a superseded rate after a signed amendment lowered it (ERP master-data lag), plus OPEN supplier credit notes while the vendor keeps billing.",
+      intent:
+        "Traverses AMENDS contract lineage to catch invoices billed at a superseded rate after a signed amendment lowered it (ERP master-data lag), plus OPEN supplier credit notes while the vendor keeps billing.",
       logic: `Cypher (LadybugDB, deterministic):
 MATCH (c_new:Contract)-[:AMENDS*1..5]->(c_old:Contract)<-[:GOVERNED_BY]-(i:Invoice)
 WHERE c_new.unit_rate < c_old.unit_rate
@@ -133,66 +163,88 @@ Credits: OPEN credit note with vendor invoices dated >= issue_date`,
   ];
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
-      <div>
-        <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-          <BookOpen className="w-5 h-5 text-[#059669]" />
-          <span>Deterministic Detection Engine (R1–R10)</span>
-        </h1>
-        <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-          Zero LLM SDK calls inside `backend/app/detect/` — R1–R7 run pure tabular Python, R8–R10 run deterministic
-          LadybugDB Cypher over the embedded knowledge graph. Every finding carries verifiable proof math.
-        </p>
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div>
+          <h1 className="text-[15px] font-semibold text-slate-900 tracking-[-0.01em] flex items-center gap-2">
+            <BookOpen className="w-4 h-4 text-slate-700" />
+            <span>Deterministic Detection Engine (R1–R10)</span>
+          </h1>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Zero LLM SDK calls inside{" "}
+            <code className="font-mono text-slate-700 bg-slate-100 px-1 rounded">
+              backend/app/detect/
+            </code>{" "}
+            — R1–R7 run pure tabular Python, R8–R10 run deterministic LadybugDB Cypher over the embedded knowledge graph.
+          </p>
+        </div>
+        <span className="text-[11px] font-mono tabular-nums text-slate-500 shrink-0">
+          10 active rules
+        </span>
       </div>
 
-      <div className="p-5 rounded-xl bg-white border border-slate-200 shadow-sm space-y-2">
-        <div className="flex items-center gap-2 text-xs font-bold text-[#059669] uppercase tracking-wider">
-          <Scale className="w-4 h-4" />
-          Neuro-Symbolic Contract: Gemini Extracts & Explains · Python Rules + Cypher Decide
+      <div className="p-4 rounded-lg bg-white border border-slate-200 space-y-1.5">
+        <div className="flex items-center gap-2 text-[11px] font-semibold text-[#047857] uppercase tracking-[0.06em]">
+          <Scale className="w-3.5 h-3.5" />
+          <span>Neuro-Symbolic Contract: Gemini Extracts &amp; Explains · Python Rules + Cypher Decide</span>
         </div>
-        <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-          Finance controllers cannot freeze vendor payouts on an opaque score. Every finding below emits a
-          deterministic <code className="font-mono text-slate-900 bg-slate-100 px-1 rounded">proof_trail</code> JSON
-          payload linking the exact invoice line, contract clause, PO line, and payment record — and for the graph rules R8–R10, the
-          serialized multi-hop <code className="font-mono text-slate-900 bg-slate-100 px-1 rounded">proof_subgraph</code>{" "}
+        <p className="text-[13px] leading-[1.4] text-slate-600">
+          Finance controllers cannot freeze vendor payouts on an opaque score. Every finding emits a deterministic{" "}
+          <code className="font-mono text-xs text-slate-900 bg-slate-100 px-1 rounded">proof_trail</code>{" "}
+          JSON payload linking the exact invoice line, contract clause, PO line, and payment record — and for graph rules R8–R10, the serialized multi-hop{" "}
+          <code className="font-mono text-xs text-slate-900 bg-slate-100 px-1 rounded">proof_subgraph</code>{" "}
           from the embedded LadybugDB knowledge graph.
         </p>
       </div>
 
-      <div className="space-y-4">
-        {rules.map((rule) => (
-          <div
-            key={rule.id}
-            className="p-5 rounded-xl bg-white border border-slate-200 shadow-sm space-y-3"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2.5">
-                <RuleBadge ruleId={rule.id} full />
-                <h3 className="text-sm sm:text-base font-bold text-slate-900">{rule.name}</h3>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {rules.map((rule) => {
+          const sev = getSeverityStyle(rule.severity);
+          return (
+            <div
+              key={rule.id}
+              className="p-4 rounded-lg bg-white border border-slate-200 flex flex-col justify-between gap-3"
+            >
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <RuleBadge ruleId={rule.id} full />
+                    <h3 className="text-[13px] font-semibold text-slate-900 leading-snug">
+                      {rule.name}
+                    </h3>
+                  </div>
+                  <span
+                    className={`inline-flex items-center gap-1.5 text-[11px] leading-none font-mono px-2 py-1 rounded border shrink-0 ${sev.container}`}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${sev.dot}`} />
+                    {rule.severity}
+                  </span>
+                </div>
+
+                <p className="text-xs text-slate-600 leading-relaxed">{rule.intent}</p>
+
+                <div className="space-y-1">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500 inline-flex items-center gap-1">
+                    <Code2 className="w-3.5 h-3.5 text-slate-600" />
+                    Deterministic Rule Logic
+                  </span>
+                  <pre className="p-3 rounded-md bg-slate-50 border border-slate-200 text-slate-900 font-mono text-[11px] overflow-x-auto leading-relaxed">
+                    {rule.logic}
+                  </pre>
+                </div>
               </div>
-              <span className="text-xs font-mono text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
-                {rule.severity}
-              </span>
-            </div>
 
-            <p className="text-xs sm:text-sm text-slate-600">{rule.intent}</p>
-
-            <div className="space-y-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 inline-flex items-center gap-1">
-                <Code2 className="w-3.5 h-3.5 text-[#4F46E5]" />
-                Deterministic Rule Logic
-              </span>
-              <pre className="p-3.5 rounded-lg bg-slate-900 text-emerald-300 font-mono text-xs overflow-x-auto leading-relaxed">
-                {rule.logic}
-              </pre>
+              <div className="pt-2.5 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px]">
+                <span className="text-slate-500 font-semibold uppercase tracking-[0.04em] shrink-0">
+                  Sample Verification
+                </span>
+                <span className="font-mono text-slate-900 truncate" title={rule.sampleAnomaly}>
+                  {rule.sampleAnomaly}
+                </span>
+              </div>
             </div>
-
-            <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs">
-              <span className="text-slate-500 font-semibold">Sample Dataset Verification:</span>
-              <span className="font-mono text-slate-900">{rule.sampleAnomaly}</span>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

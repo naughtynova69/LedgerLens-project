@@ -11,7 +11,7 @@ export function WorkspaceSwitcher({
   return (
     <div className="relative inline-flex items-center">
       <Building2
-        className="w-3.5 h-3.5 text-gray-500 absolute left-2.5 pointer-events-none"
+        className="w-3.5 h-3.5 text-[var(--text-muted)] absolute left-2.5 pointer-events-none"
         aria-hidden="true"
       />
       <select
@@ -19,7 +19,7 @@ export function WorkspaceSwitcher({
         value={activeWorkspaceId || ""}
         disabled={!hasWorkspaces}
         onChange={(e) => onChangeWorkspace && onChangeWorkspace(e.target.value)}
-        className="appearance-none pl-7 pr-7 py-1.5 text-xs font-medium rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-[#111827] focus:outline-none focus:ring-2 focus:ring-slate-900/15 focus:border-slate-400 transition-colors disabled:opacity-60 cursor-pointer"
+        className="h-8 appearance-none pl-7 pr-7 text-xs font-medium rounded-md border border-[var(--border-strong)] bg-[var(--bg-surface)] hover:bg-[var(--bg-canvas)] text-[var(--text-primary)] transition-colors duration-100 disabled:opacity-60 cursor-pointer max-w-[160px] truncate"
       >
         {!hasWorkspaces ? (
           <option value="">Default Workspace</option>
@@ -36,7 +36,7 @@ export function WorkspaceSwitcher({
         )}
       </select>
       <ChevronDown
-        className="w-3.5 h-3.5 text-gray-400 absolute right-2 pointer-events-none"
+        className="w-3.5 h-3.5 text-[var(--text-muted)] absolute right-2 pointer-events-none"
         aria-hidden="true"
       />
     </div>

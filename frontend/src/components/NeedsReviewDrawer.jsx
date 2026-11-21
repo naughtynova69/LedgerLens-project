@@ -85,29 +85,29 @@ export function NeedsReviewDrawer({
       aria-label="Needs Review Quarantine Drawer"
     >
       <div
-        className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity"
+        className="fixed inset-0 bg-slate-900/40 transition-opacity"
         onClick={() => !saving && onClose()}
       />
 
-      <div className="relative z-10 w-full max-w-4xl bg-white border-l border-gray-200 shadow-2xl flex flex-col h-full">
+      <div className="relative z-10 w-full max-w-4xl bg-white border-l border-slate-200 shadow-lg flex flex-col h-full">
         {/* Header */}
-        <div className="flex items-start justify-between gap-4 px-6 py-4 border-b border-gray-200 bg-slate-50">
+        <div className="flex items-start justify-between gap-4 px-5 py-4 border-b border-slate-200 bg-slate-50">
           <div className="space-y-1 min-w-0">
             <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-50 text-amber-800 border border-amber-200">
-                <AlertTriangle className="w-3 h-3" />
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] leading-none font-medium bg-[#FFFBEB] text-[#92400E] border border-[#FDE68A]">
+                <AlertTriangle className="w-3 h-3 text-[#D97706]" />
                 Needs Review
               </span>
               {batch?.batch_id && (
-                <span className="font-mono text-xs text-[#6B7280] truncate">
+                <span className="font-mono text-xs text-slate-500 truncate">
                   {batch.batch_id}
                 </span>
               )}
             </div>
-            <h2 className="text-base font-semibold text-[#111827] tracking-tight">
+            <h2 className="text-[15px] font-semibold text-slate-900 tracking-[-0.01em]">
               Quarantined Invoice Lines
             </h2>
-            <p className="text-xs text-[#6B7280]">
+            <p className="text-xs text-slate-500">
               Correct extracted or malformed fields below, then save to re-run deterministic 3-way match detection.
             </p>
           </div>
@@ -117,22 +117,22 @@ export function NeedsReviewDrawer({
             onClick={onClose}
             disabled={saving}
             aria-label="Close drawer"
-            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-200/70 transition-colors disabled:opacity-50"
+            className="p-1.5 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-200/70 transition-colors disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-slate-900 focus-visible:outline-offset-2"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Body */}
         <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0">
-          <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          <div className="flex-1 overflow-y-auto p-5 space-y-3 bg-white">
             {drafts.length === 0 ? (
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-10 text-center">
-                <CheckCircle2 className="w-7 h-7 text-[#047857] mx-auto mb-2" />
-                <p className="text-sm font-medium text-[#111827]">
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-10 text-center">
+                <CheckCircle2 className="w-6 h-6 text-[#047857] mx-auto mb-2" />
+                <p className="text-[13px] font-semibold text-slate-900">
                   No quarantined lines require review
                 </p>
-                <p className="text-xs text-[#6B7280] mt-1">
+                <p className="text-xs text-slate-500 mt-1">
                   All records in this batch passed schema validation.
                 </p>
               </div>
@@ -140,21 +140,21 @@ export function NeedsReviewDrawer({
               drafts.map((row, index) => (
                 <div
                   key={row._rowKey}
-                  className="bg-white border border-gray-200 rounded-lg p-4 space-y-3"
+                  className="bg-white border border-slate-200 rounded-lg p-4 space-y-3"
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs font-semibold text-[#111827]">
+                      <span className="font-mono text-xs font-semibold text-slate-900 tabular-nums">
                         Line #{index + 1}
                       </span>
                       {row.vendor_id && (
-                        <span className="font-mono text-[11px] text-[#6B7280]">
+                        <span className="font-mono text-[11px] text-slate-500">
                           {row.vendor_id}
                         </span>
                       )}
                     </div>
                     {(row.reason || row.validation_error) && (
-                      <span className="text-[11px] font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-0.5">
+                      <span className="text-[11px] leading-none font-medium text-[#92400E] bg-[#FFFBEB] border border-[#FDE68A] rounded px-2 py-1">
                         {row.reason || row.validation_error}
                       </span>
                     )}
@@ -162,7 +162,7 @@ export function NeedsReviewDrawer({
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     <label className="block space-y-1">
-                      <span className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wider">
+                      <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.06em]">
                         Invoice Number
                       </span>
                       <input
@@ -171,12 +171,12 @@ export function NeedsReviewDrawer({
                         onChange={(e) =>
                           handleFieldChange(row._rowKey, "invoice_number", e.target.value)
                         }
-                        className="w-full px-2.5 py-1.5 text-xs font-mono text-[#111827] bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/15 focus:border-slate-500"
+                        className="w-full h-8 px-2.5 text-xs font-mono text-slate-900 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-900"
                       />
                     </label>
 
                     <label className="block space-y-1 sm:col-span-2">
-                      <span className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wider">
+                      <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.06em]">
                         Item Description
                       </span>
                       <input
@@ -185,12 +185,12 @@ export function NeedsReviewDrawer({
                         onChange={(e) =>
                           handleFieldChange(row._rowKey, "item", e.target.value)
                         }
-                        className="w-full px-2.5 py-1.5 text-xs text-[#111827] bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/15 focus:border-slate-500"
+                        className="w-full h-8 px-2.5 text-xs text-slate-900 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-900"
                       />
                     </label>
 
                     <label className="block space-y-1">
-                      <span className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wider">
+                      <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.06em]">
                         Quantity
                       </span>
                       <input
@@ -200,12 +200,12 @@ export function NeedsReviewDrawer({
                         onChange={(e) =>
                           handleFieldChange(row._rowKey, "quantity", e.target.value)
                         }
-                        className="w-full px-2.5 py-1.5 text-xs font-mono tabular-nums text-[#111827] bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/15 focus:border-slate-500"
+                        className="w-full h-8 px-2.5 text-xs font-mono tabular-nums text-right text-slate-900 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-900"
                       />
                     </label>
 
                     <label className="block space-y-1">
-                      <span className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wider">
+                      <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.06em]">
                         Unit Price
                       </span>
                       <input
@@ -215,12 +215,12 @@ export function NeedsReviewDrawer({
                         onChange={(e) =>
                           handleFieldChange(row._rowKey, "unit_price", e.target.value)
                         }
-                        className="w-full px-2.5 py-1.5 text-xs font-mono tabular-nums text-[#111827] bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/15 focus:border-slate-500"
+                        className="w-full h-8 px-2.5 text-xs font-mono tabular-nums text-right text-slate-900 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-900"
                       />
                     </label>
 
                     <label className="block space-y-1">
-                      <span className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wider">
+                      <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.06em]">
                         Tax %
                       </span>
                       <input
@@ -230,12 +230,12 @@ export function NeedsReviewDrawer({
                         onChange={(e) =>
                           handleFieldChange(row._rowKey, "tax_pct", e.target.value)
                         }
-                        className="w-full px-2.5 py-1.5 text-xs font-mono tabular-nums text-[#111827] bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/15 focus:border-slate-500"
+                        className="w-full h-8 px-2.5 text-xs font-mono tabular-nums text-right text-slate-900 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-900"
                       />
                     </label>
 
                     <label className="block space-y-1">
-                      <span className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wider">
+                      <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.06em]">
                         Line Total
                       </span>
                       <input
@@ -245,7 +245,7 @@ export function NeedsReviewDrawer({
                         onChange={(e) =>
                           handleFieldChange(row._rowKey, "line_total", e.target.value)
                         }
-                        className="w-full px-2.5 py-1.5 text-xs font-mono tabular-nums text-[#111827] bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/15 focus:border-slate-500"
+                        className="w-full h-8 px-2.5 text-xs font-mono tabular-nums text-right text-slate-900 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-900"
                       />
                     </label>
                   </div>
@@ -255,8 +255,8 @@ export function NeedsReviewDrawer({
           </div>
 
           {/* Footer */}
-          <div className="px-6 py-4 border-t border-gray-200 bg-slate-50 flex items-center justify-between gap-3">
-            <span className="text-xs font-mono tabular-nums text-[#6B7280]">
+          <div className="px-5 py-3.5 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-3">
+            <span className="text-xs font-mono tabular-nums text-slate-500">
               {drafts.length} {drafts.length === 1 ? "line" : "lines"} queued
             </span>
 
@@ -265,14 +265,14 @@ export function NeedsReviewDrawer({
                 type="button"
                 onClick={onClose}
                 disabled={saving}
-                className="px-3 py-2 text-xs font-medium rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 transition-colors disabled:opacity-50"
+                className="h-8 px-3 text-xs font-medium rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-slate-900 focus-visible:outline-offset-2"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={saving || drafts.length === 0}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium rounded-lg bg-[#111827] hover:bg-gray-800 text-white transition-colors disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 h-8 px-3.5 text-xs font-medium rounded-md bg-slate-900 hover:bg-slate-800 text-white transition-colors disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-slate-900 focus-visible:outline-offset-2"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${saving ? "animate-spin" : ""}`} />
                 {saving ? "Saving & Re-Running..." : "Save & Re-Run Detection"}

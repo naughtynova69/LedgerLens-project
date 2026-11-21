@@ -10,7 +10,7 @@ import { formatCurrency, formatConfidence } from "../utils/formatters";
 const DEFAULT_NOTES = {
   recovery: "Payment held and recovery initiated via AP workstation.",
   reject: "Disputed with vendor pending credit note or revised invoice.",
-  approve: "Approved as valid exception / false positive.",
+  approve: "Placed on hold / approved after review.",
 };
 
 export function ProofTrailInspector({
@@ -22,14 +22,21 @@ export function ProofTrailInspector({
   const [note, setNote] = useState("");
   const [copyingDispute, setCopyingDispute] = useState(false);
   const [evidenceTab, setEvidenceTab] = useState("table");
-  const [showEvidencePreview, setShowEvidencePreview] = useState(false);
 
   if (!finding) {
     return (
-      <div className="bg-white border border-gray-200 rounded-lg p-10 text-center">
-        <p className="text-sm font-medium text-[#111827]">Select an exception</p>
-        <p className="text-xs text-[#6B7280] mt-1">
-          Choose any row on the left to inspect its 3-way match and take action.
+      <div className="bg-white border border-[#E2E8F0] rounded-md p-10 text-center">
+        <p className="text-sm font-medium text-slate-900">Select an exception</p>
+        <p className="text-xs text-slate-500 mt-1">
+          Choose any row on the left or press{" "}
+          <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-slate-100 border border-[#E2E8F0] rounded">
+            j
+          </kbd>{" "}
+          /{" "}
+          <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-slate-100 border border-[#E2E8F0] rounded">
+            k
+          </kbd>{" "}
+          to inspect its proof trail and take action.
         </p>
       </div>
     );
@@ -133,306 +140,397 @@ export function ProofTrailInspector({
     ? formatCurrency(primaryPo.unit_price, primaryPo.currency)
     : "—";
 
+  const billedNum = primaryInvoice?.line_total ?? primaryInvoice?.unit_price ?? null;
+  const billedDisplay =
+    billedNum !== null
+      ? formatCurrency(billedNum, primaryInvoice?.currency || finding.currency)
+      : "—";
+
+  const refUnitNum = primaryContract?.contracted_unit_price ?? primaryPo?.unit_price ?? null;
+  const refCurrency = primaryContract?.currency || primaryPo?.currency || finding.currency;
+  const refDisplay = refUnitNum !== null ? formatCurrency(refUnitNum, refCurrency) : "—";
+  const refLabel = primaryContract ? `Contract ${contractRef}` : primaryPo ? `PO ${poRef}` : "No reference";
+
+  const variancePct =
+    billedNum && billedNum > 0 && finding.amount_at_risk > 0
+      ? `+${((finding.amount_at_risk / billedNum) * 100).toFixed(1)}%`
+      : null;
+
   const plainEnglishSummary =
     expl.explanation ||
     finding.summary ||
     expl.headline ||
     "Deterministic rule discrepancy identified across source records.";
 
+  const tabs = [
+    { id: "table", label: "Line-Item Proof" },
+    { id: "pdf", label: "Source PDF", dot: hasDocumentEvidence },
+    { id: "graph", label: "Graph Path" },
+  ];
+
   return (
-    <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-200">
-      {/* Header & Above-the-Fold Explanation */}
-      <div className="p-5 space-y-3">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="space-y-1.5 min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-mono text-xs font-medium text-[#6B7280]">
+    <div className="bg-white border border-[#E2E8F0] rounded-md divide-y divide-[#E2E8F0]">
+      {/* Pinned Header & Primary Decision Controls */}
+      <div className="p-4 space-y-3">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="space-y-1 min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="font-mono text-[11px] font-medium text-slate-500">
                 {finding.finding_id}
               </span>
-              <span className="text-xs text-gray-300">·</span>
-              <span className="text-xs font-medium text-[#111827]">{vendorLabel}</span>
+              <span className="text-slate-300">·</span>
+              <span className="text-xs font-medium text-slate-900 truncate">
+                {vendorLabel}
+              </span>
               <RuleBadge ruleId={finding.rule_id} />
-              {finding.severity?.toLowerCase() === "critical" && (
-                <SeverityBadge severity={finding.severity} />
-              )}
+              <SeverityBadge severity={finding.severity} />
               <StatusBadge status={finding.status} />
             </div>
-            <h2 className="text-base font-semibold text-[#111827] tracking-tight">
+            <h2 className="text-[15px] font-semibold text-slate-900 tracking-tight leading-snug">
               {finding.title}
             </h2>
           </div>
-
-          <div className="text-right shrink-0">
-            <div className="text-xl font-semibold font-mono tabular-nums text-[#B91C1C]">
-              {formatCurrency(finding.amount_at_risk, finding.currency)}
-            </div>
-            <div className="text-[11px] font-mono tabular-nums text-[#6B7280] mt-0.5">
-              At risk · {formatConfidence(finding.confidence)} conf
-            </div>
-          </div>
         </div>
 
-        <p className="text-xs sm:text-sm text-[#6B7280] leading-relaxed">
+        <p className="text-xs text-slate-600 leading-relaxed">
           {expl.headline && expl.headline !== finding.title ? `${expl.headline}. ` : ""}
           {plainEnglishSummary}
         </p>
-      </div>
 
-      {/* Evidence views: 3-way table or interactive proof graph */}
-      <div className="p-5">
-        <div className="flex items-center gap-1 mb-3">
-          <button
-            type="button"
-            onClick={() => setEvidenceTab("table")}
-            className={`px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${
-              evidenceTab === "table"
-                ? "bg-[#111827] text-white border-[#111827]"
-                : "bg-white text-[#6B7280] border-gray-200 hover:bg-gray-50"
-            }`}
-          >
-            Evidence Table
-          </button>
-          <button
-            type="button"
-            onClick={() => setEvidenceTab("graph")}
-            className={`px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${
-              evidenceTab === "graph"
-                ? "bg-[#111827] text-white border-[#111827]"
-                : "bg-white text-[#6B7280] border-gray-200 hover:bg-gray-50"
-            }`}
-          >
-            Proof Graph
-          </button>
-        </div>
+        {/* Pinned Decision Actions */}
+        <div className="pt-1 space-y-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => handleAction("recovery")}
+              disabled={isSubmitting}
+              className="px-3 py-1.5 rounded text-xs font-medium bg-[#047857] hover:bg-[#065F46] text-white transition-colors disabled:opacity-50"
+            >
+              Approve Recovery
+            </button>
 
-        {evidenceTab === "graph" && (
-          <EvidenceGraphCanvas findingId={finding.finding_id} height={320} />
-        )}
+            <button
+              type="button"
+              onClick={() => handleAction("reject")}
+              disabled={isSubmitting}
+              className="px-3 py-1.5 rounded text-xs font-medium bg-[#B91C1C] hover:bg-[#991B1B] text-white transition-colors disabled:opacity-50"
+            >
+              Dispute
+            </button>
 
-        {evidenceTab === "table" && (
-        <div className="border border-gray-200 rounded-lg overflow-hidden">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-[#FAFAFA] border-b border-gray-200 text-[#6B7280]">
-              <tr>
-                <th className="py-2 px-3 font-medium">Source</th>
-                <th className="py-2 px-3 font-medium">Ref</th>
-                <th className="py-2 px-3 font-medium">Line / Terms</th>
-                <th className="py-2 px-3 font-medium text-right">Amount</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              <tr>
-                <td className="py-2.5 px-3 font-medium text-[#111827] whitespace-nowrap">
-                  Invoice
-                </td>
-                <td className="py-2.5 px-3 font-mono text-[#111827] whitespace-nowrap">
-                  {invoiceRef}
-                </td>
-                <td className="py-2.5 px-3 text-[#6B7280] max-w-[220px] truncate" title={invoiceDetail}>
-                  {invoiceDetail}
-                </td>
-                <td className="py-2.5 px-3 font-mono tabular-nums text-right font-medium text-[#B91C1C] whitespace-nowrap">
-                  {invoiceAmount}
-                </td>
-              </tr>
-              <tr>
-                <td className="py-2.5 px-3 font-medium text-[#111827] whitespace-nowrap">
-                  Contract
-                </td>
-                <td className="py-2.5 px-3 font-mono text-[#111827] whitespace-nowrap">
-                  {contractRef}
-                </td>
-                <td className="py-2.5 px-3 text-[#6B7280] max-w-[220px] truncate" title={contractDetail}>
-                  {contractDetail}
-                </td>
-                <td className="py-2.5 px-3 font-mono tabular-nums text-right font-medium text-[#111827] whitespace-nowrap">
-                  {contractAmount}
-                </td>
-              </tr>
-              <tr>
-                <td className="py-2.5 px-3 font-medium text-[#111827] whitespace-nowrap">
-                  PO
-                </td>
-                <td className="py-2.5 px-3 font-mono text-[#111827] whitespace-nowrap">
-                  {poRef}
-                </td>
-                <td className="py-2.5 px-3 text-[#6B7280] max-w-[220px] truncate" title={poDetail}>
-                  {poDetail}
-                </td>
-                <td className="py-2.5 px-3 font-mono tabular-nums text-right font-medium text-[#111827] whitespace-nowrap">
-                  {poAmount}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        )}
-      </div>
+            <button
+              type="button"
+              onClick={() => handleAction("approve")}
+              disabled={isSubmitting}
+              className="px-3 py-1.5 rounded text-xs font-medium bg-white text-slate-700 border border-[#E2E8F0] hover:bg-slate-50 transition-colors disabled:opacity-50"
+            >
+              Hold
+            </button>
 
-      {/* 1-Line Action Bar */}
-      <div className="p-5 space-y-3 bg-[#FAFAFA]/50">
-        <div className="flex flex-col sm:flex-row gap-2">
+            <button
+              type="button"
+              onClick={handleCopyDisputeEmail}
+              disabled={copyingDispute}
+              className="px-2.5 py-1.5 rounded text-xs font-medium bg-white text-slate-600 border border-[#E2E8F0] hover:text-slate-900 hover:bg-slate-50 transition-colors disabled:opacity-50 sm:ml-auto"
+            >
+              {copyingDispute ? "Copying…" : "Copy Dispute Email"}
+            </button>
+          </div>
+
           <input
             type="text"
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="Add audit note (optional)..."
             aria-label="Audit note"
-            className="flex-1 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs text-[#111827] placeholder-gray-400 focus:outline-none focus:border-gray-400"
+            className="w-full px-2.5 py-1.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-slate-400 focus:bg-white"
           />
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => handleAction("recovery")}
-            disabled={isSubmitting}
-            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-50/80 text-red-700 border border-red-200 hover:bg-red-100/70 transition-colors disabled:opacity-50"
-          >
-            Hold / Recover
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleAction("reject")}
-            disabled={isSubmitting}
-            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white text-[#111827] border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50"
-          >
-            Dispute
-          </button>
-
-          <button
-            type="button"
-            onClick={handleCopyDisputeEmail}
-            disabled={copyingDispute}
-            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50"
-          >
-            {copyingDispute ? "Copying..." : "Copy Dispute Email"}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleAction("approve")}
-            disabled={isSubmitting}
-            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-50/80 text-emerald-700 border border-emerald-200 hover:bg-emerald-100/70 transition-colors disabled:opacity-50 sm:ml-auto"
-          >
-            Approve
-          </button>
         </div>
       </div>
 
-      {/* Inline PDF / Image Evidence Preview (when batch has an uploaded document) */}
-      {hasDocumentEvidence && (
-        <div className="p-5 space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-medium text-[#111827]">
-              Source Document Evidence
-            </span>
-            <button
-              type="button"
-              onClick={() => setShowEvidencePreview((v) => !v)}
-              className="px-2.5 py-1 rounded-md text-[11px] font-medium border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 transition-colors"
-            >
-              {showEvidencePreview ? "Hide Preview" : "Show Preview"}
-            </button>
+      {/* 3-Column Hairline Delta Comparison Strip */}
+      <div className="grid grid-cols-3 divide-x divide-[#E2E8F0] bg-[#F8FAFC]">
+        <div className="px-3.5 py-2.5 min-w-0">
+          <div className="text-[10px] font-medium uppercase tracking-wider text-slate-500">
+            Billed
           </div>
-          {showEvidencePreview && (
-            <PdfEvidencePreview
-              batchId={evidenceBatchId}
-              fileName={evidenceFileName}
-              mimeType={evidenceMimeType}
-            />
-          )}
+          <div className="text-[17px] font-semibold font-mono tabular-nums text-slate-900 mt-0.5 truncate">
+            {billedDisplay}
+          </div>
+          <div className="text-[11px] font-mono text-slate-500 truncate">
+            {invoiceRef}
+          </div>
         </div>
-      )}
 
-      {/* Progressive Disclosure: Technical Proof & Audit Trail */}
-      <details className="p-5 group">
-        <summary className="cursor-pointer text-xs font-medium text-[#6B7280] hover:text-[#111827] select-none list-none flex items-center justify-between">
-          <span>Audit proof &amp; technical trail</span>
-          <span className="font-mono text-[11px] text-gray-400 group-open:hidden">
-            Expand
-          </span>
-          <span className="font-mono text-[11px] text-gray-400 hidden group-open:inline">
-            Collapse
-          </span>
-        </summary>
-
-        <div className="mt-4 space-y-4">
-          <div className="text-xs text-[#6B7280] flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-gray-200">
-            <span>
-              Decision: Deterministic Rule {finding.rule_id} · Narrative: Gemini 3.8 Vision Flash
-              {expl.generated_without_gemini ? " (Offline Proof Mode)" : ""}
-            </span>
-            <span className="font-mono text-[11px]">
-              Action: {finding.recommended_action || proofTrail.recommended_action || "HOLD_PAYMENT"}
-            </span>
+        <div className="px-3.5 py-2.5 min-w-0">
+          <div className="text-[10px] font-medium uppercase tracking-wider text-slate-500">
+            Contract / PO
           </div>
+          <div className="text-[17px] font-semibold font-mono tabular-nums text-slate-900 mt-0.5 truncate">
+            {refDisplay}
+          </div>
+          <div className="text-[11px] font-mono text-slate-500 truncate">
+            {refLabel}
+          </div>
+        </div>
 
-          {Object.keys(mathObj).length > 0 && (
-            <div className="p-3 rounded-lg bg-[#FAFAFA] border border-gray-200 text-xs font-mono tabular-nums text-[#111827] space-y-1">
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-[#6B7280]">
-                PROOF MATH
-              </div>
-              <div className="flex flex-wrap gap-x-4 gap-y-1">
-                {Object.entries(mathObj).map(([k, v]) => (
-                  <span key={k}>
-                    <span className="text-[#6B7280]">{k}=</span>
-                    <span>{String(v)}</span>
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
+        <div className="px-3.5 py-2.5 min-w-0">
+          <div className="text-[10px] font-medium uppercase tracking-wider text-slate-500">
+            Variance
+          </div>
+          <div className="text-[17px] font-semibold font-mono tabular-nums text-[#B91C1C] mt-0.5 truncate">
+            {formatCurrency(finding.amount_at_risk, finding.currency)}
+          </div>
+          <div className="text-[11px] font-mono tabular-nums text-slate-500 truncate">
+            {variancePct ? `${variancePct} · ` : ""}
+            {formatConfidence(finding.confidence)} conf
+          </div>
+        </div>
+      </div>
 
-          {(finding.evidence || []).length > 0 && (
-            <div className="space-y-1.5">
-              <div className="text-[11px] font-medium uppercase tracking-wider text-[#6B7280]">
-                Evidence Citations
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {finding.evidence.map((ev, i) => (
+      {/* Tabbed Evidence Inspector */}
+      <div className="p-4 space-y-3">
+        <div className="flex items-center gap-1 border-b border-[#E2E8F0] pb-2">
+          {tabs.map((tab) => {
+            const active = evidenceTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setEvidenceTab(tab.id)}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${
+                  active
+                    ? "bg-slate-900 text-white"
+                    : "bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                }`}
+              >
+                <span>{tab.label}</span>
+                {tab.dot && (
                   <span
-                    key={i}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-[#FAFAFA] border border-gray-200 text-[11px] font-mono text-gray-700"
-                  >
-                    <span className="font-medium text-[#111827]">{ev.source}</span>
-                    <span>{ev.record_id}</span>
-                    <span className="text-gray-400">/</span>
-                    <span>{ev.field}:</span>
-                    <span className="font-medium text-[#111827]">{ev.value}</span>
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {finding.decisions?.length > 0 && (
-            <div className="space-y-1.5">
-              <div className="text-[11px] font-medium uppercase tracking-wider text-[#6B7280]">
-                Decision History ({finding.decisions.length})
-              </div>
-              <div className="divide-y divide-gray-200 border border-gray-200 rounded-lg bg-white">
-                {finding.decisions.map((d, idx) => (
-                  <div
-                    key={idx}
-                    className="px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-xs"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <StatusBadge status={d.action} />
-                      <span className="font-medium text-[#111827]">{d.reviewer}</span>
-                      {d.note && <span className="text-[#6B7280] truncate">{d.note}</span>}
-                    </div>
-                    <span className="font-mono text-[11px] text-[#6B7280]">
-                      {d.created_at}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      active ? "bg-emerald-400" : "bg-[#047857]"
+                    }`}
+                    title="Source document available"
+                  />
+                )}
+              </button>
+            );
+          })}
         </div>
-      </details>
+
+        {evidenceTab === "table" && (
+          <div className="space-y-3">
+            <div className="border border-[#E2E8F0] rounded-md overflow-hidden">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-slate-500">
+                  <tr>
+                    <th className="py-2 px-3 font-medium">Source</th>
+                    <th className="py-2 px-3 font-medium">Ref</th>
+                    <th className="py-2 px-3 font-medium">Line / Terms</th>
+                    <th className="py-2 px-3 font-medium text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#E2E8F0]">
+                  <tr>
+                    <td className="py-2 px-3 font-medium text-slate-900 whitespace-nowrap">
+                      Invoice
+                    </td>
+                    <td className="py-2 px-3 font-mono text-slate-900 whitespace-nowrap">
+                      {invoiceRef}
+                    </td>
+                    <td
+                      className="py-2 px-3 text-slate-600 max-w-[180px] truncate"
+                      title={invoiceDetail}
+                    >
+                      {invoiceDetail}
+                    </td>
+                    <td className="py-2 px-3 font-mono tabular-nums text-right font-medium text-[#B91C1C] whitespace-nowrap">
+                      {invoiceAmount}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="py-2 px-3 font-medium text-slate-900 whitespace-nowrap">
+                      Contract
+                    </td>
+                    <td className="py-2 px-3 font-mono text-slate-900 whitespace-nowrap">
+                      {contractRef}
+                    </td>
+                    <td
+                      className="py-2 px-3 text-slate-600 max-w-[180px] truncate"
+                      title={contractDetail}
+                    >
+                      {contractDetail}
+                    </td>
+                    <td className="py-2 px-3 font-mono tabular-nums text-right font-medium text-slate-900 whitespace-nowrap">
+                      {contractAmount}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="py-2 px-3 font-medium text-slate-900 whitespace-nowrap">
+                      PO
+                    </td>
+                    <td className="py-2 px-3 font-mono text-slate-900 whitespace-nowrap">
+                      {poRef}
+                    </td>
+                    <td
+                      className="py-2 px-3 text-slate-600 max-w-[180px] truncate"
+                      title={poDetail}
+                    >
+                      {poDetail}
+                    </td>
+                    <td className="py-2 px-3 font-mono tabular-nums text-right font-medium text-slate-900 whitespace-nowrap">
+                      {poAmount}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* Progressive Disclosure: Technical Proof & Audit Trail */}
+            <details className="border border-[#E2E8F0] rounded-md px-3 py-2.5 group bg-[#F8FAFC]/50">
+              <summary className="cursor-pointer text-xs font-medium text-slate-600 hover:text-slate-900 select-none list-none flex items-center justify-between">
+                <span>Audit proof &amp; technical trail</span>
+                <span className="font-mono text-[11px] text-slate-400 group-open:hidden">
+                  Expand
+                </span>
+                <span className="font-mono text-[11px] text-slate-400 hidden group-open:inline">
+                  Collapse
+                </span>
+              </summary>
+
+              <div className="mt-3 space-y-3">
+                <div className="text-[11px] text-slate-600 flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-[#E2E8F0]">
+                  <span>
+                    Rule {finding.rule_id} · Narrative: Gemini 3.8 Vision Flash
+                    {expl.generated_without_gemini ? " (Offline Proof Mode)" : ""}
+                  </span>
+                  <span className="font-mono">
+                    Action: {finding.recommended_action || proofTrail.recommended_action || "HOLD_PAYMENT"}
+                  </span>
+                </div>
+
+                {Object.keys(mathObj).length > 0 && (
+                  <div className="p-2.5 rounded bg-white border border-[#E2E8F0] text-[11px] font-mono tabular-nums text-slate-900 space-y-1">
+                    <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                      PROOF MATH
+                    </div>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1">
+                      {Object.entries(mathObj).map(([k, v]) => (
+                        <span key={k}>
+                          <span className="text-slate-500">{k}=</span>
+                          <span>{String(v)}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {(finding.evidence || []).length > 0 && (
+                  <div className="space-y-1.5">
+                    <div className="text-[10px] font-medium uppercase tracking-wider text-slate-500">
+                      Evidence Citations
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {finding.evidence.map((ev, i) => (
+                        <span
+                          key={i}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white border border-[#E2E8F0] text-[11px] font-mono text-slate-700"
+                        >
+                          <span className="font-medium text-slate-900">{ev.source}</span>
+                          <span>{ev.record_id}</span>
+                          <span className="text-slate-400">/</span>
+                          <span>{ev.field}:</span>
+                          <span className="font-medium text-slate-900">{ev.value}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {finding.decisions?.length > 0 && (
+                  <div className="space-y-1.5">
+                    <div className="text-[10px] font-medium uppercase tracking-wider text-slate-500">
+                      Decision History ({finding.decisions.length})
+                    </div>
+                    <div className="divide-y divide-[#E2E8F0] border border-[#E2E8F0] rounded bg-white">
+                      {finding.decisions.map((d, idx) => (
+                        <div
+                          key={idx}
+                          className="px-2.5 py-1.5 flex flex-wrap items-center justify-between gap-2 text-xs"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <StatusBadge status={d.action} />
+                            <span className="font-medium text-slate-900">{d.reviewer}</span>
+                            {d.note && <span className="text-slate-500 truncate">{d.note}</span>}
+                          </div>
+                          <span className="font-mono text-[11px] text-slate-500">
+                            {d.created_at}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </details>
+          </div>
+        )}
+
+        {evidenceTab === "pdf" && (
+          <PdfEvidencePreview
+            batchId={evidenceBatchId}
+            fileName={evidenceFileName}
+            mimeType={evidenceMimeType}
+          />
+        )}
+
+        {evidenceTab === "graph" && (
+          <EvidenceGraphCanvas findingId={finding.finding_id} height={320} />
+        )}
+      </div>
+
+      {/* Subtle Keyboard Shortcut Footer */}
+      <div className="px-4 py-2 bg-[#F8FAFC] flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="inline-flex items-center gap-1">
+            <kbd className="px-1.5 py-0.5 font-mono text-[10px] bg-white border border-[#E2E8F0] rounded text-slate-700">
+              j
+            </kbd>
+            <kbd className="px-1.5 py-0.5 font-mono text-[10px] bg-white border border-[#E2E8F0] rounded text-slate-700">
+              k
+            </kbd>
+            <span>Navigate</span>
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <kbd className="px-1.5 py-0.5 font-mono text-[10px] bg-white border border-[#E2E8F0] rounded text-slate-700">
+              a
+            </kbd>
+            <span>/</span>
+            <kbd className="px-1.5 py-0.5 font-mono text-[10px] bg-white border border-[#E2E8F0] rounded text-slate-700">
+              r
+            </kbd>
+            <span>Recover</span>
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <kbd className="px-1.5 py-0.5 font-mono text-[10px] bg-white border border-[#E2E8F0] rounded text-slate-700">
+              d
+            </kbd>
+            <span>Dispute</span>
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <kbd className="px-1.5 py-0.5 font-mono text-[10px] bg-white border border-[#E2E8F0] rounded text-slate-700">
+              /
+            </kbd>
+            <span>Search</span>
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <kbd className="px-1.5 py-0.5 font-mono text-[10px] bg-white border border-[#E2E8F0] rounded text-slate-700">
+              Esc
+            </kbd>
+            <span>Clear</span>
+          </span>
+        </div>
+      </div>
     </div>
   );
 }
