@@ -6,6 +6,7 @@ import { SeverityBadge } from "./SeverityBadge";
 import { EvidenceGraphCanvas } from "./EvidenceGraphCanvas";
 import { PdfEvidencePreview } from "./PdfEvidencePreview";
 import { formatCurrency, formatConfidence } from "../utils/formatters";
+import { useAccountMemory } from "../context/AccountMemoryContext";
 
 const DEFAULT_NOTES = {
   recovery: "Payment held and recovery initiated via AP workstation.",
@@ -19,6 +20,7 @@ export function ProofTrailInspector({
   isSubmitting,
   onToast,
 }) {
+  const { reviewerLabel } = useAccountMemory();
   const [note, setNote] = useState("");
   const [copyingDispute, setCopyingDispute] = useState(false);
   const [evidenceTab, setEvidenceTab] = useState("table");
@@ -58,7 +60,7 @@ export function ProofTrailInspector({
 
   const handleAction = async (action) => {
     const finalNote = note.trim() || DEFAULT_NOTES[action] || "Reviewed in LedgerLens.";
-    await onMakeDecision(finding.finding_id, action, "Vijay (AP Lead)", finalNote);
+    await onMakeDecision(finding.finding_id, action, reviewerLabel, finalNote);
     setNote("");
   };
 
@@ -241,7 +243,7 @@ export function ProofTrailInspector({
             type="text"
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="Add audit note (optional)..."
+            placeholder="Add audit note (optional)…"
             aria-label="Audit note"
             className="w-full px-2.5 py-1.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-slate-400 focus:bg-white"
           />
@@ -401,7 +403,7 @@ export function ProofTrailInspector({
               <div className="mt-3 space-y-3">
                 <div className="text-[11px] text-slate-600 flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-[#E2E8F0]">
                   <span>
-                    Rule {finding.rule_id} · Narrative: Gemini 3.8 Vision Flash
+                    Rule {finding.rule_id} · Narrative: Gemini Vision
                     {expl.generated_without_gemini ? " (Offline Proof Mode)" : ""}
                   </span>
                   <span className="font-mono">

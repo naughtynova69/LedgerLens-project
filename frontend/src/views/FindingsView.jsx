@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
-import { Search, X, Download, PlayCircle } from "lucide-react";
+import { Search, X, Download, PlayCircle, ShieldCheck, Loader2 } from "lucide-react";
 import { api } from "../api";
 import { RuleBadge } from "../components/RuleBadge";
 import { StatusBadge } from "../components/StatusBadge";
 import { ProofTrailInspector } from "../components/ProofTrailInspector";
 import { formatCurrency } from "../utils/formatters";
+import { useAccountMemory } from "../context/AccountMemoryContext";
 
 const SEVERITY_DOT = {
   critical: "bg-[#B91C1C]",
@@ -25,12 +26,20 @@ export function FindingsView({
   isSubmittingDecision,
   onSeedDemo,
   onOpenDemoGuide,
+  onRunPayrunSweep,
+  runningSweep = false,
   loadingAction,
   onToast,
 }) {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [ruleFilter, setRuleFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const { filters, setFilters, resetFilters, reviewerLabel } = useAccountMemory();
+  const searchQuery = filters.searchQuery || "";
+  const ruleFilter = filters.ruleFilter || "all";
+  const statusFilter = filters.statusFilter || "all";
+
+  const setSearchQuery = (val) => setFilters({ searchQuery: val });
+  const setRuleFilter = (val) => setFilters({ ruleFilter: val });
+  const setStatusFilter = (val) => setFilters({ statusFilter: val });
+
   const [checkedIds, setCheckedIds] = useState([]);
   const searchInputRef = useRef(null);
 
@@ -148,7 +157,7 @@ export function FindingsView({
         onMakeDecision(
           activeId,
           "recovery",
-          "Vijay (AP Lead)",
+          reviewerLabel,
           "Payment held and recovery initiated via AP workstation."
         );
       } else if (e.key === "d") {
@@ -156,7 +165,7 @@ export function FindingsView({
         onMakeDecision(
           activeId,
           "reject",
-          "Vijay (AP Lead)",
+          reviewerLabel,
           "Disputed with vendor pending credit note or revised invoice."
         );
       }
@@ -171,6 +180,7 @@ export function FindingsView({
     onSelectFinding,
     onMakeDecision,
     isSubmittingDecision,
+    reviewerLabel,
   ]);
 
   const allFilteredChecked =
@@ -329,13 +339,16 @@ export function FindingsView({
 
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <div className="relative flex-1 sm:w-64">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Search
+              className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
+              aria-hidden="true"
+            />
             <input
               ref={searchInputRef}
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search vendor, invoice #, ID..."
+              placeholder="Search vendor, invoice #, ID…"
               aria-label="Search exceptions"
               className="w-full h-7 pl-8 pr-7 bg-[#F8FAFC] border border-[#E2E8F0] rounded text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-slate-400 focus:bg-white"
             />
@@ -346,7 +359,7 @@ export function FindingsView({
                 aria-label="Clear search"
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
               >
-                <X className="w-3.5 h-3.5" />
+                <X className="w-3.5 h-3.5" aria-hidden="true" />
               </button>
             ) : (
               <kbd className="absolute right-2 top-1/2 -translate-y-1/2 px-1 py-0.5 text-[10px] font-mono text-slate-400 bg-white border border-[#E2E8F0] rounded pointer-events-none">
@@ -355,13 +368,30 @@ export function FindingsView({
             )}
           </div>
 
+          {onRunPayrunSweep && (
+            <button
+              type="button"
+              onClick={onRunPayrunSweep}
+              disabled={runningSweep || loadingAction}
+              className="inline-flex items-center gap-1.5 h-7 px-2.5 text-xs font-medium rounded bg-slate-900 hover:bg-slate-800 text-white transition-colors disabled:opacity-50 whitespace-nowrap shrink-0"
+              title="Run automated pay-run sweep across pending batches"
+            >
+              {runningSweep ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
+              ) : (
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" aria-hidden="true" />
+              )}
+              <span>{runningSweep ? "Sweeping…" : "Run Pay-Run Sweep"}</span>
+            </button>
+          )}
+
           <a
             href={api.getExportCsvUrl()}
             download="findings.csv"
             className="inline-flex items-center gap-1.5 h-7 px-2.5 text-xs font-medium rounded border border-[#E2E8F0] bg-white hover:bg-slate-50 text-slate-700 transition-colors whitespace-nowrap shrink-0"
             title="Export findings to CSV"
           >
-            <Download className="w-3.5 h-3.5 text-slate-500" />
+            <Download className="w-3.5 h-3.5 text-slate-500" aria-hidden="true" />
             <span className="hidden sm:inline">Export CSV</span>
           </a>
         </div>
@@ -400,11 +430,7 @@ export function FindingsView({
           ) : (
             <button
               type="button"
-              onClick={() => {
-                setSearchQuery("");
-                setRuleFilter("all");
-                setStatusFilter("all");
-              }}
+              onClick={resetFilters}
               className="px-3.5 py-1.5 rounded border border-[#E2E8F0] bg-white hover:bg-slate-50 text-slate-900 font-medium text-xs transition-colors"
             >
               Reset Filters
