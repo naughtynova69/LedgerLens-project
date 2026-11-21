@@ -31,12 +31,12 @@ export function MemoView({ memoData, onRefreshMemo, onCopy }) {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {/* Header Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <p className="text-xs text-[#6B7280]">
-            Deterministic executive briefing grounded in R1–R5 proof trails
+          <p className="text-xs text-slate-500">
+            Executive briefing grounded in verified invoice &amp; contract checks
           </p>
         </div>
 
@@ -45,7 +45,7 @@ export function MemoView({ memoData, onRefreshMemo, onCopy }) {
             <button
               type="button"
               onClick={onRefreshMemo}
-              className="px-3 py-1.5 rounded-lg bg-white hover:bg-gray-50 text-gray-700 font-medium text-xs border border-gray-200"
+              className="h-8 px-3 rounded-md bg-white hover:bg-slate-50 text-slate-700 font-medium text-xs border border-slate-200 transition-colors focus-visible:outline-2 focus-visible:outline-slate-900 focus-visible:outline-offset-2"
             >
               Refresh
             </button>
@@ -54,7 +54,7 @@ export function MemoView({ memoData, onRefreshMemo, onCopy }) {
           <button
             type="button"
             onClick={handleCopy}
-            className="px-3 py-1.5 rounded-lg bg-white hover:bg-gray-50 text-gray-700 font-medium text-xs border border-gray-200"
+            className="h-8 px-3 rounded-md bg-white hover:bg-slate-50 text-slate-700 font-medium text-xs border border-slate-200 transition-colors focus-visible:outline-2 focus-visible:outline-slate-900 focus-visible:outline-offset-2"
           >
             {copied ? "Copied" : "Copy Markdown"}
           </button>
@@ -62,7 +62,7 @@ export function MemoView({ memoData, onRefreshMemo, onCopy }) {
           <button
             type="button"
             onClick={handleDownloadMd}
-            className="px-3 py-1.5 rounded-lg bg-white hover:bg-gray-50 text-gray-700 font-medium text-xs border border-gray-200"
+            className="h-8 px-3 rounded-md bg-white hover:bg-slate-50 text-slate-700 font-medium text-xs border border-slate-200 transition-colors focus-visible:outline-2 focus-visible:outline-slate-900 focus-visible:outline-offset-2"
           >
             Download .md
           </button>
@@ -70,7 +70,7 @@ export function MemoView({ memoData, onRefreshMemo, onCopy }) {
           <button
             type="button"
             onClick={() => window.print()}
-            className="px-3 py-1.5 rounded-lg bg-[#111827] hover:bg-gray-800 text-white font-medium text-xs"
+            className="h-8 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs transition-colors focus-visible:outline-2 focus-visible:outline-slate-900 focus-visible:outline-offset-2"
           >
             Print / PDF
           </button>
@@ -78,17 +78,17 @@ export function MemoView({ memoData, onRefreshMemo, onCopy }) {
       </div>
 
       {/* KPI Summary Strip */}
-      <div className="bg-white border border-gray-200 rounded-lg grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-gray-200">
+      <div className="bg-white border border-slate-200 rounded-lg grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-200">
         <div className="p-3.5">
-          <div className="text-[11px] font-medium uppercase tracking-wider text-[#6B7280]">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500">
             Spend Audited
           </div>
-          <div className="text-base font-semibold font-mono tabular-nums text-[#111827] mt-1">
+          <div className="text-base font-semibold font-mono tabular-nums text-slate-900 mt-1">
             {formatCurrency(summary.total_spend_audited ?? 0)}
           </div>
         </div>
         <div className="p-3.5">
-          <div className="text-[11px] font-medium uppercase tracking-wider text-[#6B7280]">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500">
             Money at Risk
           </div>
           <div className="text-base font-semibold font-mono tabular-nums text-[#B91C1C] mt-1">
@@ -96,15 +96,15 @@ export function MemoView({ memoData, onRefreshMemo, onCopy }) {
           </div>
         </div>
         <div className="p-3.5">
-          <div className="text-[11px] font-medium uppercase tracking-wider text-[#6B7280]">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500">
             Open Risk
           </div>
-          <div className="text-base font-semibold font-mono tabular-nums text-[#111827] mt-1">
+          <div className="text-base font-semibold font-mono tabular-nums text-slate-900 mt-1">
             {formatCurrency(summary.open_at_risk ?? 0)}
           </div>
         </div>
         <div className="p-3.5">
-          <div className="text-[11px] font-medium uppercase tracking-wider text-[#6B7280]">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500">
             Recovered
           </div>
           <div className="text-base font-semibold font-mono tabular-nums text-[#047857] mt-1">
@@ -119,9 +119,11 @@ export function MemoView({ memoData, onRefreshMemo, onCopy }) {
           {Object.entries(byRule)
             .sort(([a], [b]) => a.localeCompare(b))
             .map(([rid, info]) => (
-              <div key={rid} className="p-3 rounded-lg bg-[#FAFAFA] border border-gray-200 text-xs">
-                <div className="font-mono font-medium text-[#111827]">{rid}</div>
-                <div className="text-[#6B7280] text-[11px] mt-0.5">{info.count} finding(s)</div>
+              <div key={rid} className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs">
+                <div className="font-mono font-semibold text-slate-900">{rid}</div>
+                <div className="text-slate-500 text-[11px] font-mono tabular-nums mt-0.5">
+                  {info.count} finding(s)
+                </div>
                 <div className="font-mono tabular-nums font-medium text-[#B91C1C] mt-1">
                   {formatCurrency(info.amount_at_risk, info.currencies?.[0] || "INR")}
                 </div>
@@ -131,7 +133,7 @@ export function MemoView({ memoData, onRefreshMemo, onCopy }) {
       )}
 
       {/* Markdown Body */}
-      <pre className="whitespace-pre-wrap font-mono text-xs text-[#111827] bg-[#FAFAFA] p-4 rounded-lg border border-gray-200 leading-relaxed overflow-x-auto">
+      <pre className="whitespace-pre-wrap font-mono text-xs text-slate-900 bg-slate-50 p-4 rounded-lg border border-slate-200 leading-relaxed overflow-x-auto">
         {memoText || "No audit findings available yet. Load the demo dataset or upload documents."}
       </pre>
     </div>

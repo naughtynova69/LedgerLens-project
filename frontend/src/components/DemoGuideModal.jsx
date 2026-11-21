@@ -5,8 +5,7 @@ import {
   FileSearch,
   CheckCircle2,
   ShieldCheck,
-  Sparkles,
-  FileText,
+  MessageSquare,
   Upload,
   ArrowRight,
   Network,
@@ -28,7 +27,7 @@ export function DemoGuideModal({
       num: "01",
       title: "Load the Demo Dataset (6 Planted Anomalies + 4 Clean Controls)",
       where: "Top-right navbar → Load Demo",
-      how: "Click Load Demo. This seeds 10 realistic AP invoices across 9 vendors, runs deterministic rules R1–R10, and syncs the LadybugDB Knowledge Graph.",
+      how: "Click Load Demo. This seeds 10 realistic AP invoices across 9 vendors, runs all 10 automated audit checks, and syncs vendor connections.",
       highlight:
         "Point out that 4 clean control invoices (INV-9001, INV-9010, INV-9400, INV-9500) produce 0 false positives.",
       icon: Database,
@@ -42,8 +41,8 @@ export function DemoGuideModal({
     {
       num: "02",
       title: "Inspect the 3-Way Match & Proof Trail",
-      where: "Exceptions tab → Left table → Click any row",
-      how: "Click R1 Duplicate (INV-8821 vs INV-8821-R2) or R2 Price Leakage (INV-9102). Inspect the right-hand Proof Trail pane, 3-Way Evidence Diff, and Proof Math.",
+      where: "Flagged Bills tab → Left table → Click any row",
+      how: "Click Duplicate Bill (INV-8821 vs INV-8821-R2) or Price Overcharge (INV-9102). Inspect the right-hand comparison table and plain-English summary.",
       highlight:
         "Show that deterministic Python rules make the decision, while Gemini narrates strictly from the proof_trail.",
       icon: FileSearch,
@@ -70,10 +69,10 @@ export function DemoGuideModal({
     {
       num: "04",
       title: "Verify Cryptographic Audit Log & Knowledge Graph",
-      where: "Activity tab → Verify Ledger Integrity | Rules & Graph tab",
-      how: "Open Activity and click Verify Ledger Integrity to validate the SHA-256 hash chain. Open Rules & Graph to inspect R1–R10 logic and multi-hop vendor/bank/approver links.",
+      where: "Activity tab → Verify Ledger Integrity | Audit Rules tab",
+      how: "Open Activity and click Verify Ledger Integrity to validate the tamper-proof history. Open Audit Rules to inspect all 10 automated checks.",
       highlight:
-        "Demonstrates full auditability for CFOs & statutory auditors plus cross-entity collusion detection (R8–R10).",
+        "Demonstrates full auditability for finance leaders plus cross-vendor fraud & conflict-of-interest detection.",
       icon: ShieldCheck,
       actionLabel: "Open Activity",
       onAction: () => {
@@ -93,7 +92,7 @@ export function DemoGuideModal({
       how: "Open CFO Copilot and ask 'Which vendor has the highest risk?' or 'Summarize open duplicates'. Then open CFO Memo to copy or download the Markdown executive report.",
       highlight:
         "Answers are grounded in live findings and proof trails—zero hallucinated numbers.",
-      icon: Sparkles,
+      icon: MessageSquare,
       actionLabel: "Open CFO Copilot",
       onAction: () => {
         onClose();
@@ -109,7 +108,7 @@ export function DemoGuideModal({
       num: "06",
       title: "Live Document Upload (PDF / Image / CSV)",
       where: "Top-right navbar → Upload",
-      how: "Click Upload to drop a vendor invoice PDF, image, or CSV batch. Gemini Vision extracts line items with Pydantic schema validation and runs R1–R10 immediately.",
+      how: "Click Upload to drop a vendor invoice PDF, image, or CSV batch. AI extracts line items and runs all audit checks immediately.",
       highlight:
         "Low-confidence lines are automatically quarantined to the Needs Review drawer for human sign-off.",
       icon: Upload,
@@ -129,20 +128,20 @@ export function DemoGuideModal({
       maxWidth="max-w-3xl"
     >
       <div className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 border border-slate-200 px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-slate-50 border border-slate-200 px-4 py-3">
           <div className="flex items-center gap-2.5">
-            <PlayCircle className="w-5 h-5 text-indigo-600 shrink-0" />
+            <PlayCircle className="w-4 h-4 text-slate-700 shrink-0" />
             <div>
               <p className="text-xs font-semibold text-slate-900">
                 3-Minute Interactive Demo Script
               </p>
-              <p className="text-[11px] text-slate-600">
+              <p className="text-[11px] text-slate-500">
                 Follow steps 01–06 in order, or click any quick-jump button to open that surface directly.
               </p>
             </div>
           </div>
           <div className="flex items-center gap-1.5 text-[11px] font-mono text-slate-600">
-            <Network className="w-3.5 h-3.5 text-indigo-600" />
+            <Network className="w-3.5 h-3.5 text-slate-600" />
             <span>Shortcuts: j/k navigate · / search</span>
           </div>
         </div>
@@ -153,23 +152,23 @@ export function DemoGuideModal({
             return (
               <div
                 key={step.num}
-                className="rounded-xl border border-slate-200 bg-white p-4 hover:border-slate-300 transition-colors"
+                className="rounded-lg border border-slate-200 bg-white p-4 hover:border-slate-300 transition-colors"
               >
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                   <div className="flex items-start gap-3 min-w-0">
-                    <div className="w-7 h-7 rounded-lg bg-slate-900 text-white font-mono text-xs font-semibold flex items-center justify-center shrink-0 mt-0.5">
+                    <div className="w-6 h-6 rounded bg-slate-900 text-white font-mono text-[11px] font-semibold tabular-nums flex items-center justify-center shrink-0 mt-0.5">
                       {step.num}
                     </div>
                     <div className="space-y-1.5 min-w-0">
                       <div className="flex items-center gap-2">
-                        <Icon className="w-4 h-4 text-indigo-600 shrink-0" />
-                        <h3 className="text-sm font-semibold text-slate-900">
+                        <Icon className="w-3.5 h-3.5 text-slate-700 shrink-0" />
+                        <h3 className="text-[13px] font-semibold text-slate-900">
                           {step.title}
                         </h3>
                       </div>
-                      <p className="text-xs text-slate-700">
+                      <p className="text-xs text-slate-600">
                         <span className="font-semibold text-slate-900">Where: </span>
-                        <span className="font-mono text-[11px] bg-slate-100 px-1.5 py-0.5 rounded">
+                        <span className="font-mono text-[11px] bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded border border-slate-200">
                           {step.where}
                         </span>
                       </p>
@@ -177,7 +176,7 @@ export function DemoGuideModal({
                         <span className="font-semibold text-slate-800">How: </span>
                         {step.how}
                       </p>
-                      <p className="text-[11px] text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-md px-2.5 py-1.5">
+                      <p className="text-[11px] text-[#065F46] bg-[#ECFDF5] border border-[#A7F3D0] rounded px-2.5 py-1.5">
                         <span className="font-semibold">Demo talking point: </span>
                         {step.highlight}
                       </p>
@@ -189,7 +188,7 @@ export function DemoGuideModal({
                       type="button"
                       onClick={step.onAction}
                       disabled={step.disabled}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium transition-colors disabled:opacity-50 whitespace-nowrap"
+                      className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium transition-colors disabled:opacity-50 whitespace-nowrap focus-visible:outline-2 focus-visible:outline-slate-900 focus-visible:outline-offset-2"
                     >
                       <span>{step.actionLabel}</span>
                       <ArrowRight className="w-3.5 h-3.5" />
@@ -198,7 +197,7 @@ export function DemoGuideModal({
                       <button
                         type="button"
                         onClick={step.onSecondaryAction}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium transition-colors whitespace-nowrap"
+                        className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium transition-colors whitespace-nowrap focus-visible:outline-2 focus-visible:outline-slate-900 focus-visible:outline-offset-2"
                       >
                         <span>{step.secondaryLabel}</span>
                       </button>

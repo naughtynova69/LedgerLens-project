@@ -28,6 +28,7 @@ export function App() {
   const [memoModalOpen, setMemoModalOpen] = useState(false);
   const [copilotOpen, setCopilotOpen] = useState(false);
   const [demoGuideOpen, setDemoGuideOpen] = useState(false);
+  const [gcpStatus, setGcpStatus] = useState(null);
   const [workspaces, setWorkspaces] = useState([]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState("default");
   const [reviewBatch, setReviewBatch] = useState(null);
@@ -62,7 +63,7 @@ export function App() {
 
   const loadData = useCallback(async () => {
     try {
-      const [h, s, f, b, m, l, exec, ws] = await Promise.all([
+      const [h, s, f, b, m, l, exec, ws, gcp] = await Promise.all([
         api.getHealth().catch(() => ({ status: "offline" })),
         api.getStats().catch(() => null),
         api.getFindings().catch(() => []),
@@ -71,6 +72,7 @@ export function App() {
         api.getAuditLog().catch(() => []),
         api.getExecutiveAnalytics().catch(() => null),
         api.getWorkspaces().catch(() => []),
+        api.getGcpStatus().catch(() => null),
       ]);
 
       setIsOnline(h.status === "ok");
@@ -88,6 +90,7 @@ export function App() {
       if (Array.isArray(ws) && ws.length > 0) {
         setWorkspaces(ws);
       }
+      if (gcp) setGcpStatus(gcp);
     } catch {
       setIsOnline(false);
     }
@@ -222,12 +225,13 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] text-[#111827] flex flex-col font-sans">
+    <div className="min-h-screen bg-[var(--bg-canvas)] text-[var(--text-primary)] flex flex-col font-sans">
       <Navbar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         stats={stats}
         isOnline={isOnline}
+        gcpStatus={gcpStatus}
         onSeedDemo={handleSeedDemo}
         onOpenUploadModal={() => setUploadModalOpen(true)}
         onOpenMemoModal={() => setMemoModalOpen(true)}
@@ -243,20 +247,19 @@ export function App() {
       />
 
       {needsReviewBatches.length > 0 && (
-        <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-4">
-          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-900">
+        <div className="max-w-[1600px] w-full mx-auto px-4 pt-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 px-3.5 py-2 rounded-lg bg-[var(--warn-bg)] border border-[var(--warn-border)] text-xs text-[var(--warn-fg)]">
             <span>
-              <span className="font-semibold">
+              <span className="font-semibold tabular-nums">
                 {needsReviewBatches.length}{" "}
-                {needsReviewBatches.length === 1 ? "batch" : "batches"}
+                {needsReviewBatches.length === 1 ? "upload" : "uploads"}
               </span>{" "}
-              quarantined with <span className="font-mono">needs_review</span> invoice
-              lines awaiting manual correction.
+              {needsReviewBatches.length === 1 ? "needs" : "need"} a quick check before auditing.
             </span>
             <button
               type="button"
               onClick={() => handleOpenReviewDrawer(needsReviewBatches[0])}
-              className="px-2.5 py-1 rounded-md font-medium bg-white border border-amber-300 text-amber-900 hover:bg-amber-100/60 transition-colors"
+              className="px-2.5 py-1 rounded-md font-medium bg-[var(--bg-surface)] border border-[var(--warn-border)] text-[var(--warn-fg)] hover:bg-amber-100/60 transition-colors duration-100"
             >
               Review &amp; Fix Lines
             </button>
@@ -264,7 +267,7 @@ export function App() {
         </div>
       )}
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="flex-1 max-w-[1600px] w-full mx-auto px-4 py-4">
         {activeTab === "exceptions" && (
           <FindingsView
             findings={findings}
@@ -361,11 +364,13 @@ export function App() {
 
       <Toast toast={toast} onClose={() => setToast(null)} />
 
-      <footer className="border-t border-gray-200 bg-white py-3 text-xs text-[#6B7280]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>LedgerLens · Explainable AI Money-Leak Auditor</span>
-          <span className="font-mono text-[11px]">
-            Deterministic Rules R1–R10 (LadybugDB Graph) · Gemini 3.8 Vision Flash
+      <footer className="border-t border-[var(--border-hairline)] bg-[var(--bg-surface)] py-2.5 text-xs text-[var(--text-muted)]">
+        <div className="max-w-[1600px] mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+          <span>LedgerLens · Automated Invoice &amp; Payment Audit</span>
+          <span className="text-[11px]">
+            {gcpStatus?.project_id
+              ? `Powered by Google Cloud (${gcpStatus.project_id} · ${gcpStatus.location || "asia-south1"}) & Gemini AI`
+              : "Powered by Google Cloud & Gemini AI"}
           </span>
         </div>
       </footer>

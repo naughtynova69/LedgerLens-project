@@ -3,8 +3,8 @@ import { Network, RefreshCw } from "lucide-react";
 import { api } from "../api";
 
 /**
- * Knowledge-graph KPI card (LadybugDB): entity/link counts, multi-hop risk
- * findings (R6-R8), and a one-click deterministic rebuild/sync action.
+ * Knowledge-graph status strip (LadybugDB): single-line 36px institutional
+ * bar showing entity/link counts, multi-hop risks (R6-R8), and sync action.
  */
 export function GraphStatsCard({ onToast }) {
   const [graphStats, setGraphStats] = useState(null);
@@ -54,54 +54,44 @@ export function GraphStatsCard({ onToast }) {
   };
 
   return (
-    <div className="p-4 rounded-lg bg-white border border-gray-200 space-y-2.5">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#111827]">
-          <Network className="w-4 h-4 text-[#4F46E5]" />
-          <span>Knowledge Graph (LadybugDB)</span>
-        </div>
-        <button
-          type="button"
-          onClick={handleRebuild}
-          disabled={rebuilding}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-gray-200 text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors disabled:opacity-50"
-          title="Rebuild the graph projection from the relational system of record"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${rebuilding ? "animate-spin" : ""}`} />
-          {rebuilding ? "Syncing…" : "Rebuild / Sync"}
-        </button>
+    <div className="min-h-[36px] px-3 py-1.5 rounded-md bg-[#F8FAFC] border border-[#E2E8F0] flex flex-wrap items-center justify-between gap-2">
+      <div className="flex items-center gap-2 text-xs font-mono tabular-nums text-slate-600 min-w-0">
+        <Network className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+        {loadError ? (
+          <span className="truncate">
+            Graph: unavailable (set <code className="text-slate-800">LEDGERLENS_GRAPH_ENABLED=true</code>)
+          </span>
+        ) : !graphStats ? (
+          <span>Graph: loading…</span>
+        ) : (
+          <span className="truncate">
+            Graph:{" "}
+            <span className="font-semibold text-slate-900">
+              {graphStats.total_nodes ?? 0}
+            </span>{" "}
+            entities ·{" "}
+            <span className="font-semibold text-slate-900">
+              {graphStats.total_relationships ?? 0}
+            </span>{" "}
+            links ·{" "}
+            <span className="font-semibold text-slate-900">
+              {graphStats.multi_hop_risks ?? 0}
+            </span>{" "}
+            multi-hop risks
+          </span>
+        )}
       </div>
 
-      {loadError ? (
-        <p className="text-xs text-slate-500">
-          Graph engine not enabled — set{" "}
-          <code className="font-mono">LEDGERLENS_GRAPH_ENABLED=true</code> to activate R6–R8
-          multi-hop detection.
-        </p>
-      ) : !graphStats ? (
-        <p className="text-xs text-slate-500">Loading graph statistics…</p>
-      ) : (
-        <div className="grid grid-cols-3 gap-2 text-center">
-          <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
-            <div className="text-lg font-bold font-mono tabular-nums text-slate-900">
-              {graphStats.total_nodes ?? 0}
-            </div>
-            <div className="text-[10px] uppercase tracking-wider text-slate-500">Entities</div>
-          </div>
-          <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
-            <div className="text-lg font-bold font-mono tabular-nums text-slate-900">
-              {graphStats.total_relationships ?? 0}
-            </div>
-            <div className="text-[10px] uppercase tracking-wider text-slate-500">Links</div>
-          </div>
-          <div className="p-2 rounded-lg bg-[#EEF2FF] border border-[#C7D2FE]">
-            <div className="text-lg font-bold font-mono tabular-nums text-[#4F46E5]">
-              {graphStats.multi_hop_risks ?? 0}
-            </div>
-            <div className="text-[10px] uppercase tracking-wider text-[#4F46E5]/80">Multi-hop</div>
-          </div>
-        </div>
-      )}
+      <button
+        type="button"
+        onClick={handleRebuild}
+        disabled={rebuilding}
+        className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded border border-[#E2E8F0] bg-white hover:bg-slate-100 text-[11px] font-medium text-slate-700 transition-colors disabled:opacity-50 shrink-0"
+        title="Rebuild the graph projection from the relational system of record"
+      >
+        <RefreshCw className={`w-3 h-3 text-slate-500 ${rebuilding ? "animate-spin" : ""}`} />
+        <span>{rebuilding ? "Syncing…" : "Sync"}</span>
+      </button>
     </div>
   );
 }

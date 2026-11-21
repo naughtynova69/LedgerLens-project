@@ -41,13 +41,13 @@ export function UploadModal({ isOpen, onClose, onPipelineComplete }) {
     <Modal isOpen={isOpen} onClose={onClose} title="Upload CSV / PDF & Run Audit" maxWidth="max-w-lg">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-xs font-medium text-[#111827] mb-1.5">
+          <label className="block text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500 mb-1.5">
             Document Feed Kind
           </label>
           <select
             value={kind}
             onChange={(e) => setKind(e.target.value)}
-            className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs text-[#111827] focus:outline-none focus:border-gray-400"
+            className="w-full h-9 px-3 bg-white border border-slate-300 rounded-md text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
           >
             <option value="invoices">Invoices (CSV or PDF scan)</option>
             <option value="purchase_orders">Purchase Orders (CSV or PDF)</option>
@@ -57,16 +57,16 @@ export function UploadModal({ isOpen, onClose, onPipelineComplete }) {
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-[#111827] mb-1.5">
+          <label className="block text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500 mb-1.5">
             Select File (.csv or .pdf)
           </label>
-          <label className="flex flex-col items-center justify-center p-6 border border-dashed border-gray-300 rounded-lg bg-[#FAFAFA] hover:bg-gray-50 cursor-pointer transition-colors">
-            <UploadCloud className="w-6 h-6 text-[#6B7280] mb-2" />
-            <span className="text-xs font-medium text-[#111827]">
+          <label className="flex flex-col items-center justify-center p-6 border border-dashed border-slate-300 rounded-lg bg-slate-50 hover:bg-slate-100/70 cursor-pointer transition-colors">
+            <UploadCloud className="w-5 h-5 text-slate-500 mb-2" />
+            <span className="text-xs font-medium text-slate-900">
               {file ? file.name : "Choose CSV or PDF invoice/contract document"}
             </span>
-            <span className="text-[11px] text-[#6B7280] mt-1">
-              Upload → Gemini Extract → Deterministic Rules R1–R5
+            <span className="text-[11px] text-slate-500 mt-1">
+              Upload → AI Extract → Automated Audit Checks
             </span>
             <input
               type="file"
@@ -78,14 +78,14 @@ export function UploadModal({ isOpen, onClose, onPipelineComplete }) {
         </div>
 
         {step !== "idle" && (
-          <div className="p-3.5 rounded-lg border border-gray-200 bg-[#FAFAFA] space-y-2 text-xs">
-            <div className="flex items-center justify-between font-medium text-[#111827]">
+          <div className="p-3.5 rounded-lg border border-slate-200 bg-slate-50 space-y-2 text-xs">
+            <div className="flex items-center justify-between font-medium text-slate-900">
               <span>Pipeline Status</span>
-              <span className="font-mono uppercase text-[11px] text-[#6B7280]">{step}</span>
+              <span className="font-mono uppercase text-[11px] text-slate-500">{step}</span>
             </div>
             {["uploading", "extracting", "detecting"].includes(step) && (
-              <div className="flex items-center gap-2 text-[#6B7280]">
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <div className="flex items-center gap-2 text-slate-600">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-900" />
                 <span>Running {step}...</span>
               </div>
             )}
@@ -99,13 +99,13 @@ export function UploadModal({ isOpen, onClose, onPipelineComplete }) {
               <div className="space-y-1 text-[#047857]">
                 <div className="flex items-center gap-1.5 font-medium">
                   <CheckCircle2 className="w-4 h-4 shrink-0" />
-                  <span>
+                  <span className="tabular-nums">
                     Batch {result.upload.batch_id} complete ({result.extract.rows_extracted} rows via{" "}
                     {result.extract.model}, {result.detect.findings_created} findings).
                   </span>
                 </div>
                 {result.extract.verification_warnings?.length > 0 && (
-                  <p className="text-[#6B7280] flex items-center gap-1">
+                  <p className="text-slate-600 flex items-center gap-1">
                     <FileText className="w-3.5 h-3.5" />
                     {result.extract.verification_warnings[0].message}
                   </p>
@@ -119,14 +119,14 @@ export function UploadModal({ isOpen, onClose, onPipelineComplete }) {
           <button
             type="button"
             onClick={onClose}
-            className="px-3.5 py-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-xs font-medium text-gray-700"
+            className="h-8 px-3.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-xs font-medium text-slate-700 transition-colors focus-visible:outline-2 focus-visible:outline-slate-900 focus-visible:outline-offset-2"
           >
             Close
           </button>
           <button
             type="submit"
             disabled={!file || ["uploading", "extracting", "detecting"].includes(step)}
-            className="px-3.5 py-1.5 rounded-lg bg-[#111827] hover:bg-gray-800 text-white text-xs font-medium disabled:opacity-50"
+            className="h-8 px-3.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium transition-colors disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-slate-900 focus-visible:outline-offset-2"
           >
             Upload &amp; Run Audit
           </button>

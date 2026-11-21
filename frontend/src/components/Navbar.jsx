@@ -1,5 +1,5 @@
 import React from "react";
-import { Sparkles, Upload, Database, FileText, PlayCircle } from "lucide-react";
+import { Sparkles, Upload, Database, FileText, PlayCircle, Cloud } from "lucide-react";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 
 export function Navbar({
@@ -7,6 +7,7 @@ export function Navbar({
   setActiveTab,
   stats,
   isOnline,
+  gcpStatus,
   onSeedDemo,
   onOpenUploadModal,
   onOpenMemoModal,
@@ -18,44 +19,73 @@ export function Navbar({
   onChangeWorkspace,
 }) {
   const openCount = stats?.by_status?.open ?? 0;
+  const gcpConnectedCount = Object.values(gcpStatus?.services || {}).filter(
+    (s) => s?.mode === "configured"
+  ).length;
 
   const navItems = [
-    { id: "exceptions", label: "Exceptions", badge: openCount },
+    { id: "exceptions", label: "Flagged Bills", badge: openCount },
     { id: "activity", label: "Activity" },
-    { id: "rules", label: "Rules & Graph" },
-    { id: "cloud", label: "Cloud & Policy" },
+    { id: "rules", label: "Audit Rules" },
+    { id: "cloud", label: "Google Cloud" },
   ];
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-gray-200 bg-white/95 backdrop-blur">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="min-h-14 py-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          {/* Left: Wordmark, Status Dot & Primary Surface Tabs (never clipped, no horizontal scrollbar) */}
+          {/* Left: Wordmark, Live Status & Minimal Tabs */}
           <div className="flex flex-wrap items-center gap-4 sm:gap-6">
-            <button
-              type="button"
-              onClick={() => setActiveTab("exceptions")}
-              className="flex items-center gap-2.5 shrink-0 text-left"
-            >
-              <span className="text-sm font-semibold tracking-tight text-[#111827]">
-                LedgerLens
-              </span>
-              <span
-                className="inline-flex items-center gap-1.5 text-[11px] font-medium text-gray-500"
-                title={isOnline ? "Rules engine online" : "Backend unreachable"}
+            <div className="flex items-center gap-2.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setActiveTab("exceptions")}
+                className="flex items-center gap-2.5 text-left"
               >
+                <span className="text-sm font-semibold tracking-tight text-[#111827]">
+                  LedgerLens
+                </span>
                 <span
-                  className={`w-1.5 h-1.5 rounded-full ${
-                    isOnline ? "bg-[#047857]" : "bg-[#B91C1C]"
-                  }`}
-                />
-                <span className="hidden sm:inline">{isOnline ? "Live" : "Offline"}</span>
-              </span>
-            </button>
+                  className="inline-flex items-center gap-1.5 text-[11px] font-medium text-gray-500"
+                  title={
+                    isOnline
+                      ? gcpStatus?.project_id
+                        ? `Connected to ${gcpStatus.project_id} (${gcpStatus.location})`
+                        : "Service online"
+                      : "Service offline"
+                  }
+                >
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      isOnline ? "bg-[#047857]" : "bg-[#B91C1C]"
+                    }`}
+                  />
+                  <span className="hidden sm:inline">
+                    {isOnline ? "Live" : "Offline"}
+                  </span>
+                </span>
+              </button>
+
+              {gcpStatus && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("cloud")}
+                  className="hidden md:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-50 border border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+                  title="View Google Cloud integration status"
+                >
+                  <Cloud className="w-3 h-3 text-indigo-600" />
+                  <span>
+                    {gcpConnectedCount > 0
+                      ? `GCP · ${gcpConnectedCount}/6`
+                      : gcpStatus.location || "Cloud Ready"}
+                  </span>
+                </button>
+              )}
+            </div>
 
             <nav
               className="flex flex-wrap items-center gap-1"
-              aria-label="Primary surfaces"
+              aria-label="Primary navigation"
             >
               {navItems.map((item) => {
                 const active = activeTab === item.id;
@@ -83,9 +113,9 @@ export function Navbar({
             </nav>
           </div>
 
-          {/* Right: Action Controls */}
+          {/* Right: Clean Action Controls */}
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-            {workspaces && workspaces.length > 0 && (
+            {workspaces && workspaces.length > 1 && (
               <WorkspaceSwitcher
                 workspaces={workspaces}
                 activeWorkspaceId={activeWorkspaceId}
@@ -97,10 +127,10 @@ export function Navbar({
               <button
                 type="button"
                 onClick={onOpenDemoGuide}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100/80 text-indigo-700 transition-colors whitespace-nowrap"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100/80 text-indigo-700 transition-colors whitespace-nowrap"
               >
                 <PlayCircle className="w-3.5 h-3.5 text-indigo-600" />
-                <span>Demo Guide</span>
+                <span>Guide</span>
               </button>
             )}
 
@@ -139,7 +169,7 @@ export function Navbar({
               className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg bg-[#111827] hover:bg-gray-800 text-white transition-colors whitespace-nowrap"
             >
               <FileText className="w-3.5 h-3.5 text-gray-200" />
-              <span>CFO Memo</span>
+              <span>Report</span>
             </button>
           </div>
         </div>

@@ -5,31 +5,43 @@ export function StatusBadge({ status, className = "" }) {
 
   const config = {
     open: {
-      classes: "bg-gray-50 text-gray-700 border-gray-200",
+      classes:
+        "bg-[var(--neutral-bg)] text-[var(--neutral-fg)] border-[var(--neutral-border)]",
       label: "Open",
     },
     approved: {
-      classes: "bg-emerald-50/80 text-emerald-700 border-emerald-200",
+      classes:
+        "bg-[var(--ok-bg)] text-[var(--ok-fg)] border-[var(--ok-border)]",
       label: "Approved",
     },
     approve: {
-      classes: "bg-emerald-50/80 text-emerald-700 border-emerald-200",
+      classes:
+        "bg-[var(--ok-bg)] text-[var(--ok-fg)] border-[var(--ok-border)]",
       label: "Approved",
     },
     recovery: {
-      classes: "bg-emerald-50/80 text-emerald-700 border-emerald-200",
+      classes:
+        "bg-[var(--ok-bg)] text-[var(--ok-fg)] border-[var(--ok-border)]",
       label: "Recovered",
     },
     recover: {
-      classes: "bg-emerald-50/80 text-emerald-700 border-emerald-200",
+      classes:
+        "bg-[var(--ok-bg)] text-[var(--ok-fg)] border-[var(--ok-border)]",
       label: "Recovered",
     },
     rejected: {
-      classes: "bg-red-50/80 text-red-700 border-red-200",
+      classes:
+        "bg-[var(--risk-bg)] text-[var(--risk-fg)] border-[var(--risk-border)]",
       label: "Disputed",
     },
     reject: {
-      classes: "bg-red-50/80 text-red-700 border-red-200",
+      classes:
+        "bg-[var(--risk-bg)] text-[var(--risk-fg)] border-[var(--risk-border)]",
+      label: "Disputed",
+    },
+    disputed: {
+      classes:
+        "bg-[var(--risk-bg)] text-[var(--risk-fg)] border-[var(--risk-border)]",
       label: "Disputed",
     },
   };
@@ -38,7 +50,7 @@ export function StatusBadge({ status, className = "" }) {
 
   return (
     <span
-      className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium border whitespace-nowrap ${style.classes} ${className}`}
+      className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] leading-none font-medium border whitespace-nowrap ${style.classes} ${className}`}
     >
       {style.label}
     </span>

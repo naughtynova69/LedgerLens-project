@@ -2,17 +2,17 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { api } from "../api";
 
 const NODE_COLORS = {
-  Invoice: "#2563EB",
-  Vendor: "#7C3AED",
+  Invoice: "#0F172A",
+  Vendor: "#334155",
   BankAccount: "#B45309",
-  TaxIdentifier: "#4B5563",
-  Address: "#6B7280",
-  Approver: "#DB2777",
-  Contract: "#059669",
-  PurchaseOrder: "#0891B2",
+  TaxIdentifier: "#475569",
+  Address: "#64748B",
+  Approver: "#475569",
+  Contract: "#047857",
+  PurchaseOrder: "#0F766E",
   InvoiceLine: "#64748B",
-  Payment: "#0D9488",
-  CreditNote: "#DC2626",
+  Payment: "#047857",
+  CreditNote: "#B91C1C",
 };
 
 const RISK_EDGE_TYPES = new Set([
@@ -31,9 +31,9 @@ const RISK_EDGE_TYPES = new Set([
  *
  * Layered left-to-right layout computed with a BFS depth assignment from the
  * highest-priority root node, click-to-inspect node details, drag-to-pan,
- * wheel/button zoom, entity-type color coding, and amber risk edges.
+ * wheel/button zoom, institutional slate entity coding, and amber risk edges.
  */
-export function EvidenceGraphCanvas({ findingId, subgraph: providedSubgraph, height = 340 }) {
+export function EvidenceGraphCanvas({ findingId, subgraph: providedSubgraph, height = 320 }) {
   const [subgraph, setSubgraph] = useState(providedSubgraph || null);
   const [status, setStatus] = useState(providedSubgraph ? "ready" : "loading");
   const [error, setError] = useState("");
@@ -166,7 +166,7 @@ export function EvidenceGraphCanvas({ findingId, subgraph: providedSubgraph, hei
     return (
       <div
         style={{ height }}
-        className="flex items-center justify-center bg-[#FAFAFA] border border-gray-200 rounded-lg text-xs text-[#6B7280]"
+        className="flex items-center justify-center bg-[#F8FAFC] border border-[#E2E8F0] rounded-md text-xs text-slate-500 font-mono"
       >
         Loading evidence subgraph…
       </div>
@@ -177,7 +177,7 @@ export function EvidenceGraphCanvas({ findingId, subgraph: providedSubgraph, hei
     return (
       <div
         style={{ height }}
-        className="flex items-center justify-center bg-red-50/40 border border-red-200 rounded-lg text-xs text-red-700"
+        className="flex items-center justify-center bg-red-50/40 border border-red-200 rounded-md text-xs text-[#B91C1C]"
       >
         {error}
       </div>
@@ -188,20 +188,20 @@ export function EvidenceGraphCanvas({ findingId, subgraph: providedSubgraph, hei
     return (
       <div
         style={{ height }}
-        className="flex items-center justify-center bg-[#FAFAFA] border border-gray-200 rounded-lg text-xs text-[#6B7280]"
+        className="flex items-center justify-center bg-[#F8FAFC] border border-[#E2E8F0] rounded-md text-xs text-slate-500"
       >
         No graph evidence available for this finding.
       </div>
     );
   }
 
-  const { nodes, edges, width, height: layoutHeight } = layout;
+  const { nodes, edges } = layout;
 
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono text-[#6B7280]">
-          <span className="px-1.5 py-0.5 rounded bg-[#FAFAFA] border border-gray-200">
+        <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono tabular-nums text-slate-500">
+          <span className="px-1.5 py-0.5 rounded bg-[#F8FAFC] border border-[#E2E8F0] text-slate-700">
             {subgraph.cypher_rule || "GRAPH"}
           </span>
           <span>{nodes.size} entities</span>
@@ -213,7 +213,7 @@ export function EvidenceGraphCanvas({ findingId, subgraph: providedSubgraph, hei
             type="button"
             aria-label="Zoom out"
             onClick={() => setTransform((t) => ({ ...t, k: Math.max(0.4, t.k * 0.85) }))}
-            className="px-2 py-0.5 rounded border border-gray-200 text-xs text-[#111827] bg-white hover:bg-gray-50"
+            className="px-2 py-0.5 rounded border border-[#E2E8F0] text-xs text-slate-900 bg-white hover:bg-slate-50 transition-colors"
           >
             −
           </button>
@@ -221,7 +221,7 @@ export function EvidenceGraphCanvas({ findingId, subgraph: providedSubgraph, hei
             type="button"
             aria-label="Reset view"
             onClick={() => setTransform({ x: 40, y: 40, k: 1 })}
-            className="px-2 py-0.5 rounded border border-gray-200 text-xs text-[#111827] bg-white hover:bg-gray-50"
+            className="px-2 py-0.5 rounded border border-[#E2E8F0] text-xs text-slate-900 bg-white hover:bg-slate-50 transition-colors"
           >
             Reset
           </button>
@@ -229,7 +229,7 @@ export function EvidenceGraphCanvas({ findingId, subgraph: providedSubgraph, hei
             type="button"
             aria-label="Zoom in"
             onClick={() => setTransform((t) => ({ ...t, k: Math.min(2.5, t.k * 1.15) }))}
-            className="px-2 py-0.5 rounded border border-gray-200 text-xs text-[#111827] bg-white hover:bg-gray-50"
+            className="px-2 py-0.5 rounded border border-[#E2E8F0] text-xs text-slate-900 bg-white hover:bg-slate-50 transition-colors"
           >
             +
           </button>
@@ -237,7 +237,7 @@ export function EvidenceGraphCanvas({ findingId, subgraph: providedSubgraph, hei
       </div>
 
       <div
-        className="relative bg-[#FAFAFA] border border-gray-200 rounded-lg overflow-hidden cursor-grab active:cursor-grabbing"
+        className="relative bg-[#F8FAFC] border border-[#E2E8F0] rounded-md overflow-hidden cursor-grab active:cursor-grabbing"
         style={{ height }}
         onMouseDown={onMouseDown}
         onMouseMove={onMouseMove}
@@ -272,17 +272,17 @@ export function EvidenceGraphCanvas({ findingId, subgraph: providedSubgraph, hei
                     y1={s.y}
                     x2={t.x}
                     y2={t.y}
-                    stroke={isRisk ? "#D97706" : "#9CA3AF"}
+                    stroke={isRisk ? "#B45309" : "#94A3B8"}
                     strokeWidth={isRisk ? 2 : 1}
                     strokeDasharray={isRisk ? "none" : "4 3"}
-                    opacity={isRisk ? 0.9 : 0.55}
+                    opacity={isRisk ? 0.9 : 0.6}
                   />
                   <text
                     x={mx}
                     y={my - 4}
                     textAnchor="middle"
                     fontSize="8"
-                    fill={isRisk ? "#B45309" : "#9CA3AF"}
+                    fill={isRisk ? "#B45309" : "#64748B"}
                     fontFamily="ui-monospace, monospace"
                   >
                     {edge.type}
@@ -292,8 +292,8 @@ export function EvidenceGraphCanvas({ findingId, subgraph: providedSubgraph, hei
             })}
 
             {Array.from(nodes.values()).map((node) => {
-              const color = NODE_COLORS[node.type] || "#4B5563";
-              const r = node.highlight ? 17 : 13;
+              const color = NODE_COLORS[node.type] || "#475569";
+              const r = node.highlight ? 16 : 12;
               return (
                 <g
                   key={node.id}
@@ -302,7 +302,7 @@ export function EvidenceGraphCanvas({ findingId, subgraph: providedSubgraph, hei
                   className="cursor-pointer"
                 >
                   {node.highlight && (
-                    <circle r={r + 6} fill="none" stroke={color} strokeWidth="1.5" opacity="0.35" />
+                    <circle r={r + 5} fill="none" stroke={color} strokeWidth="1.5" opacity="0.3" />
                   )}
                   <circle
                     r={r}
@@ -310,12 +310,12 @@ export function EvidenceGraphCanvas({ findingId, subgraph: providedSubgraph, hei
                     stroke={color}
                     strokeWidth={node.highlight ? 2.5 : 1.5}
                   />
-                  <circle r="5" fill={color} />
+                  <circle r="4.5" fill={color} />
                   <text
                     y={r + 12}
                     textAnchor="middle"
                     fontSize="9.5"
-                    fill="#111827"
+                    fill="#0F172A"
                     fontFamily="ui-monospace, monospace"
                     fontWeight={node.highlight ? 600 : 400}
                   >
@@ -329,37 +329,37 @@ export function EvidenceGraphCanvas({ findingId, subgraph: providedSubgraph, hei
       </div>
 
       {selected && (
-        <div className="p-3 rounded-lg bg-white border border-gray-200 text-xs space-y-1.5">
+        <div className="p-3 rounded-md bg-white border border-[#E2E8F0] text-xs space-y-1.5">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <span
-                className="inline-block w-2.5 h-2.5 rounded-full shrink-0"
-                style={{ backgroundColor: NODE_COLORS[selected.type] || "#4B5563" }}
+                className="inline-block w-2 h-2 rounded-full shrink-0"
+                style={{ backgroundColor: NODE_COLORS[selected.type] || "#475569" }}
               />
-              <span className="font-mono font-medium text-[#111827] truncate">{selected.id}</span>
-              <span className="text-[#6B7280]">({selected.type})</span>
+              <span className="font-mono font-medium text-slate-900 truncate">{selected.id}</span>
+              <span className="text-slate-500">({selected.type})</span>
             </div>
             <button
               type="button"
               onClick={() => setSelected(null)}
-              className="text-[11px] text-[#6B7280] hover:text-[#111827]"
+              className="text-[11px] text-slate-500 hover:text-slate-900"
             >
               Close
             </button>
           </div>
           {subgraph.summary && (
-            <p className="text-[#6B7280] leading-relaxed">
-              <span className="font-medium text-[#111827]">Path:</span> {subgraph.summary}
+            <p className="text-slate-600 leading-relaxed">
+              <span className="font-medium text-slate-900">Path:</span> {subgraph.summary}
             </p>
           )}
           {Object.entries(selected.properties || {}).length > 0 && (
-            <div className="flex flex-wrap gap-x-3 gap-y-0.5 font-mono text-[11px] text-[#6B7280]">
+            <div className="flex flex-wrap gap-x-3 gap-y-0.5 font-mono text-[11px] text-slate-500">
               {Object.entries(selected.properties)
                 .filter(([key]) => key !== "_LABEL")
                 .map(([key, value]) => (
                   <span key={key}>
                     <span>{key}=</span>
-                    <span className="text-[#111827]">{String(value)}</span>
+                    <span className="text-slate-900">{String(value)}</span>
                   </span>
                 ))}
             </div>
