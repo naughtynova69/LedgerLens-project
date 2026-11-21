@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
-import { Search, X } from "lucide-react";
+import { Search, X, Download, PlayCircle } from "lucide-react";
+import { api } from "../api";
 import { RuleBadge } from "../components/RuleBadge";
 import { StatusBadge } from "../components/StatusBadge";
 import { ProofTrailInspector } from "../components/ProofTrailInspector";
@@ -17,6 +18,7 @@ export function FindingsView({
   onBulkDecision,
   isSubmittingDecision,
   onSeedDemo,
+  onOpenDemoGuide,
   loadingAction,
   onToast,
 }) {
@@ -260,27 +262,39 @@ export function FindingsView({
           )}
         </div>
 
-        <div className="relative w-full sm:w-64">
-          <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          <input
-            ref={searchInputRef}
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search vendor, invoice #, finding... (/)"
-            aria-label="Search exceptions"
-            className="w-full pl-8 pr-7 py-1.5 bg-white border border-gray-200 rounded-lg text-xs text-[#111827] placeholder-gray-400 focus:outline-none focus:border-gray-400"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery("")}
-              aria-label="Clear search"
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="relative flex-1 sm:w-64">
+            <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search vendor, invoice #, finding... (/)"
+              aria-label="Search exceptions"
+              className="w-full pl-8 pr-7 py-1.5 bg-white border border-gray-200 rounded-lg text-xs text-[#111827] placeholder-gray-400 focus:outline-none focus:border-gray-400"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                aria-label="Clear search"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          <a
+            href={api.getExportCsvUrl()}
+            download="findings.csv"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 transition-colors whitespace-nowrap shrink-0"
+            title="Export findings to CSV"
+          >
+            <Download className="w-3.5 h-3.5 text-gray-500" />
+            <span className="hidden sm:inline">Export CSV</span>
+          </a>
         </div>
       </div>
 
@@ -328,14 +342,26 @@ export function FindingsView({
               : "Adjust your status, rule, or search filters."}
           </p>
           {findings?.length === 0 ? (
-            <button
-              type="button"
-              onClick={onSeedDemo}
-              disabled={loadingAction}
-              className="px-3.5 py-1.5 rounded-lg bg-[#111827] hover:bg-gray-800 text-white font-medium text-xs transition-colors disabled:opacity-50"
-            >
-              Load Demo Dataset
-            </button>
+            <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={onSeedDemo}
+                disabled={loadingAction}
+                className="px-3.5 py-1.5 rounded-lg bg-[#111827] hover:bg-gray-800 text-white font-medium text-xs transition-colors disabled:opacity-50"
+              >
+                Load Demo Dataset
+              </button>
+              {onOpenDemoGuide && (
+                <button
+                  type="button"
+                  onClick={onOpenDemoGuide}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100/80 text-indigo-700 font-medium text-xs transition-colors"
+                >
+                  <PlayCircle className="w-3.5 h-3.5" />
+                  <span>Open Demo Guide</span>
+                </button>
+              )}
+            </div>
           ) : (
             <button
               type="button"

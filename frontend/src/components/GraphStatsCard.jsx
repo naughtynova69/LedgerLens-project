@@ -54,9 +54,9 @@ export function GraphStatsCard({ onToast }) {
   };
 
   return (
-    <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-sm space-y-2">
+    <div className="p-4 rounded-lg bg-white border border-gray-200 space-y-2.5">
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-700">
+        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#111827]">
           <Network className="w-4 h-4 text-[#4F46E5]" />
           <span>Knowledge Graph (LadybugDB)</span>
         </div>
@@ -64,7 +64,7 @@ export function GraphStatsCard({ onToast }) {
           type="button"
           onClick={handleRebuild}
           disabled={rebuilding}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-300 text-[11px] font-semibold text-slate-700 bg-white hover:bg-slate-50 transition-colors disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-gray-200 text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors disabled:opacity-50"
           title="Rebuild the graph projection from the relational system of record"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${rebuilding ? "animate-spin" : ""}`} />
