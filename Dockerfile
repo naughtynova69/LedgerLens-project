@@ -23,11 +23,7 @@ WORKDIR /app/backend
 COPY backend/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt \
     && mkdir -p /app/lbug/lib \
-    && curl -sL --max-time 180 \
-       -o /tmp/liblbug.tar.gz \
-       https://github.com/LadybugDB/ladybug/releases/download/v0.22.3/liblbug-linux-x86_64.tar.gz \
-    && tar -xzf /tmp/liblbug.tar.gz -C /app/lbug/lib \
-    && rm -f /tmp/liblbug.tar.gz \
+    && python -c "import io, tarfile, urllib.request; data = urllib.request.urlopen('https://github.com/LadybugDB/ladybug/releases/download/v0.22.3/liblbug-linux-x86_64.tar.gz', timeout=180).read(); tarfile.open(fileobj=io.BytesIO(data), mode='r:gz').extractall('/app/lbug/lib')" \
     && ls -la /app/lbug/lib
 
 # liblbug.so links against OpenSSL 3 — present in python:3.12-slim (libssl3).
