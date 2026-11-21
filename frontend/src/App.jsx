@@ -5,6 +5,7 @@ import { Modal } from "./components/Modal";
 import { UploadModal } from "./components/UploadModal";
 import { NeedsReviewDrawer } from "./components/NeedsReviewDrawer";
 import { CopilotDrawer } from "./components/CopilotDrawer";
+import { DemoGuideModal } from "./components/DemoGuideModal";
 import { FindingsView } from "./views/FindingsView";
 import { AuditLogView } from "./views/AuditLogView";
 import { RulesView } from "./views/RulesView";
@@ -26,6 +27,7 @@ export function App() {
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [memoModalOpen, setMemoModalOpen] = useState(false);
   const [copilotOpen, setCopilotOpen] = useState(false);
+  const [demoGuideOpen, setDemoGuideOpen] = useState(false);
   const [workspaces, setWorkspaces] = useState([]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState("default");
   const [reviewBatch, setReviewBatch] = useState(null);
@@ -230,6 +232,7 @@ export function App() {
         onOpenUploadModal={() => setUploadModalOpen(true)}
         onOpenMemoModal={() => setMemoModalOpen(true)}
         onOpenCopilot={() => setCopilotOpen(true)}
+        onOpenDemoGuide={() => setDemoGuideOpen(true)}
         loadingAction={loadingAction}
         workspaces={workspaces}
         activeWorkspaceId={activeWorkspaceId}
@@ -274,6 +277,7 @@ export function App() {
             onBulkDecision={handleBulkDecision}
             isSubmittingDecision={isSubmittingDecision}
             onSeedDemo={handleSeedDemo}
+            onOpenDemoGuide={() => setDemoGuideOpen(true)}
             loadingAction={loadingAction}
             onToast={showToast}
           />
@@ -329,6 +333,17 @@ export function App() {
         isOpen={copilotOpen}
         onClose={() => setCopilotOpen(false)}
         activeWorkspaceId={activeWorkspaceId}
+      />
+
+      <DemoGuideModal
+        isOpen={demoGuideOpen}
+        onClose={() => setDemoGuideOpen(false)}
+        onSeedDemo={handleSeedDemo}
+        onNavigateTab={(tab) => setActiveTab(tab)}
+        onOpenCopilot={() => setCopilotOpen(true)}
+        onOpenMemo={() => setMemoModalOpen(true)}
+        onOpenUpload={() => setUploadModalOpen(true)}
+        loadingAction={loadingAction}
       />
 
       <Modal
