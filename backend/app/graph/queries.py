@@ -545,6 +545,8 @@ def fetch_graph_evidence(client: GraphClient) -> GraphEvidence:
     amount math are re-verified in pure Python by the rules themselves.
     """
     evidence = GraphEvidence()
+    if not getattr(client, "available", True):
+        return evidence
 
     dup_rows = client.execute_read(R8_CROSS_ENTITY_DUPLICATE_QUERY, {"drift": R8_DRIFT_LIMIT})
     dup_rows += client.execute_read(R8_CROSS_ENTITY_DUPLICATE_TAX_QUERY, {"drift": R8_DRIFT_LIMIT})
@@ -633,6 +635,17 @@ def fetch_entity_neighborhood(client: GraphClient, entity_type: str, entity_id: 
     if entity_type not in ENTITY_PRIMARY_KEYS:
         raise ValueError(f"unknown entity type: {entity_type}")
     hops = min(max(int(hops), 1), 3)
+    if not getattr(client, "available", True):
+        return {
+            "entity_type": entity_type,
+            "entity_id": str(entity_id),
+            "hops": hops,
+            "nodes": [],
+            "edges": [],
+            "cypher_rule": "ENTITY_NEIGHBORHOOD",
+            "summary": f"Graph engine degraded; 0 nodes within {hops} hop(s) of {entity_type}:{entity_id}.",
+            "degraded": True,
+        }
     start_pk = ENTITY_PRIMARY_KEYS[entity_type]
 
     def pk_of(label: str) -> str:

@@ -24,7 +24,7 @@ export function Toast({ toast, onClose }) {
     <div
       role="status"
       aria-live="polite"
-      className={`fixed bottom-5 right-5 z-50 flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg border shadow-sm transition-all duration-150 max-w-md ${
+      className={`fixed bottom-5 right-5 z-50 flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg border shadow-sm transition-opacity duration-150 max-w-md ${
         borders[type] || borders.info
       }`}
     >

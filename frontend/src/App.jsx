@@ -12,9 +12,20 @@ import { RulesView } from "./views/RulesView";
 import { CloudIntegrationsView } from "./views/CloudIntegrationsView";
 import { MemoView } from "./views/MemoView";
 import { api } from "./api";
+import { useAccountMemory } from "./context/AccountMemoryContext";
 
 export function App() {
-  const [activeTab, setActiveTab] = useState("exceptions");
+  const {
+    activeTab,
+    setActiveTab,
+    activeWorkspaceId,
+    setActiveWorkspaceId,
+    selectedFindingId,
+    setSelectedFindingId,
+    reviewerLabel,
+    recordPageActivity,
+  } = useAccountMemory();
+
   const [stats, setStats] = useState(null);
   const [findings, setFindings] = useState([]);
   const [batches, setBatches] = useState([]);
@@ -23,6 +34,7 @@ export function App() {
   const [executiveAnalytics, setExecutiveAnalytics] = useState(null);
   const [isOnline, setIsOnline] = useState(true);
   const [loadingAction, setLoadingAction] = useState(false);
+  const [runningSweep, setRunningSweep] = useState(false);
   const [toast, setToast] = useState(null);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [memoModalOpen, setMemoModalOpen] = useState(false);
@@ -30,13 +42,11 @@ export function App() {
   const [demoGuideOpen, setDemoGuideOpen] = useState(false);
   const [gcpStatus, setGcpStatus] = useState(null);
   const [workspaces, setWorkspaces] = useState([]);
-  const [activeWorkspaceId, setActiveWorkspaceId] = useState("default");
   const [reviewBatch, setReviewBatch] = useState(null);
   const [reviewRecords, setReviewRecords] = useState([]);
   const [savingReview, setSavingReview] = useState(false);
 
   // Split-View Selection
-  const [selectedFindingId, setSelectedFindingId] = useState(null);
   const [selectedFindingDetail, setSelectedFindingDetail] = useState(null);
   const [isSubmittingDecision, setIsSubmittingDecision] = useState(false);
 
@@ -58,7 +68,15 @@ export function App() {
         showToast(err.message, "error", "Failed to Load Proof Trail");
       }
     },
-    [showToast]
+    [setSelectedFindingId, showToast]
+  );
+
+  const handleNavigateTab = useCallback(
+    (tab) => {
+      setActiveTab(tab);
+      recordPageActivity(tab, "Navigated", `Opened ${tab} view`);
+    },
+    [setActiveTab, recordPageActivity]
   );
 
   const loadData = useCallback(async () => {
@@ -113,6 +131,7 @@ export function App() {
         "success",
         "Demo Dataset Loaded"
       );
+      recordPageActivity("sandbox", "Seeded Demo", `${res.findings_created} findings created`);
       const freshFindings = await api.getFindings().catch(() => []);
       await loadData();
       if (freshFindings.length > 0) {
@@ -131,10 +150,11 @@ export function App() {
     try {
       const res = await api.runGlobalDetect();
       showToast(
-        `Deterministic R1–R5 rules evaluated: ${res.findings_created} active finding(s).`,
+        `Deterministic R1–R10 rules evaluated: ${res.findings_created} active finding(s).`,
         "success",
         "Detection Complete"
       );
+      recordPageActivity(activeTab, "Ran Rules (R1–R10)", `${res.findings_created} active findings`);
       await loadData();
     } catch (err) {
       showToast(err.message, "error", "Detection Failed");
@@ -143,15 +163,38 @@ export function App() {
     }
   };
 
+  const handleRunPayrunSweep = async () => {
+    setRunningSweep(true);
+    try {
+      const res = await api.runPayrunSweep(activeWorkspaceId);
+      const count = res?.findings_created ?? res?.findings_evaluated ?? res?.total_findings ?? 0;
+      const held = res?.auto_held ?? res?.held_count ?? 0;
+      const approved = res?.auto_approved ?? res?.approved_count ?? 0;
+      showToast(
+        `Pay-run sweep finished: ${count} evaluated, ${held} auto-held, ${approved} auto-approved. CFO memo updated.`,
+        "success",
+        "Pay-Run Sweep Complete"
+      );
+      recordPageActivity("exceptions", "Pay-Run Sweep", `${count} evaluated · ${held} held`);
+      await loadData();
+    } catch (err) {
+      showToast(err.message, "error", "Pay-Run Sweep Failed");
+    } finally {
+      setRunningSweep(false);
+    }
+  };
+
   const handleMakeDecision = async (findingId, action, reviewer, note) => {
     setIsSubmittingDecision(true);
     try {
-      const res = await api.postDecision(findingId, action, reviewer, note);
+      const activeReviewer = reviewer || reviewerLabel;
+      const res = await api.postDecision(findingId, action, activeReviewer, note);
       showToast(
         `Finding ${findingId} marked "${res.status}". Audit log updated.`,
         "success",
         "Decision Recorded"
       );
+      recordPageActivity("exceptions", `Decision: ${action}`, `${findingId} by ${activeReviewer}`);
       const updatedDetail = await api.getFinding(findingId);
       setSelectedFindingDetail(updatedDetail);
       await loadData();
@@ -172,13 +215,18 @@ export function App() {
       const res = await api.postBulkDecision(
         findingIds,
         action,
-        "Vijay (AP Lead)",
+        reviewerLabel,
         defaultNote
       );
       showToast(
         `Updated ${res.updated_count} exception(s) to "${res.status}".`,
         "success",
         "Bulk Triage Complete"
+      );
+      recordPageActivity(
+        "exceptions",
+        `Bulk ${action}`,
+        `${res.updated_count} findings by ${reviewerLabel}`
       );
       if (selectedFindingId && findingIds.includes(selectedFindingId)) {
         const updatedDetail = await api.getFinding(selectedFindingId).catch(() => null);
@@ -226,9 +274,16 @@ export function App() {
 
   return (
     <div className="min-h-screen bg-[var(--bg-canvas)] text-[var(--text-primary)] flex flex-col font-sans">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-3 focus:py-1.5 focus:rounded-md focus:bg-slate-900 focus:text-white focus:text-xs font-medium"
+      >
+        Skip to main content
+      </a>
+
       <Navbar
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={handleNavigateTab}
         stats={stats}
         isOnline={isOnline}
         gcpStatus={gcpStatus}
@@ -242,6 +297,7 @@ export function App() {
         activeWorkspaceId={activeWorkspaceId}
         onChangeWorkspace={(wsId) => {
           setActiveWorkspaceId(wsId);
+          recordPageActivity("workspace", "Switched Workspace", wsId);
           showToast(`Switched workspace to ${wsId}.`, "info", "Workspace Changed");
         }}
       />
@@ -267,7 +323,7 @@ export function App() {
         </div>
       )}
 
-      <main className="flex-1 max-w-[1600px] w-full mx-auto px-4 py-4">
+      <main id="main-content" className="flex-1 max-w-[1600px] w-full mx-auto px-4 py-4">
         {activeTab === "exceptions" && (
           <FindingsView
             findings={findings}
@@ -281,6 +337,8 @@ export function App() {
             isSubmittingDecision={isSubmittingDecision}
             onSeedDemo={handleSeedDemo}
             onOpenDemoGuide={() => setDemoGuideOpen(true)}
+            onRunPayrunSweep={handleRunPayrunSweep}
+            runningSweep={runningSweep}
             loadingAction={loadingAction}
             onToast={showToast}
           />
@@ -292,7 +350,7 @@ export function App() {
             batches={batches}
             onSelectFinding={(id) => {
               handleSelectFinding(id);
-              setActiveTab("exceptions");
+              handleNavigateTab("exceptions");
             }}
             onOpenUploadModal={() => setUploadModalOpen(true)}
             onRunDetect={handleRunDetect}
@@ -314,7 +372,8 @@ export function App() {
       <UploadModal
         isOpen={uploadModalOpen}
         onClose={() => setUploadModalOpen(false)}
-        onPipelineComplete={async () => {
+        onPipelineComplete={async (up) => {
+          recordPageActivity("upload", "Automated Pipeline", up?.batch_id || "Batch processed");
           await loadData();
           setActiveTab("exceptions");
         }}
@@ -336,6 +395,8 @@ export function App() {
         isOpen={copilotOpen}
         onClose={() => setCopilotOpen(false)}
         activeWorkspaceId={activeWorkspaceId}
+        currentPage={activeTab}
+        selectedFinding={selectedFindingDetail}
       />
 
       <DemoGuideModal

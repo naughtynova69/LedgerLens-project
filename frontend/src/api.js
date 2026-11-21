@@ -76,16 +76,23 @@ export const api = {
   getDisputePacket: (findingId) =>
     request(`/api/findings/${findingId}/dispute-packet`),
 
-  uploadDocument: (kind, file) => {
+  uploadDocument: (kind, file, autoRun = true) => {
     const formData = new FormData();
     formData.append("kind", kind);
     formData.append("file", file);
-    return request("/api/ingest/upload", {
+    formData.append("auto_run", String(Boolean(autoRun)));
+    const qs = autoRun ? "?auto_run=true" : "?auto_run=false";
+    return request(`/api/ingest/upload${qs}`, {
       method: "POST",
       body: formData,
       isFormData: true,
     });
   },
+
+  runPayrunSweep: (workspaceId = "default") =>
+    request(`/api/jobs/payrun-sweep?workspace_id=${encodeURIComponent(workspaceId || "default")}`, {
+      method: "POST",
+    }),
 
   runExtract: (batchId) =>
     request(`/api/run/${batchId}/extract`, {
@@ -165,10 +172,34 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
-  askCopilot: (question, workspaceId = "default") =>
-    request("/api/copilot/ask", {
+  askCopilot: (question, workspaceId = "default", context = {}) => {
+    const body = {
+      question,
+      workspace_id: workspaceId,
+    };
+    if (context?.currentPage) body.current_page = context.currentPage;
+    if (context?.selectedFindingId) body.selected_finding_id = context.selectedFindingId;
+    if (context?.selectedFinding) body.selected_finding = context.selectedFinding;
+    if (Array.isArray(context?.conversationHistory) && context.conversationHistory.length > 0) {
+      body.conversation_history = context.conversationHistory;
+    }
+    return request("/api/copilot/ask", {
       method: "POST",
-      body: JSON.stringify({ question, workspace_id: workspaceId }),
+      body: JSON.stringify(body),
+    });
+  },
+
+  getAccountMemory: (accountId = "default-user", workspaceId = "default") =>
+    request(
+      `/api/account/memory?account_id=${encodeURIComponent(accountId)}&workspace_id=${encodeURIComponent(workspaceId)}`,
+      { timeoutMs: 5000 }
+    ),
+
+  putAccountMemory: (payload) =>
+    request("/api/account/memory", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+      timeoutMs: 5000,
     }),
 
   verifyAuditChain: () => request("/api/audit-log/verify"),

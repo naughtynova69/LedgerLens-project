@@ -12,11 +12,14 @@ module points the binding at it via ``LBUG_C_API_LIB_PATH`` BEFORE the first
 """
 from __future__ import annotations
 
+import logging
 import os
 import sys
 import threading
 from pathlib import Path
 from typing import Any, Iterator
+
+logger = logging.getLogger(__name__)
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _NATIVE_LIB_DIR = _REPO_ROOT / ".cache" / "lbug-prebuilt" / "lib"
@@ -47,7 +50,16 @@ def _ensure_native_library() -> None:
 
 _ensure_native_library()
 
-import ladybug as lb  # noqa: E402  (import must follow native-lib resolution)
+try:
+    import ladybug as lb  # noqa: E402  (import must follow native-lib resolution)
+    _LBUG_IMPORT_ERROR: str | None = None
+except Exception as exc:  # pragma: no cover - platform/native fallback
+    lb = None  # type: ignore[assignment]
+    _LBUG_IMPORT_ERROR = str(exc)
+    logger.warning(
+        "LadybugDB native library unavailable; graph engine degraded to no-op fallback: %s",
+        exc,
+    )
 
 from .. import config  # noqa: E402
 
@@ -57,6 +69,9 @@ class GraphClient:
 
     Write/projection transactions are serialized with an ``RLock`` while reads
     run on dedicated short-lived ``lb.Connection`` instances concurrently.
+    When the native LadybugDB shared library is unavailable (e.g. Windows
+    without ``lbug_shared.dll``), the client degrades gracefully to a no-op
+    fallback so the rest of the application continues to operate.
     """
 
     def __init__(self, path: str | None = None, buffer_pool_mb: int | None = None) -> None:
@@ -64,16 +79,29 @@ class GraphClient:
             path = ":memory:" if _running_under_pytest() else config.GRAPH_PATH
         self.path = path
         self.buffer_pool_mb = int(buffer_pool_mb if buffer_pool_mb is not None else config.GRAPH_BUFFER_POOL_MB)
-        if path and path != ":memory:":
-            # LadybugDB does not create missing parent directories itself.
-            Path(path).parent.mkdir(parents=True, exist_ok=True)
-        pool_bytes = max(0, self.buffer_pool_mb) * 1024 * 1024
-        self._db = lb.Database(path, buffer_pool_size=pool_bytes)
         self._write_lock = threading.RLock()
+        self._db: Any = None
+        self._init_error: str | None = _LBUG_IMPORT_ERROR
+
+        if lb is not None:
+            if path and path != ":memory:":
+                # LadybugDB does not create missing parent directories itself.
+                Path(path).parent.mkdir(parents=True, exist_ok=True)
+            pool_bytes = max(0, self.buffer_pool_mb) * 1024 * 1024
+            try:
+                self._db = lb.Database(path, buffer_pool_size=pool_bytes)
+            except Exception as exc:  # pragma: no cover - platform/native fallback
+                self._init_error = str(exc)
+                logger.warning(
+                    "LadybugDB Database init failed; graph engine degraded to no-op fallback: %s",
+                    exc,
+                )
 
     # -- internals ---------------------------------------------------------
 
-    def _open_connection(self) -> lb.Connection:
+    def _open_connection(self) -> Any:
+        if self._db is None or lb is None:
+            return None
         return lb.Connection(self._db)
 
     @staticmethod
@@ -84,11 +112,17 @@ class GraphClient:
     # -- public API --------------------------------------------------------
 
     @property
+    def available(self) -> bool:
+        return self._db is not None
+
+    @property
     def is_memory(self) -> bool:
         return self.path == ":memory:"
 
     def execute_read(self, query: str, parameters: dict | None = None) -> list[dict]:
         """Run a read-only Cypher query; returns rows as plain dicts."""
+        if self._db is None:
+            return []
         conn = self._open_connection()
         try:
             return self._result_to_rows(conn.execute(query, parameters or {}))
@@ -97,6 +131,8 @@ class GraphClient:
 
     def execute_write(self, query: str, parameters: dict | None = None) -> list[dict]:
         """Run a write Cypher query under the global write lock."""
+        if self._db is None:
+            return []
         with self._write_lock:
             conn = self._open_connection()
             try:
@@ -114,19 +150,32 @@ class GraphClient:
 
     def health_check(self) -> dict:
         """Deterministic graph engine health probe (never calls the LLM)."""
+        if self._db is None:
+            return {
+                "ok": False,
+                "available": False,
+                "engine": "ladybug",
+                "mode": "degraded",
+                "path": self.path,
+                "buffer_pool_mb": self.buffer_pool_mb,
+                "error": self._init_error or "LadybugDB native library unavailable",
+            }
         try:
             rows = self.execute_read("RETURN 1 AS ok;")
             return {
                 "ok": bool(rows and rows[0].get("ok") == 1),
+                "available": True,
                 "engine": "ladybug",
                 "mode": "memory" if self.is_memory else "file",
                 "path": self.path,
                 "buffer_pool_mb": self.buffer_pool_mb,
             }
         except Exception as exc:  # pragma: no cover - defensive
-            return {"ok": False, "engine": "ladybug", "error": str(exc)}
+            return {"ok": False, "available": False, "engine": "ladybug", "error": str(exc)}
 
     def close(self) -> None:
+        if self._db is None:
+            return
         try:
             self._db.close()
         except Exception:  # pragma: no cover - defensive

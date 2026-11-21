@@ -25,7 +25,7 @@ from pathlib import Path
 import sqlite3
 from typing import Annotated, Any
 
-from fastapi import Body, FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi import Body, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, Response
@@ -57,6 +57,7 @@ from .models import DecisionIn
 from .normalize.fx_service import get_fx_rates
 from .services import (
     build_memo_structured,
+    get_account_memory,
     get_finding_with_sources,
     get_stats,
     ingest_csv_file_to_table,
@@ -64,7 +65,10 @@ from .services import (
     record_decision,
     run_detection,
     run_extraction_for_batch,
+    run_full_ingest_pipeline,
+    run_payrun_sweep,
     seed_sample_dataset,
+    upsert_account_memory,
 )
 from .skills import GEMINI_TOOL_DECLARATIONS, execute_skill
 from .workspaces import _DEFAULT_ROLE_POLICY, create_workspace, list_workspaces, require_role
@@ -119,6 +123,22 @@ class WorkspaceCreateIn(BaseModel):
 class CopilotAskIn(BaseModel):
     question: str
     workspace_id: str = "default"
+    current_page: str | None = None
+    selected_finding_id: str | None = None
+    conversation_history: list[dict[str, Any]] | None = None
+
+
+class AccountMemoryUpdateIn(BaseModel):
+    account_id: str = "default"
+    workspace_id: str | None = None
+    user_name: str | None = None
+    user_role: str | None = None
+    active_page: str | None = None
+    active_tab: str | None = None
+    filters: dict[str, Any] | None = None
+    recent_actions: list[Any] | None = None
+    copilot_context: dict[str, Any] | None = None
+    preferences: dict[str, Any] | None = None
 
 
 def _get_ready_conn() -> sqlite3.Connection:
@@ -309,7 +329,7 @@ def entity_neighborhood(entity_type: str, entity_id: str, hops: int = 2) -> dict
     hops = max(1, min(3, int(hops)))
     client = _ensure_graph_projected()
     result = fetch_entity_neighborhood(client, entity_type, entity_id, hops=hops)
-    if len(result["nodes"]) <= 1 and not result["edges"]:
+    if not result.get("degraded") and len(result["nodes"]) <= 1 and not result["edges"]:
         raise HTTPException(status_code=404, detail=f"entity not found in graph: {entity_type}:{entity_id}")
     return result
 
@@ -394,14 +414,18 @@ def seed_demo_data(
 
 @app.post("/api/ingest/upload")
 async def upload(
+    request: Request,
     kind: str = Form(...),
     file: UploadFile = File(...),
+    auto_run: bool = Form(True),
     workspace_id: str | None = None,
     x_workspace_id: Annotated[str | None, Header(alias="X-Workspace-Id")] = None,
     x_user_role: Annotated[str | None, Header(alias="X-User-Role")] = None,
 ) -> dict:
-    """Store an uploaded CSV/PDF, validate CSV headers, register a batch, and ingest rows (docs/05)."""
+    """Store an uploaded CSV/PDF, validate CSV headers, register a batch, and optionally run the full pipeline."""
     _enforce_rbac(x_user_role, "upload")
+    if "auto_run" in request.query_params:
+        auto_run = request.query_params["auto_run"].strip().lower() in ("1", "true", "yes")
     ws_id = _resolve_workspace_id(workspace_id, x_workspace_id)
     if kind not in VALID_KINDS:
         raise HTTPException(status_code=400, detail=f"unknown kind: {kind}")
@@ -437,6 +461,15 @@ async def upload(
         )
         conn.commit()
         evidence_obj = store_evidence_object(dest, batch_id, file.filename or "upload")
+
+        pipeline: dict[str, Any]
+        if auto_run and not problems:
+            pipeline = run_full_ingest_pipeline(conn, batch_id, workspace_id=ws_id)
+        elif problems:
+            pipeline = {"status": "skipped", "reason": "csv_validation_failed"}
+        else:
+            pipeline = {"status": "skipped", "reason": "auto_run=False"}
+
         return {
             "batch_id": batch_id,
             "kind": kind,
@@ -446,6 +479,8 @@ async def upload(
             "sha256": evidence_obj["sha256"],
             "storage_uri": evidence_obj["uri"],
             "workspace_id": ws_id,
+            "auto_run": auto_run,
+            "pipeline": pipeline,
         }
     finally:
         conn.close()
@@ -904,7 +939,80 @@ def post_copilot_ask(
     _enforce_rbac(x_user_role, "read")
     conn = _get_ready_conn()
     try:
-        return ask_copilot(conn, body.question, workspace_id=body.workspace_id)
+        return ask_copilot(
+            conn,
+            body.question,
+            workspace_id=body.workspace_id,
+            current_page=body.current_page,
+            selected_finding_id=body.selected_finding_id,
+            conversation_history=body.conversation_history,
+        )
+    finally:
+        conn.close()
+
+
+@app.post("/api/jobs/payrun-sweep")
+def payrun_sweep(
+    workspace_id: str | None = None,
+    x_workspace_id: Annotated[str | None, Header(alias="X-Workspace-Id")] = None,
+    x_user_role: Annotated[str | None, Header(alias="X-User-Role")] = None,
+) -> dict:
+    """Run detection across pending batches, apply auto-hold/auto-approve policy,
+    generate the CFO Audit Memo, and log an immutable audit_log entry."""
+    _enforce_rbac(x_user_role, "run_detection")
+    ws_id = _resolve_workspace_id(workspace_id, x_workspace_id)
+    conn = _get_ready_conn()
+    try:
+        return run_payrun_sweep(conn, workspace_id=ws_id)
+    finally:
+        conn.close()
+
+
+@app.get("/api/account/memory")
+def read_account_memory(
+    account_id: str = "default",
+    workspace_id: str | None = None,
+    x_workspace_id: Annotated[str | None, Header(alias="X-Workspace-Id")] = None,
+    x_account_id: Annotated[str | None, Header(alias="X-Account-Id")] = None,
+    x_user_role: Annotated[str | None, Header(alias="X-User-Role")] = None,
+) -> dict:
+    """Fetch persisted cross-page account memory for (account_id, workspace_id)."""
+    _enforce_rbac(x_user_role, "read")
+    ws_id = _resolve_workspace_id(workspace_id, x_workspace_id)
+    acct_id = (account_id if account_id != "default" else (x_account_id or account_id)).strip() or "default"
+    conn = _get_ready_conn()
+    try:
+        return get_account_memory(conn, account_id=acct_id, workspace_id=ws_id)
+    finally:
+        conn.close()
+
+
+@app.put("/api/account/memory")
+def write_account_memory(
+    body: AccountMemoryUpdateIn,
+    account_id: str | None = None,
+    workspace_id: str | None = None,
+    x_workspace_id: Annotated[str | None, Header(alias="X-Workspace-Id")] = None,
+    x_account_id: Annotated[str | None, Header(alias="X-Account-Id")] = None,
+    x_user_role: Annotated[str | None, Header(alias="X-User-Role")] = None,
+) -> dict:
+    """Persist and sync cross-page account memory for (account_id, workspace_id)."""
+    _enforce_rbac(x_user_role, "read")
+    ws_id = _resolve_workspace_id(body.workspace_id or workspace_id, x_workspace_id)
+    acct_id = (
+        (body.account_id if body.account_id != "default" else None)
+        or account_id
+        or x_account_id
+        or "default"
+    ).strip() or "default"
+    conn = _get_ready_conn()
+    try:
+        return upsert_account_memory(
+            conn,
+            account_id=acct_id,
+            workspace_id=ws_id,
+            updates=body.model_dump(exclude={"account_id", "workspace_id"}, exclude_none=True),
+        )
     finally:
         conn.close()
 
