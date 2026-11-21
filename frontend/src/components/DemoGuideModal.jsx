@@ -27,7 +27,7 @@ export function DemoGuideModal({
       num: "01",
       title: "Load the Demo Dataset (6 Planted Anomalies + 4 Clean Controls)",
       where: "Top-right navbar → Load Demo",
-      how: "Click Load Demo. This seeds 10 realistic AP invoices across 9 vendors, runs deterministic rules R1–R10, and syncs the LadybugDB Knowledge Graph.",
+      how: "Click Load Demo. This seeds 10 realistic AP invoices across 9 vendors, runs all 10 automated audit checks, and syncs vendor connections.",
       highlight:
         "Point out that 4 clean control invoices (INV-9001, INV-9010, INV-9400, INV-9500) produce 0 false positives.",
       icon: Database,
@@ -41,8 +41,8 @@ export function DemoGuideModal({
     {
       num: "02",
       title: "Inspect the 3-Way Match & Proof Trail",
-      where: "Exceptions tab → Left table → Click any row",
-      how: "Click R1 Duplicate (INV-8821 vs INV-8821-R2) or R2 Price Leakage (INV-9102). Inspect the right-hand Proof Trail pane, 3-Way Evidence Diff, and Proof Math.",
+      where: "Flagged Bills tab → Left table → Click any row",
+      how: "Click Duplicate Bill (INV-8821 vs INV-8821-R2) or Price Overcharge (INV-9102). Inspect the right-hand comparison table and plain-English summary.",
       highlight:
         "Show that deterministic Python rules make the decision, while Gemini narrates strictly from the proof_trail.",
       icon: FileSearch,
@@ -69,10 +69,10 @@ export function DemoGuideModal({
     {
       num: "04",
       title: "Verify Cryptographic Audit Log & Knowledge Graph",
-      where: "Activity tab → Verify Ledger Integrity | Rules & Graph tab",
-      how: "Open Activity and click Verify Ledger Integrity to validate the SHA-256 hash chain. Open Rules & Graph to inspect R1–R10 logic and multi-hop vendor/bank/approver links.",
+      where: "Activity tab → Verify Ledger Integrity | Audit Rules tab",
+      how: "Open Activity and click Verify Ledger Integrity to validate the tamper-proof history. Open Audit Rules to inspect all 10 automated checks.",
       highlight:
-        "Demonstrates full auditability for CFOs & statutory auditors plus cross-entity collusion detection (R8–R10).",
+        "Demonstrates full auditability for finance leaders plus cross-vendor fraud & conflict-of-interest detection.",
       icon: ShieldCheck,
       actionLabel: "Open Activity",
       onAction: () => {
@@ -108,7 +108,7 @@ export function DemoGuideModal({
       num: "06",
       title: "Live Document Upload (PDF / Image / CSV)",
       where: "Top-right navbar → Upload",
-      how: "Click Upload to drop a vendor invoice PDF, image, or CSV batch. Gemini Vision extracts line items with Pydantic schema validation and runs R1–R10 immediately.",
+      how: "Click Upload to drop a vendor invoice PDF, image, or CSV batch. AI extracts line items and runs all audit checks immediately.",
       highlight:
         "Low-confidence lines are automatically quarantined to the Needs Review drawer for human sign-off.",
       icon: Upload,

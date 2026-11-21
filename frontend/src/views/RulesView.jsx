@@ -168,32 +168,24 @@ Credits: OPEN credit note with vendor invoices dated >= issue_date`,
         <div>
           <h1 className="text-[15px] font-semibold text-slate-900 tracking-[-0.01em] flex items-center gap-2">
             <BookOpen className="w-4 h-4 text-slate-700" />
-            <span>Deterministic Detection Engine (R1–R10)</span>
+            <span>Automated Audit Checks</span>
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Zero LLM SDK calls inside{" "}
-            <code className="font-mono text-slate-700 bg-slate-100 px-1 rounded">
-              backend/app/detect/
-            </code>{" "}
-            — R1–R7 run pure tabular Python, R8–R10 run deterministic LadybugDB Cypher over the embedded knowledge graph.
+            10 built-in checks that verify every bill against your contracts, purchase orders, and vendor records before payment.
           </p>
         </div>
         <span className="text-[11px] font-mono tabular-nums text-slate-500 shrink-0">
-          10 active rules
+          10 active checks
         </span>
       </div>
 
       <div className="p-4 rounded-lg bg-white border border-slate-200 space-y-1.5">
         <div className="flex items-center gap-2 text-[11px] font-semibold text-[#047857] uppercase tracking-[0.06em]">
           <Scale className="w-3.5 h-3.5" />
-          <span>Neuro-Symbolic Contract: Gemini Extracts &amp; Explains · Python Rules + Cypher Decide</span>
+          <span>Rule-Based Decisions · Plain-English Explanations</span>
         </div>
         <p className="text-[13px] leading-[1.4] text-slate-600">
-          Finance controllers cannot freeze vendor payouts on an opaque score. Every finding emits a deterministic{" "}
-          <code className="font-mono text-xs text-slate-900 bg-slate-100 px-1 rounded">proof_trail</code>{" "}
-          JSON payload linking the exact invoice line, contract clause, PO line, and payment record — and for graph rules R8–R10, the serialized multi-hop{" "}
-          <code className="font-mono text-xs text-slate-900 bg-slate-100 px-1 rounded">proof_subgraph</code>{" "}
-          from the embedded LadybugDB knowledge graph.
+          Finance teams cannot freeze vendor payments on an opaque score. Every flagged bill links directly to the exact invoice line, contract clause, purchase order, and payment record so you can verify why it was flagged in seconds.
         </p>
       </div>
 

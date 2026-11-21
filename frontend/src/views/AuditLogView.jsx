@@ -96,7 +96,7 @@ export function AuditLogView({
               disabled={loadingAction}
               className="h-8 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium transition-colors disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-slate-900 focus-visible:outline-offset-2"
             >
-              Run Rules R1–R5
+              Run Audit Checks
             </button>
           )}
         </div>

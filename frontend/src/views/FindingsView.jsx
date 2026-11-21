@@ -4,7 +4,6 @@ import { api } from "../api";
 import { RuleBadge } from "../components/RuleBadge";
 import { StatusBadge } from "../components/StatusBadge";
 import { ProofTrailInspector } from "../components/ProofTrailInspector";
-import { GraphStatsCard } from "../components/GraphStatsCard";
 import { formatCurrency } from "../utils/formatters";
 
 const SEVERITY_DOT = {
@@ -36,23 +35,23 @@ export function FindingsView({
   const searchInputRef = useRef(null);
 
   const rulesList = [
-    { id: "all", label: "All Rules" },
-    { id: "R1", label: "R1 Duplicate" },
-    { id: "R2", label: "R2 Price" },
-    { id: "R3", label: "R3 PO" },
-    { id: "R4", label: "R4 FX/Tax" },
-    { id: "R5", label: "R5 Cancelled" },
-    { id: "R6", label: "R6 Split-PO" },
-    { id: "R7", label: "R7 GRN" },
-    { id: "R8", label: "R8 Graph-Dup" },
-    { id: "R9", label: "R9 Collusion" },
-    { id: "R10", label: "R10 Lineage" },
+    { id: "all", label: "All Issues" },
+    { id: "R1", label: "Duplicate Bill" },
+    { id: "R2", label: "Price Overcharge" },
+    { id: "R3", label: "PO Mismatch" },
+    { id: "R4", label: "Tax / Currency" },
+    { id: "R5", label: "Cancelled Service" },
+    { id: "R6", label: "Split Order" },
+    { id: "R7", label: "Delivery Mismatch" },
+    { id: "R8", label: "Linked Vendors" },
+    { id: "R9", label: "Conflict of Interest" },
+    { id: "R10", label: "Missing Credit" },
   ];
 
   const statusTabs = [
     { id: "all", label: "All" },
-    { id: "open", label: "Open" },
-    { id: "recovered", label: "Recovered" },
+    { id: "open", label: "Needs Review" },
+    { id: "recovered", label: "Saved" },
   ];
 
   const ruleCounts = useMemo(() => {
@@ -219,7 +218,7 @@ export function FindingsView({
       <div className="bg-white border border-[#E2E8F0] rounded-md grid grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[#E2E8F0]">
         <div className="px-4 py-3">
           <div className="text-[11px] font-medium uppercase tracking-wider text-slate-500">
-            At Risk (INR Eq.)
+            Money at Risk
           </div>
           <div className="text-lg font-semibold font-mono tabular-nums text-[#B91C1C] mt-0.5">
             {formatCurrency(atRiskInr, "INR")}
@@ -228,7 +227,7 @@ export function FindingsView({
 
         <div className="px-4 py-3">
           <div className="text-[11px] font-medium uppercase tracking-wider text-slate-500">
-            Open Exceptions
+            Needs Review
           </div>
           <div className="text-lg font-semibold font-mono tabular-nums text-slate-900 mt-0.5">
             {openCount}
@@ -237,7 +236,7 @@ export function FindingsView({
 
         <div className="px-4 py-3">
           <div className="text-[11px] font-medium uppercase tracking-wider text-slate-500">
-            Recovered
+            Money Saved
           </div>
           <div className="text-lg font-semibold font-mono tabular-nums text-[#047857] mt-0.5">
             {formatCurrency(recoveredInr, "INR")}
@@ -246,16 +245,13 @@ export function FindingsView({
 
         <div className="px-4 py-3">
           <div className="text-[11px] font-medium uppercase tracking-wider text-slate-500">
-            Total Audited Spend
+            Total Checked
           </div>
           <div className="text-lg font-semibold font-mono tabular-nums text-slate-900 mt-0.5">
             {formatCurrency(auditedSpendInr, "INR")}
           </div>
         </div>
       </div>
-
-      {/* Single-Line 36px Knowledge-Graph Status Strip */}
-      <GraphStatsCard onToast={onToast} />
 
       {/* 40px Single-Row Triage Toolbar */}
       <div className="min-h-[40px] flex flex-wrap items-center justify-between gap-2 bg-white border border-[#E2E8F0] rounded-md px-2.5 py-1.5">
@@ -377,7 +373,7 @@ export function FindingsView({
           <h3 className="text-sm font-semibold text-slate-900">No matching exceptions</h3>
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
             {findings?.length === 0
-              ? "Load the demo dataset or upload CSV/PDF documents to run deterministic rules R1–R10."
+              ? "Load the demo dataset or upload an invoice to run automated audit checks."
               : "Adjust your status, rule, or search filters."}
           </p>
           {findings?.length === 0 ? (
@@ -526,11 +522,10 @@ export function FindingsView({
                 </tbody>
               </table>
             </div>
-            <div className="px-3 py-2 border-t border-[#E2E8F0] bg-[#F8FAFC] text-[11px] text-slate-500 flex items-center justify-between font-mono tabular-nums">
+            <div className="px-3 py-2 border-t border-[#E2E8F0] bg-[#F8FAFC] text-[11px] text-slate-500 flex items-center justify-between tabular-nums">
               <span>
-                {filteredFindings.length} of {findings.length} exceptions
+                Showing {filteredFindings.length} of {findings.length} flagged bills
               </span>
-              <span className="hidden sm:inline">j/k navigate · a recover · d dispute</span>
             </div>
           </div>
 

@@ -364,7 +364,7 @@ export function CloudIntegrationsView({
               htmlFor="policy-r1-drift"
               className="block text-[11px] font-semibold uppercase tracking-[0.04em] text-slate-600 mb-1"
             >
-              R1 Max Amount Drift (%)
+              Duplicate Amount Tolerance (%)
             </label>
             <input
               id="policy-r1-drift"
@@ -382,7 +382,7 @@ export function CloudIntegrationsView({
               htmlFor="policy-r1-days"
               className="block text-[11px] font-semibold uppercase tracking-[0.04em] text-slate-600 mb-1"
             >
-              R1 Max Date Gap (Days)
+              Duplicate Date Window (Days)
             </label>
             <input
               id="policy-r1-days"
@@ -400,7 +400,7 @@ export function CloudIntegrationsView({
               htmlFor="policy-r4-fx"
               className="block text-[11px] font-semibold uppercase tracking-[0.04em] text-slate-600 mb-1"
             >
-              R4 Max FX Drift (%)
+              FX Rate Drift Tolerance (%)
             </label>
             <input
               id="policy-r4-fx"
@@ -436,7 +436,7 @@ export function CloudIntegrationsView({
       {/* Collapsible R1-R5 Rules Summary */}
       <details className="bg-white border border-slate-200 rounded-lg p-4 group">
         <summary className="cursor-pointer text-xs font-semibold text-slate-900 select-none list-none flex items-center justify-between">
-          <span>Deterministic Rules Summary (R1–R5)</span>
+          <span>Core Audit Checks</span>
           <span className="font-mono text-[11px] text-slate-500 group-open:hidden">
             Expand
           </span>
@@ -450,22 +450,16 @@ export function CloudIntegrationsView({
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
                 <th className="py-2 px-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500">
-                  Rule
+                  Check
                 </th>
                 <th className="py-2 px-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500">
-                  Name
-                </th>
-                <th className="py-2 px-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500">
-                  Deterministic Scope
+                  What It Catches
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
               {RULES_SUMMARY.map((rule) => (
                 <tr key={rule.id} className="hover:bg-slate-50">
-                  <td className="py-2 px-3 font-mono text-xs font-medium text-slate-900 whitespace-nowrap">
-                    {rule.id}
-                  </td>
                   <td className="py-2 px-3 text-xs font-medium text-slate-900 whitespace-nowrap">
                     {rule.name}
                   </td>

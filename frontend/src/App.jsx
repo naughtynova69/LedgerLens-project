@@ -28,6 +28,7 @@ export function App() {
   const [memoModalOpen, setMemoModalOpen] = useState(false);
   const [copilotOpen, setCopilotOpen] = useState(false);
   const [demoGuideOpen, setDemoGuideOpen] = useState(false);
+  const [gcpStatus, setGcpStatus] = useState(null);
   const [workspaces, setWorkspaces] = useState([]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState("default");
   const [reviewBatch, setReviewBatch] = useState(null);
@@ -62,7 +63,7 @@ export function App() {
 
   const loadData = useCallback(async () => {
     try {
-      const [h, s, f, b, m, l, exec, ws] = await Promise.all([
+      const [h, s, f, b, m, l, exec, ws, gcp] = await Promise.all([
         api.getHealth().catch(() => ({ status: "offline" })),
         api.getStats().catch(() => null),
         api.getFindings().catch(() => []),
@@ -71,6 +72,7 @@ export function App() {
         api.getAuditLog().catch(() => []),
         api.getExecutiveAnalytics().catch(() => null),
         api.getWorkspaces().catch(() => []),
+        api.getGcpStatus().catch(() => null),
       ]);
 
       setIsOnline(h.status === "ok");
@@ -88,6 +90,7 @@ export function App() {
       if (Array.isArray(ws) && ws.length > 0) {
         setWorkspaces(ws);
       }
+      if (gcp) setGcpStatus(gcp);
     } catch {
       setIsOnline(false);
     }
@@ -228,6 +231,7 @@ export function App() {
         setActiveTab={setActiveTab}
         stats={stats}
         isOnline={isOnline}
+        gcpStatus={gcpStatus}
         onSeedDemo={handleSeedDemo}
         onOpenUploadModal={() => setUploadModalOpen(true)}
         onOpenMemoModal={() => setMemoModalOpen(true)}
@@ -248,10 +252,9 @@ export function App() {
             <span>
               <span className="font-semibold tabular-nums">
                 {needsReviewBatches.length}{" "}
-                {needsReviewBatches.length === 1 ? "batch" : "batches"}
+                {needsReviewBatches.length === 1 ? "upload" : "uploads"}
               </span>{" "}
-              quarantined with <span className="font-mono">needs_review</span> invoice
-              lines awaiting manual correction.
+              {needsReviewBatches.length === 1 ? "needs" : "need"} a quick check before auditing.
             </span>
             <button
               type="button"
@@ -363,9 +366,11 @@ export function App() {
 
       <footer className="border-t border-[var(--border-hairline)] bg-[var(--bg-surface)] py-2.5 text-xs text-[var(--text-muted)]">
         <div className="max-w-[1600px] mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>LedgerLens · Explainable AI Money-Leak Auditor</span>
-          <span className="font-mono text-[11px]">
-            Deterministic Rules R1–R10 (LadybugDB Graph) · Gemini 3.8 Vision Flash
+          <span>LedgerLens · Automated Invoice &amp; Payment Audit</span>
+          <span className="text-[11px]">
+            {gcpStatus?.project_id
+              ? `Powered by Google Cloud (${gcpStatus.project_id} · ${gcpStatus.location || "asia-south1"}) & Gemini AI`
+              : "Powered by Google Cloud & Gemini AI"}
           </span>
         </div>
       </footer>

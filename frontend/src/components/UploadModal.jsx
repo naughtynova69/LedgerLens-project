@@ -66,7 +66,7 @@ export function UploadModal({ isOpen, onClose, onPipelineComplete }) {
               {file ? file.name : "Choose CSV or PDF invoice/contract document"}
             </span>
             <span className="text-[11px] text-slate-500 mt-1">
-              Upload → Gemini Extract → Deterministic Rules R1–R10
+              Upload → AI Extract → Automated Audit Checks
             </span>
             <input
               type="file"

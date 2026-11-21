@@ -88,7 +88,7 @@ export function CopilotDrawer({
               Grounded Audit Assistant
             </h2>
             <p className="text-xs text-slate-500">
-              Ask questions grounded in deterministic R1–R10 findings and proof-trail math.
+              Ask questions grounded in your verified flagged bills and contract records.
             </p>
           </div>
 

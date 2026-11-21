@@ -36,7 +36,7 @@ export function MemoView({ memoData, onRefreshMemo, onCopy }) {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <p className="text-xs text-slate-500">
-            Deterministic executive briefing grounded in R1–R10 proof trails
+            Executive briefing grounded in verified invoice &amp; contract checks
           </p>
         </div>
 

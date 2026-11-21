@@ -2,44 +2,44 @@ import React from "react";
 
 const RULE_METADATA = {
   R1: {
-    label: "Duplicate Invoice",
-    short: "R1 Duplicate",
+    label: "Duplicate Bill",
+    short: "Duplicate Bill",
   },
   R2: {
-    label: "Contract Price Leakage",
-    short: "R2 Price",
+    label: "Price Overcharge",
+    short: "Price Overcharge",
   },
   R3: {
-    label: "PO Overbilling",
-    short: "R3 PO",
+    label: "PO Mismatch",
+    short: "PO Mismatch",
   },
   R4: {
-    label: "Currency / Tax Error",
-    short: "R4 FX/Tax",
+    label: "Tax / Currency Error",
+    short: "Tax / Currency",
   },
   R5: {
     label: "Cancelled Service",
-    short: "R5 Cancelled",
+    short: "Cancelled Service",
   },
   R6: {
-    label: "Split-PO Bypass",
-    short: "R6 Split-PO",
+    label: "Split Order",
+    short: "Split Order",
   },
   R7: {
-    label: "GRN Mismatch",
-    short: "R7 GRN",
+    label: "Delivery Mismatch",
+    short: "Delivery Mismatch",
   },
   R8: {
-    label: "Cross-Entity Duplicate / Split-Invoice (Graph)",
-    short: "R8 Graph-Dup",
+    label: "Linked Vendors",
+    short: "Linked Vendors",
   },
   R9: {
-    label: "Approver-Vendor Collusion (Graph)",
-    short: "R9 Collusion",
+    label: "Conflict of Interest",
+    short: "Conflict of Interest",
   },
   R10: {
-    label: "Contract Lineage & Unapplied Credits (Graph)",
-    short: "R10 Lineage",
+    label: "Missing Credit",
+    short: "Missing Credit",
   },
 };
 
@@ -51,10 +51,10 @@ export function RuleBadge({ ruleId, full = false, className = "" }) {
 
   return (
     <span
-      className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] leading-none font-mono font-medium bg-[var(--bg-subtle)] text-[var(--neutral-fg)] border border-[var(--border-hairline)] whitespace-nowrap ${className}`}
-      title={meta.label}
+      className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] leading-none font-medium bg-gray-100 text-gray-700 border border-gray-200/80 whitespace-nowrap ${className}`}
+      title={`${ruleId}: ${meta.label}`}
     >
-      {full ? `${ruleId} · ${meta.label}` : meta.short}
+      {full ? meta.label : meta.short}
     </span>
   );
 }
