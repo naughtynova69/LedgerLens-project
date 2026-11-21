@@ -12,7 +12,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import config
-from app.graph import GraphClient, fetch_entity_neighborhood, fetch_graph_stats, initialize_schema
+from app.graph import GraphClient, fetch_entity_neighborhood, fetch_graph_stats
+from app.graph.schema import initialize_schema
 from app.main import app
 
 
