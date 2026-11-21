@@ -12,7 +12,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import config
-from app.graph import GraphClient, fetch_entity_neighborhood, fetch_graph_stats
+from app.graph import GraphClient, fetch_entity_neighborhood, fetch_graph_stats, initialize_schema
 from app.main import app
 
 
@@ -31,6 +31,7 @@ def test_graph_degrades_gracefully_without_crashing(isolated_client):
 
     # Direct GraphClient / query layer
     gc = GraphClient(path=":memory:")
+    initialize_schema(gc)
     health = gc.health_check()
     assert health["engine"] == "ladybug"
     assert isinstance(health["ok"], bool)
