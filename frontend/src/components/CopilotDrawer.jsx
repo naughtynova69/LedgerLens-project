@@ -236,7 +236,9 @@ export function CopilotDrawer({
                     )}
                   </div>
                   <p className="text-[13px] text-slate-900 leading-relaxed whitespace-pre-wrap">
-                    {entry.answer}
+                    {typeof entry.answer === "string"
+                      ? entry.answer
+                      : JSON.stringify(entry.answer ?? "")}
                   </p>
                 </div>
 
@@ -274,8 +276,23 @@ export function CopilotDrawer({
                               )}
                           </div>
                           {item.proof_trail && (
-                            <p className="text-xs text-slate-600 font-mono break-words">
-                              {item.proof_trail}
+                            <p className="text-xs text-slate-600 break-words">
+                              {typeof item.proof_trail === "string"
+                                ? item.proof_trail
+                                : [
+                                    item.proof_trail.recommended_action
+                                      ? `Recommended: ${String(item.proof_trail.recommended_action).replace(/_/g, " ")}`
+                                      : null,
+                                    item.proof_trail.math &&
+                                    typeof item.proof_trail.math === "object"
+                                      ? Object.entries(item.proof_trail.math)
+                                          .slice(0, 4)
+                                          .map(([k, v]) => `${k}: ${v}`)
+                                          .join(" · ")
+                                      : null,
+                                  ]
+                                    .filter(Boolean)
+                                    .join(" — ") || "Verified against contract & PO records."}
                             </p>
                           )}
                         </div>
