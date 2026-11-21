@@ -433,7 +433,7 @@ export function CloudIntegrationsView({
         </div>
       </form>
 
-      {/* Collapsible R1-R5 Rules Summary */}
+      {/* Collapsible R1-R10 Rules Summary */}
       <details className="bg-white border border-slate-200 rounded-lg p-4 group">
         <summary className="cursor-pointer text-xs font-semibold text-slate-900 select-none list-none flex items-center justify-between">
           <span>Core Audit Checks</span>

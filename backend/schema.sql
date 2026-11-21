@@ -165,3 +165,18 @@ CREATE TABLE IF NOT EXISTS audit_log (
     detail      TEXT DEFAULT '',
     workspace_id TEXT NOT NULL DEFAULT 'default'
 );
+
+CREATE TABLE IF NOT EXISTS account_memory (
+    account_id           TEXT NOT NULL,
+    workspace_id         TEXT NOT NULL DEFAULT 'default',
+    user_name            TEXT NOT NULL DEFAULT '',
+    user_role            TEXT NOT NULL DEFAULT 'auditor',
+    active_page          TEXT NOT NULL DEFAULT '',
+    active_tab           TEXT NOT NULL DEFAULT '',
+    filters_json         TEXT NOT NULL DEFAULT '{}',
+    recent_actions_json  TEXT NOT NULL DEFAULT '[]',
+    copilot_context_json TEXT NOT NULL DEFAULT '{}',
+    preferences_json     TEXT NOT NULL DEFAULT '{}',
+    updated_at           TEXT DEFAULT (datetime('now')),
+    PRIMARY KEY (account_id, workspace_id)
+);

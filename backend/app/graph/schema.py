@@ -130,5 +130,7 @@ ALL_DDL: list[str] = NODE_TABLE_DDL + NODE_TABLE_DDL_TAIL + REL_TABLE_DDL
 
 def initialize_schema(client: GraphClient) -> None:
     """Run all idempotent DDL statements in dependency order."""
+    if not getattr(client, "available", True):
+        return
     for ddl in ALL_DDL:
         client.execute_write(ddl)

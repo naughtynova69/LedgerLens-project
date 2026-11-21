@@ -160,6 +160,20 @@ def project_batch_to_graph(conn: sqlite3.Connection, graph_client: GraphClient,
     (shared bank accounts across vendors from different uploads) stay visible.
     """
     started = time.perf_counter()
+    if not getattr(graph_client, "available", True):
+        from .queries import fetch_graph_stats
+
+        stats = fetch_graph_stats(graph_client)
+        return {
+            "rebuilt": False,
+            "degraded": True,
+            "duration_ms": 0.0,
+            "total_nodes": 0,
+            "total_relationships": 0,
+            "nodes": stats["nodes"],
+            "relationships": stats["relationships"],
+            "engine": stats["engine"],
+        }
     rebuild_graph_from_db(conn, graph_client)
     from .queries import fetch_graph_stats
 
@@ -182,6 +196,14 @@ def ensure_graph_projected(conn: sqlite3.Connection, graph_client: GraphClient) 
     so a fresh process (Cloud Run cold start) reconstructs the projection from
     the relational system of record automatically.
     """
+    if not getattr(graph_client, "available", True):
+        return {
+            "rebuilt": False,
+            "degraded": True,
+            "duration_ms": 0.0,
+            "total_nodes": 0,
+            "total_relationships": 0,
+        }
     from .queries import fetch_graph_stats
     from .schema import initialize_schema
 
@@ -199,6 +221,19 @@ def ensure_graph_projected(conn: sqlite3.Connection, graph_client: GraphClient) 
 
 def rebuild_graph_from_db(conn: sqlite3.Connection, graph_client: GraphClient) -> dict:
     """Deterministically reconstruct the whole graph from the relational DB."""
+    if not getattr(graph_client, "available", True):
+        return {
+            "rebuilt": False,
+            "nodes_projected": False,
+            "degraded": True,
+            "vendors": 0,
+            "approvers": 0,
+            "contracts": 0,
+            "purchase_orders": 0,
+            "invoices": 0,
+            "payments": 0,
+            "credit_notes": 0,
+        }
     initialize_schema(graph_client)
 
     vendors = [dict(r) for r in conn.execute("SELECT * FROM vendors").fetchall()]

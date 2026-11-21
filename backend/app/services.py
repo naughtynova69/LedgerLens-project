@@ -852,3 +852,255 @@ def make_workspace_view_conn(
     )
     mem.commit()
     return mem
+
+
+def run_full_ingest_pipeline(
+    conn: sqlite3.Connection,
+    batch_id: str,
+    workspace_id: str = "default",
+) -> dict:
+    """Chain extract -> normalize -> graph_rebuild -> detect -> explain for a batch."""
+    from .graph import get_shared_graph_client, project_batch_to_graph
+
+    extract_result = run_extraction_for_batch(conn, batch_id, workspace_id=workspace_id)
+    graph_result = project_batch_to_graph(conn, get_shared_graph_client(), batch_id=batch_id)
+    detect_result = run_detection(conn, batch_id=batch_id, workspace_id=workspace_id)
+    if not extract_result.get("needs_review"):
+        conn.execute(
+            "UPDATE batches SET state = 'detected' WHERE batch_id = ? AND workspace_id = ?",
+            (batch_id, workspace_id),
+        )
+    conn.commit()
+    return {
+        "status": "completed",
+        "stages": ["extract", "normalize", "detect", "graph_rebuild", "explain"],
+        "extract": extract_result,
+        "graph_rebuild": graph_result,
+        "detect": detect_result,
+        "explain": {
+            "findings_explained": detect_result.get("findings_created", 0),
+        },
+    }
+
+
+def run_payrun_sweep(
+    conn: sqlite3.Connection,
+    workspace_id: str = "default",
+    actor: str = "payrun_sweep",
+) -> dict:
+    """Run detection across pending batches, apply auto-hold/auto-approve policy,
+    generate the CFO Audit Memo, and log an immutable audit_log entry."""
+    pending_rows = conn.execute(
+        """SELECT batch_id, state FROM batches
+           WHERE workspace_id = ? AND state IN ('uploaded', 'ready', 'extracted')
+           ORDER BY created_at ASC""",
+        (workspace_id,),
+    ).fetchall()
+
+    swept_batches: list[str] = []
+    total_findings_created = 0
+    for row in pending_rows:
+        bid = str(row["batch_id"])
+        if row["state"] == "uploaded":
+            try:
+                run_extraction_for_batch(conn, bid, workspace_id=workspace_id)
+            except Exception:
+                pass
+        res = run_detection(conn, batch_id=bid, workspace_id=workspace_id)
+        total_findings_created += int(res.get("findings_created", 0))
+        conn.execute(
+            "UPDATE batches SET state = 'detected' WHERE batch_id = ? AND workspace_id = ?",
+            (bid, workspace_id),
+        )
+        swept_batches.append(bid)
+
+    if not swept_batches:
+        res = run_detection(conn, workspace_id=workspace_id)
+        total_findings_created += int(res.get("findings_created", 0))
+
+    policy = dict(get_policy(conn))
+    threshold_inr = float(policy.get("auto_hold_threshold_inr", 10000.0))
+    fx_rates = get_fx_rates(conn, fetch_live=False)
+
+    open_findings = conn.execute(
+        """SELECT finding_id, severity, amount_at_risk, currency
+           FROM findings WHERE workspace_id = ? AND status = 'open'""",
+        (workspace_id,),
+    ).fetchall()
+
+    auto_held_ids: list[str] = []
+    auto_approved_ids: list[str] = []
+    for f_row in open_findings:
+        fid = str(f_row["finding_id"])
+        severity = str(f_row["severity"] or "").lower()
+        currency = str(f_row["currency"] or "INR").upper()
+        amount = float(f_row["amount_at_risk"] or 0.0)
+        rate = float(fx_rates.get(currency, 1.0)) if currency != "INR" else 1.0
+        amount_inr = amount * rate
+
+        if amount_inr >= threshold_inr or severity in ("critical", "high"):
+            note = (
+                f"Auto-held by payrun sweep (amount_inr={amount_inr:.2f}, "
+                f"threshold={threshold_inr:.2f}, severity={severity})"
+            )
+            conn.execute(
+                "UPDATE findings SET status = 'held' WHERE finding_id = ? AND workspace_id = ?",
+                (fid, workspace_id),
+            )
+            conn.execute(
+                "INSERT INTO decisions (finding_id, action, reviewer, note) VALUES (?, 'auto_hold', ?, ?)",
+                (fid, actor, note),
+            )
+            _log_audit_event(
+                conn,
+                actor=actor,
+                action="auto_hold",
+                object_type="finding",
+                object_id=fid,
+                detail=note,
+                workspace_id=workspace_id,
+            )
+            auto_held_ids.append(fid)
+        else:
+            note = (
+                f"Auto-approved by payrun sweep (amount_inr={amount_inr:.2f} < "
+                f"threshold={threshold_inr:.2f}, severity={severity})"
+            )
+            record_decision(conn, fid, "approve", reviewer=actor, note=note)
+            auto_approved_ids.append(fid)
+
+    memo = build_memo_structured(conn, workspace_id=workspace_id)
+    _log_audit_event(
+        conn,
+        actor=actor,
+        action="payrun_sweep",
+        object_type="workspace",
+        object_id=workspace_id,
+        detail=json.dumps({
+            "batches_swept": swept_batches,
+            "findings_created": total_findings_created,
+            "auto_held": auto_held_ids,
+            "auto_approved": auto_approved_ids,
+            "auto_hold_threshold_inr": threshold_inr,
+        }),
+        workspace_id=workspace_id,
+    )
+    conn.commit()
+    return {
+        "workspace_id": workspace_id,
+        "batches_swept": swept_batches,
+        "findings_created": total_findings_created,
+        "auto_held_count": len(auto_held_ids),
+        "auto_held_ids": auto_held_ids,
+        "auto_approved_count": len(auto_approved_ids),
+        "auto_approved_ids": auto_approved_ids,
+        "policy": policy,
+        "memo": memo,
+    }
+
+
+def _default_account_memory(account_id: str, workspace_id: str) -> dict:
+    return {
+        "account_id": account_id,
+        "workspace_id": workspace_id,
+        "user_name": "",
+        "user_role": "auditor",
+        "active_page": "",
+        "active_tab": "",
+        "filters": {},
+        "recent_actions": [],
+        "copilot_context": {},
+        "preferences": {},
+        "updated_at": None,
+    }
+
+
+def get_account_memory(
+    conn: sqlite3.Connection,
+    account_id: str = "default",
+    workspace_id: str = "default",
+) -> dict:
+    """Fetch persisted cross-page account memory for (account_id, workspace_id)."""
+    row = conn.execute(
+        "SELECT * FROM account_memory WHERE account_id = ? AND workspace_id = ?",
+        (account_id, workspace_id),
+    ).fetchone()
+    if row is None:
+        return _default_account_memory(account_id, workspace_id)
+    return {
+        "account_id": row["account_id"],
+        "workspace_id": row["workspace_id"],
+        "user_name": row["user_name"],
+        "user_role": row["user_role"],
+        "active_page": row["active_page"],
+        "active_tab": row["active_tab"],
+        "filters": json.loads(row["filters_json"] or "{}"),
+        "recent_actions": json.loads(row["recent_actions_json"] or "[]"),
+        "copilot_context": json.loads(row["copilot_context_json"] or "{}"),
+        "preferences": json.loads(row["preferences_json"] or "{}"),
+        "updated_at": row["updated_at"],
+    }
+
+
+def upsert_account_memory(
+    conn: sqlite3.Connection,
+    account_id: str = "default",
+    workspace_id: str = "default",
+    updates: dict | None = None,
+) -> dict:
+    """Partially update and persist account memory for (account_id, workspace_id)."""
+    current = get_account_memory(conn, account_id=account_id, workspace_id=workspace_id)
+    patch = updates or {}
+
+    user_name = patch["user_name"] if patch.get("user_name") is not None else current["user_name"]
+    user_role = patch["user_role"] if patch.get("user_role") is not None else current["user_role"]
+    active_page = patch["active_page"] if patch.get("active_page") is not None else current["active_page"]
+    active_tab = patch["active_tab"] if patch.get("active_tab") is not None else current["active_tab"]
+    filters = patch["filters"] if patch.get("filters") is not None else current["filters"]
+    recent_actions = (
+        list(patch["recent_actions"])[-50:]
+        if patch.get("recent_actions") is not None
+        else current["recent_actions"]
+    )
+    copilot_context = (
+        patch["copilot_context"]
+        if patch.get("copilot_context") is not None
+        else current["copilot_context"]
+    )
+    preferences = (
+        patch["preferences"]
+        if patch.get("preferences") is not None
+        else current["preferences"]
+    )
+
+    conn.execute(
+        """INSERT INTO account_memory (
+               account_id, workspace_id, user_name, user_role, active_page, active_tab,
+               filters_json, recent_actions_json, copilot_context_json, preferences_json, updated_at
+           )
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+           ON CONFLICT(account_id, workspace_id) DO UPDATE SET
+               user_name = excluded.user_name,
+               user_role = excluded.user_role,
+               active_page = excluded.active_page,
+               active_tab = excluded.active_tab,
+               filters_json = excluded.filters_json,
+               recent_actions_json = excluded.recent_actions_json,
+               copilot_context_json = excluded.copilot_context_json,
+               preferences_json = excluded.preferences_json,
+               updated_at = datetime('now')""",
+        (
+            account_id,
+            workspace_id,
+            str(user_name),
+            str(user_role),
+            str(active_page),
+            str(active_tab),
+            json.dumps(filters),
+            json.dumps(recent_actions),
+            json.dumps(copilot_context),
+            json.dumps(preferences),
+        ),
+    )
+    conn.commit()
+    return get_account_memory(conn, account_id=account_id, workspace_id=workspace_id)

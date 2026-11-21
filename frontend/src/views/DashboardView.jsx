@@ -56,8 +56,8 @@ export function DashboardView({
             Explainable Money-Leak Audit Workstation
           </h1>
           <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-            Gemini 3.8 Vision Flash extracts documents and writes CFO narratives; pure deterministic Python rules
-            (R1–R5) compute every risk figure and line-level proof trail. The LLM is never the judge.
+            Gemini Vision extracts documents and writes CFO narratives; pure deterministic Python rules
+            (R1–R10) compute every risk figure and line-level proof trail. The LLM is never the judge.
           </p>
         </div>
 
@@ -97,7 +97,7 @@ export function DashboardView({
           variant="critical"
         />
         <StatCard
-          title="Open Exceptions (R1–R5)"
+          title="Open Exceptions (R1–R10)"
           value={openExceptionsCount}
           subtext={`${stats?.by_severity?.critical || 0} Critical · ${stats?.by_severity?.high || 0} High`}
           icon={ShieldAlert}
